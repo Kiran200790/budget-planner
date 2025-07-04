@@ -81,7 +81,8 @@ def get_db():
 
         if db_url and auth_token:
             # Production: Connect to Turso
-            conn = libsql_client.create_client_sync(url=db_url, auth_token=auth_token)
+            https_url = db_url.replace("libsql://", "https://")
+            conn = libsql_client.create_client_sync(url=https_url, auth_token=auth_token)
             db = g._database = DbWrapper(conn, is_libsql=True)
         else:
             # Local development: Connect to local SQLite file
