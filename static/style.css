@@ -794,6 +794,73 @@ li {
         text-align: center;
         gap: 15px;
     }
+    
+    #incomeSectionContent li,
+    #expenseSectionContent li,
+    #emiSectionContent li {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+        margin-bottom: 16px;
+        padding: 16px 14px 10px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        border: 1px solid #e2e8f0;
+        position: relative;
+    }
+    #incomeSectionContent li span,
+    #expenseSectionContent li span,
+    #emiSectionContent li span {
+        font-size: 1.1em;
+        font-weight: 500;
+        color: #2d3748;
+        margin-bottom: 4px;
+        display: block;
+    }
+    #incomeSectionContent li span {
+        color: #38a169; /* green for income */
+    }
+    #expenseSectionContent li span {
+        color: #e53e3e; /* red for expenses */
+    }
+    #emiSectionContent li span {
+        color: #ed8936; /* orange for EMI */
+    }
+    .item-actions {
+        display: flex;
+        gap: 18px;
+        justify-content: flex-end;
+        margin-top: 6px;
+    }
+    .edit-btn, .delete-btn {
+        background: none;
+        border: none;
+        font-size: 1.3em;
+        color: #718096;
+        padding: 8px 10px;
+        border-radius: 8px;
+        transition: background 0.2s, color 0.2s;
+    }
+    .edit-btn:hover {
+        background: #e6f7ff;
+        color: #3182ce;
+    }
+    .delete-btn:hover {
+        background: #ffe6e6;
+        color: #e53e3e;
+    }
+    /* Hide desktop-only blocks on mobile */
+    .desktop-only-block {
+        display: none !important;
+    }
+    /* Hide search and extra headers on mobile for clean look */
+    #expenseSectionContent h3,
+    #incomeSectionContent h3,
+    #emiSectionContent h3,
+    .search-box-container {
+        display: none !important;
+    }
 }
 
 /* Touch-friendly buttons and inputs */
@@ -908,6 +975,273 @@ li {
     }
 }
 
+/* == MOBILE-FIRST REDESIGN STYLES == */
+
+/* Hide mobile-specific elements on desktop by default */
+.bottom-nav, .fab, .modal {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    /* Hide desktop elements on mobile */
+    .header-controls, .tabs, .summary-and-report-container, .tab-controls, #payment-type-totals {
+        display: none;
+    }
+
+    /* Show mobile elements */
+    .bottom-nav, .fab {
+        display: flex; /* or block for fab */
+    }
+
+    /* Make tab panes full screen pages */
+    .tab-pane {
+        display: none; /* Hide all by default */
+        padding-bottom: 80px; /* Add padding to prevent content from being hidden by the bottom nav */
+    }
+
+    .tab-pane.active {
+        display: block; /* Show only the active one */
+    }
+
+    /* Bottom Navigation Bar */
+    .bottom-nav {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 65px;
+        background-color: #ffffff;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.15);
+        justify-content: space-around;
+        align-items: center;
+        z-index: 1000;
+        border-top: 1px solid #e2e8f0;
+    }
+
+    .nav-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+        color: #718096; /* Muted gray */
+        flex-grow: 1;
+        padding: 5px 0;
+        transition: color 0.2s ease-in-out;
+    }
+
+    .nav-item.active {
+        color: #4299e1; /* Active blue color */
+    }
+
+    .nav-icon {
+        font-size: 24px;
+    }
+
+    .nav-text {
+        font-size: 12px;
+        margin-top: 2px;
+    }
+
+    /* Floating Action Button (FAB) */
+    .fab {
+        position: fixed;
+        bottom: 80px;
+        right: 20px;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background-color: #3498db;
+        color: white;
+        border: none;
+        font-size: 24px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        z-index: 1001;
+    }
+
+    /* Modal */
+    .modal {
+        display: none; /* Hidden by default */
+        position: fixed;
+        z-index: 1002;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0,0,0,0.4);
+        justify-content: center;
+        align-items: center;
+    }
+
+    .modal-content {
+        background-color: #fefefe;
+        margin: auto;
+        padding: 20px;
+        border-radius: 10px;
+        width: 90%;
+        max-width: 500px;
+        position: relative;
+    }
+
+    .close-btn {
+        color: #aaa;
+        position: absolute;
+        top: 10px;
+        right: 20px;
+        font-size: 28px;
+        font-weight: bold;
+    }
+
+    .close-btn:hover,
+    .close-btn:focus {
+        color: black;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    /* Mobile Dashboard Specific Styles */
+    .mobile-header {
+        text-align: center;
+        padding: 10px 0 20px 0;
+    }
+    .mobile-header h2 {
+        font-size: 1.8em;
+        margin-bottom: 5px;
+        text-align: center;
+        border: none;
+    }
+    .mobile-header p {
+        font-size: 1em;
+        color: #718096;
+        margin: 0;
+    }
+
+    .mobile-summary-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+
+    .summary-card {
+        background-color: #f7fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 15px;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .summary-label {
+        font-size: 0.9em;
+        color: #4a5568;
+        margin-bottom: 8px;
+    }
+
+    .summary-value {
+        font-size: 1.4em;
+        font-weight: 700;
+        color: #2d3748;
+    }
+
+    .mobile-chart-container,
+    .mobile-report-container {
+        margin-top: 20px;
+        padding: 15px;
+    }
+
+    .mobile-chart-container h3,
+    .mobile-report-container h3 {
+        font-size: 1.2em;
+        text-align: left;
+        margin-top: 0;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #e9ecef;
+    }
+
+    /* Mobile Lists (Income, Expenses, EMIs) */
+    #incomeSectionContent ul,
+    #expenseSectionContent ul,
+    #emiSectionContent ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    #incomeSectionContent li,
+    #expenseSectionContent li,
+    #emiSectionContent li {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+        margin-bottom: 16px;
+        padding: 16px 14px 10px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        border: 1px solid #e2e8f0;
+        position: relative;
+    }
+    #incomeSectionContent li span,
+    #expenseSectionContent li span,
+    #emiSectionContent li span {
+        font-size: 1.1em;
+        font-weight: 500;
+        color: #2d3748;
+        margin-bottom: 4px;
+        display: block;
+    }
+    #incomeSectionContent li span {
+        color: #38a169; /* green for income */
+    }
+    #expenseSectionContent li span {
+        color: #e53e3e; /* red for expenses */
+    }
+    #emiSectionContent li span {
+        color: #ed8936; /* orange for EMI */
+    }
+    .item-actions {
+        display: flex;
+        gap: 18px;
+        justify-content: flex-end;
+        margin-top: 6px;
+    }
+    .edit-btn, .delete-btn {
+        background: none;
+        border: none;
+        font-size: 1.3em;
+        color: #718096;
+        padding: 8px 10px;
+        border-radius: 8px;
+        transition: background 0.2s, color 0.2s;
+    }
+    .edit-btn:hover {
+        background: #e6f7ff;
+        color: #3182ce;
+    }
+    .delete-btn:hover {
+        background: #ffe6e6;
+        color: #e53e3e;
+    }
+    /* Hide desktop-only blocks on mobile */
+    .desktop-only-block {
+        display: none !important;
+    }
+    /* Hide search and extra headers on mobile for clean look */
+    #expenseSectionContent h3,
+    #incomeSectionContent h3,
+    #emiSectionContent h3,
+    .search-box-container {
+        display: none !important;
+    }
+}
+
 /* Flash Messages */
 .flash-messages {
     position: fixed;
@@ -935,3 +1269,129 @@ li {
 .flash.success {
     background-color: #48bb78; /* Green for success */
 }
+
+.budget-table td .btn-edit,
+    .budget-table td .btn-delete {
+        display: inline-block;
+        padding: 8px 12px;
+        margin: 0 5px;
+        border-radius: 5px;
+        color: #fff;
+        text-decoration: none;
+        font-size: 1.2rem; /* Larger icons */
+        transition: background-color 0.3s ease;
+    }
+
+    .budget-table td .btn-edit {
+        background-color: #3498db;
+    }
+
+    .budget-table td .btn-delete {
+        background-color: #e74c3c;
+    }
+
+    .budget-table td .btn-edit:hover {
+        background-color: #2980b9;
+    }
+
+    .budget-table td .btn-delete:hover {
+        background-color: #c0392b;
+    }
+
+    /* Hide table headers on mobile */
+    .desktop-only {
+        display: none;
+    }
+
+    /* Mobile Navigation */
+    .mobile-nav {
+        display: flex;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background-color: #ffffff;
+        box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
+        z-index: 1000;
+    }
+
+    .nav-btn {
+        flex: 1;
+        padding: 10px 0;
+        border: none;
+        background: none;
+        color: #7f8c8d;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        font-size: 12px;
+    }
+
+    .nav-btn i {
+        font-size: 20px;
+        margin-bottom: 4px;
+    }
+
+    .nav-btn.active {
+        color: #3498db;
+    }
+
+    /* Floating Action Button (FAB) */
+    .fab {
+        position: fixed;
+        bottom: 80px;
+        right: 20px;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background-color: #3498db;
+        color: white;
+        border: none;
+        font-size: 24px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        z-index: 1001;
+    }
+
+    /* Modal */
+    .modal {
+        display: none; /* Hidden by default */
+        position: fixed;
+        z-index: 1002;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0,0,0,0.4);
+        justify-content: center;
+        align-items: center;
+    }
+
+    .modal-content {
+        background-color: #fefefe;
+        margin: auto;
+        padding: 20px;
+        border-radius: 10px;
+        width: 90%;
+        max-width: 500px;
+        position: relative;
+    }
+
+    .close-btn {
+        color: #aaa;
+        position: absolute;
+        top: 10px;
+        right: 20px;
+        font-size: 28px;
+        font-weight: bold;
+    }
+
+    .close-btn:hover,
+    .close-btn:focus {
+        color: black;
+        text-decoration: none;
+        cursor: pointer;
+    }
