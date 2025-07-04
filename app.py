@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for, session, g, send_file
+from flask import Flask, render_template, request, redirect, url_for, session, g, send_file, flash
 import sqlite3
 import datetime
 import io
@@ -8,7 +8,8 @@ from weasyprint import HTML, CSS # Added for PDF generation
 import libsql_client
 
 app = Flask(__name__)
-app.secret_key = 'your_very_secret_key' # Needed for session management
+# Use an environment variable for the secret key in production, with a fallback for local dev
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'a_default_fallback_key_for_development')
 
 # --- Database Abstraction ---
 # This wrapper provides a unified interface for both SQLite and Turso (libSQL).
@@ -312,7 +313,7 @@ def add_income():
                        (active_month, description, float(amount)))
             db.commit()
         except ValueError:
-            pass # Optionally, flash an error message
+            flash('Invalid amount. Please enter a valid number.', 'error')
     return redirect(url_for('index'))
 
 @app.route('/edit_income/<int:item_id>', methods=['GET', 'POST'])
@@ -329,7 +330,7 @@ def edit_income(item_id):
                            (description, float(amount), item_id, active_month))
                 db.commit()
             except ValueError:
-                pass # Optionally, flash an error message
+                flash('Invalid amount. Please enter a valid number.', 'error')
         return redirect(url_for('index'))
     
     # GET request
@@ -362,7 +363,7 @@ def add_expense():
                        (active_month, date, category, description, float(amount), payment_type))
             db.commit()
         except ValueError:
-            pass # Optionally, flash an error message
+            flash('Invalid amount. Please enter a valid number.', 'error')
     return redirect(url_for('index'))
 
 @app.route('/edit_expense/<int:item_id>', methods=['GET', 'POST'])
@@ -381,10 +382,10 @@ def edit_expense(item_id):
                            (date, category, description, float(amount), payment_type, item_id, active_month))
                 db.commit()
             except ValueError:
-                pass
+                flash('Invalid amount. Please enter a valid number.', 'error')
             except sqlite3.Error as e:
                 app.logger.error(f"Database error on expense update: {e}")
-                pass
+                flash('A database error occurred.', 'error')
         return redirect(url_for('index'))
     
     # GET request
@@ -415,7 +416,7 @@ def add_emi():
                        (active_month, loan_name, float(emi_amount)))
             db.commit()
         except ValueError:
-            pass
+            flash('Invalid EMI amount. Please enter a valid number.', 'error')
     return redirect(url_for('index'))
 
 @app.route('/edit_emi/<int:item_id>', methods=['GET', 'POST'])
@@ -431,7 +432,7 @@ def edit_emi(item_id):
                            (loan_name, float(emi_amount), item_id, active_month))
                 db.commit()
             except ValueError:
-                pass
+                flash('Invalid EMI amount. Please enter a valid number.', 'error')
         return redirect(url_for('index'))
         
     emi_item_res = db.execute("SELECT * FROM emis WHERE id = ? AND month = ?", (item_id, active_month))
@@ -442,8 +443,9 @@ def edit_emi(item_id):
 
 @app.route('/delete_emi/<int:item_id>', methods=['POST'])
 def delete_emi(item_id):
+    active_month = get_active_month()
     db = get_db()
-    db.execute("DELETE FROM emis WHERE id = ?", (item_id,))
+    db.execute("DELETE FROM emis WHERE id = ? AND month = ?", (item_id, active_month))
     db.commit()
     return redirect(url_for('index'))
 

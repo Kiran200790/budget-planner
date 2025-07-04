@@ -20,6 +20,16 @@
     <meta name="format-detection" content="telephone=no">
 </head>
 <body>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-messages">
+          {% for category, message in messages %}
+            <div class="flash {{ category }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
     <div class="container">
         <div class="header-controls">
             <h1 class="title">Budget Planner</h1>

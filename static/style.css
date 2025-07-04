@@ -907,3 +907,31 @@ li {
         font-weight: 500;
     }
 }
+
+/* Flash Messages */
+.flash-messages {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1050;
+    width: 300px;
+}
+
+.flash {
+    padding: 15px;
+    margin-bottom: 15px;
+    border-radius: 8px;
+    color: #fff;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    opacity: 0.95;
+    font-size: 1em;
+    font-weight: 500;
+}
+
+.flash.error {
+    background-color: #e53e3e; /* Red for errors */
+}
+
+.flash.success {
+    background-color: #48bb78; /* Green for success */
+}
