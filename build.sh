@@ -7,4 +7,4 @@ set -o errexit
 pip install -r requirements.txt
 
 # Run database initialization
-python -c 'from app import init_sqlite_db; init_sqlite_db()'
+python -c 'from app import init_db; init_db()'

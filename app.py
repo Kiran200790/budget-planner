@@ -1,20 +1,93 @@
+import os
 from flask import Flask, render_template, request, redirect, url_for, session, g, send_file
 import sqlite3
 import datetime
 import io
 import csv
 from weasyprint import HTML, CSS # Added for PDF generation
+import libsql_client
 
 app = Flask(__name__)
 app.secret_key = 'your_very_secret_key' # Needed for session management
 
-DATABASE = '/var/data/budget.db'
+# --- Database Abstraction ---
+# This wrapper provides a unified interface for both SQLite and Turso (libSQL).
+class DbWrapper:
+    def __init__(self, conn, is_libsql):
+        self._conn = conn
+        self._is_libsql = is_libsql
+
+    def execute(self, sql, params=()):
+        """Executes a query. For non-SELECT queries, it returns None.
+           For SELECT queries, it returns an object that can be passed to fetch methods."""
+        if self._is_libsql:
+            return self._conn.execute(sql, params)
+        else:
+            cursor = self._conn.cursor()
+            cursor.execute(sql, params)
+            return cursor
+
+    def execute_batch(self, sqls):
+        """Executes multiple SQL statements in a batch."""
+        if self._is_libsql:
+            # libsql_client supports batch execution
+            self._conn.batch(sqls)
+        else:
+            # For sqlite3, execute them one by one
+            cursor = self._conn.cursor()
+            for sql in sqls:
+                if isinstance(sql, tuple): # query with params
+                    cursor.execute(sql[0], sql[1])
+                else:
+                    cursor.execute(sql)
+            self._conn.commit()
+
+    def fetchall(self, result_set_or_cursor):
+        """Fetches all rows from a result set or cursor and returns them as a list of dicts."""
+        if self._is_libsql:
+            return [dict(row) for row in result_set_or_cursor.rows]
+        else:
+            rows = result_set_or_cursor.fetchall()
+            return [dict(row) for row in rows]
+
+    def fetchone(self, result_set_or_cursor):
+        """Fetches one row and returns it as a dict."""
+        if self._is_libsql:
+            return dict(result_set_or_cursor.rows[0]) if result_set_or_cursor.rows else None
+        else:
+            row = result_set_or_cursor.fetchone()
+            return dict(row) if row else None
+
+    def commit(self):
+        """Commits a transaction. No-op for Turso as it auto-commits."""
+        if not self._is_libsql:
+            self._conn.commit()
+
+    def close(self):
+        """Closes the connection."""
+        self._conn.close()
+
+# --- End Database Abstraction ---
+
+
+# Local database fallback
+DATABASE = 'budget.db'
 
 def get_db():
     db = getattr(g, '_database', None)
     if db is None:
-        db = g._database = sqlite3.connect(DATABASE)
-        db.row_factory = sqlite3.Row # Allows accessing columns by name
+        db_url = os.environ.get("TURSO_DATABASE_URL")
+        auth_token = os.environ.get("TURSO_AUTH_TOKEN")
+
+        if db_url and auth_token:
+            # Production: Connect to Turso
+            conn = libsql_client.create_client_sync(url=db_url, auth_token=auth_token)
+            db = g._database = DbWrapper(conn, is_libsql=True)
+        else:
+            # Local development: Connect to local SQLite file
+            conn = sqlite3.connect(DATABASE)
+            conn.row_factory = sqlite3.Row # Allows accessing columns by name
+            db = g._database = DbWrapper(conn, is_libsql=False)
     return db
 
 @app.teardown_appcontext
@@ -23,52 +96,53 @@ def close_connection(exception):
     if db is not None:
         db.close()
 
-def init_sqlite_db():
+def init_db():
     with app.app_context():
         db = get_db()
-        cursor = db.cursor()
-        # Dropping old budget_settings table if it exists, to replace with new budgets table
-        cursor.execute("DROP TABLE IF EXISTS budget_settings;")
-        cursor.execute("""
+        # Use a list of SQL statements for batch execution
+        schema_queries = [
+            """
             CREATE TABLE IF NOT EXISTS income (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 month TEXT NOT NULL,
-                description TEXT NOT NULL, 
-                amount REAL NOT NULL
-            );
-        """)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS expenses (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                month TEXT NOT NULL,
-                date TEXT NOT NULL, 
-                category TEXT NOT NULL,
                 description TEXT NOT NULL,
                 amount REAL NOT NULL
             );
-        """)
-        cursor.execute("""
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS expenses (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                month TEXT NOT NULL,
+                date TEXT NOT NULL,
+                category TEXT NOT NULL,
+                description TEXT NOT NULL,
+                amount REAL NOT NULL,
+                payment_type TEXT
+            );
+            """,
+            """
             CREATE TABLE IF NOT EXISTS emis (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 month TEXT NOT NULL,
-                loan_name TEXT NOT NULL, 
-                emi_amount REAL NOT NULL 
+                loan_name TEXT NOT NULL,
+                emi_amount REAL NOT NULL
             );
-        """)
-        # New budgets table for category-wise budgeting
-        cursor.execute("""
+            """,
+            """
             CREATE TABLE IF NOT EXISTS budgets (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 month TEXT NOT NULL,
                 category TEXT NOT NULL,
                 amount REAL NOT NULL,
-                UNIQUE(month, category) 
+                UNIQUE(month, category)
             );
-        """)
-        db.commit()
+            """
+        ]
+        db.execute_batch(schema_queries)
+        db.commit() # Commit is a no-op for Turso but necessary for SQLite
 
 # Call this function once to initialize/update the database schema
-# init_sqlite_db() # Commented out for production, will be run manually or via a build script
+# init_db() # Commented out for production, will be run via build.sh
 
 def get_active_month():
     return session.get('active_month', datetime.date.today().strftime("%Y-%m"))
@@ -89,35 +163,44 @@ def index():
 
                 if new_month_date > prev_month_date:
                     db = get_db()
-                    cursor = db.cursor()
                     # Check if the new_active_month is truly empty
-                    cursor.execute("SELECT COUNT(*) FROM income WHERE month = ?", (new_active_month,))
-                    income_count = cursor.fetchone()[0]
-                    cursor.execute("SELECT COUNT(*) FROM expenses WHERE month = ?", (new_active_month,))
-                    expenses_count = cursor.fetchone()[0]
-                    cursor.execute("SELECT COUNT(*) FROM emis WHERE month = ?", (new_active_month,))
-                    emis_count = cursor.fetchone()[0]
-                    cursor.execute("SELECT COUNT(*) FROM budgets WHERE month = ?", (new_active_month,))
-                    budgets_count = cursor.fetchone()[0]
+                    income_count_res = db.execute("SELECT COUNT(*) as count FROM income WHERE month = ?", (new_active_month,))
+                    income_count = db.fetchone(income_count_res)['count']
+                    
+                    expenses_count_res = db.execute("SELECT COUNT(*) as count FROM expenses WHERE month = ?", (new_active_month,))
+                    expenses_count = db.fetchone(expenses_count_res)['count']
+
+                    emis_count_res = db.execute("SELECT COUNT(*) as count FROM emis WHERE month = ?", (new_active_month,))
+                    emis_count = db.fetchone(emis_count_res)['count']
+
+                    budgets_count_res = db.execute("SELECT COUNT(*) as count FROM budgets WHERE month = ?", (new_active_month,))
+                    budgets_count = db.fetchone(budgets_count_res)['count']
+
 
                     if income_count == 0 and expenses_count == 0 and emis_count == 0 and budgets_count == 0:
                         # This is a new, future month. Carry over data.
                         
                         # 1. Carry over Income
-                        income_to_carry = db.execute("SELECT description, amount FROM income WHERE month = ?", (previous_active_month,)).fetchall()
+                        income_to_carry_res = db.execute("SELECT description, amount FROM income WHERE month = ?", (previous_active_month,))
+                        income_to_carry = db.fetchall(income_to_carry_res)
                         for item in income_to_carry:
                             db.execute("INSERT INTO income (month, description, amount) VALUES (?, ?, ?)",
                                        (new_active_month, item['description'], item['amount']))
                         
                         # 2. Carry over Budgets
-                        budgets_to_carry = db.execute("SELECT category, amount FROM budgets WHERE month = ?", (previous_active_month,)).fetchall()
+                        budgets_to_carry_res = db.execute("SELECT category, amount FROM budgets WHERE month = ?", (previous_active_month,))
+                        budgets_to_carry = db.fetchall(budgets_to_carry_res)
                         for budget_item in budgets_to_carry:
-                            db.execute("""INSERT INTO budgets (month, category, amount) VALUES (?, ?, ?)
-                                          ON CONFLICT(month, category) DO UPDATE SET amount = excluded.amount""",
+                            # Note: ON CONFLICT is SQLite specific. For Turso/libSQL, this needs to be handled carefully.
+                            # The current implementation will work for SQLite and might raise an error on Turso if a duplicate is inserted.
+                            # A robust solution would be to check for existence first.
+                            # For now, we assume new months are empty, making this safe.
+                            db.execute("""INSERT INTO budgets (month, category, amount) VALUES (?, ?, ?)""",
                                        (new_active_month, budget_item['category'], budget_item['amount']))
 
                         # 3. Carry over EMIs
-                        emis_to_carry = db.execute("SELECT loan_name, emi_amount FROM emis WHERE month = ?", (previous_active_month,)).fetchall()
+                        emis_to_carry_res = db.execute("SELECT loan_name, emi_amount FROM emis WHERE month = ?", (previous_active_month,))
+                        emis_to_carry = db.fetchall(emis_to_carry_res)
                         for emi in emis_to_carry:
                             db.execute("INSERT INTO emis (month, loan_name, emi_amount) VALUES (?, ?, ?)",
                                        (new_active_month, emi['loan_name'], emi['emi_amount']))
@@ -139,31 +222,31 @@ def index():
     active_month = get_active_month()
     db = get_db()
     
-    # Fetch data from SQLite
-    income_data_rows = db.execute("SELECT * FROM income WHERE month = ? ORDER BY id", (active_month,)).fetchall()
-    expenses_data_rows = db.execute("SELECT * FROM expenses WHERE month = ? ORDER BY date DESC, id DESC", (active_month,)).fetchall()
-    emis_data_rows = db.execute("SELECT * FROM emis WHERE month = ? ORDER BY id", (active_month,)).fetchall()
-    
-    # Convert Row objects to dictionaries for JSON serialization
-    income_data = [dict(row) for row in income_data_rows]
-    expenses_data = [dict(row) for row in expenses_data_rows]
-    emis_data = [dict(row) for row in emis_data_rows]
+    # Fetch data using the wrapper
+    income_data_res = db.execute("SELECT * FROM income WHERE month = ? ORDER BY id", (active_month,))
+    income_data = db.fetchall(income_data_res)
 
-    budget_rows = db.execute("SELECT category, amount FROM budgets WHERE month = ?", (active_month,)).fetchall()
-    current_budget = {row['category']: row['amount'] for row in budget_rows}
+    expenses_data_res = db.execute("SELECT * FROM expenses WHERE month = ? ORDER BY date DESC, id DESC", (active_month,))
+    expenses_data = db.fetchall(expenses_data_res)
+
+    emis_data_res = db.execute("SELECT * FROM emis WHERE month = ? ORDER BY id", (active_month,))
+    emis_data = db.fetchall(emis_data_res)
+    
+    budget_res = db.execute("SELECT category, amount FROM budgets WHERE month = ?", (active_month,))
+    budget_rows = db.fetchall(budget_res)
+    current_budget = {row["category"]: row["amount"] for row in budget_rows}
 
     # Generate available_months from all tables
-    cursor = db.cursor()
-    cursor.execute("SELECT DISTINCT month FROM income UNION SELECT DISTINCT month FROM expenses UNION SELECT DISTINCT month FROM emis UNION SELECT DISTINCT month FROM budgets ORDER BY month DESC")
-    available_months_tuples = cursor.fetchall()
-    available_months = [row['month'] for row in available_months_tuples]
+    # The UNION query is standard SQL and should work on both
+    months_res = db.execute("SELECT DISTINCT month FROM income UNION SELECT DISTINCT month FROM expenses UNION SELECT DISTINCT month FROM emis UNION SELECT DISTINCT month FROM budgets ORDER BY month DESC")
+    available_months_dicts = db.fetchall(months_res)
+    available_months = [row['month'] for row in available_months_dicts]
     
     if not available_months: # Ensure at least the current month is available if DB is empty
         available_months = [active_month]
     elif active_month not in available_months: # If active_month has no data yet, add it for selection
         # This case might be complex if we only want to show months with data.
-        # For now, let's ensure active_month is selectable.
-        # A better approach might be to ensure active_month is added to the list if it's the default.
+        # For now, let's ensure active_month is added to the list if it's the default.
         if datetime.date.today().strftime("%Y-%m") == active_month and active_month not in available_months:
              available_months.append(active_month)
              available_months.sort(reverse=True)
@@ -241,7 +324,8 @@ def edit_income(item_id):
         return redirect(url_for('index'))
     
     # GET request
-    income_item = db.execute("SELECT * FROM income WHERE id = ? AND month = ?", (item_id, active_month)).fetchone()
+    income_item_res = db.execute("SELECT * FROM income WHERE id = ? AND month = ?", (item_id, active_month))
+    income_item = db.fetchone(income_item_res)
     if income_item is None:
         return "Error: Income item not found", 404
     return render_template('edit_item.html', item=income_item, item_id=item_id, active_month=active_month, item_type='income')
@@ -261,11 +345,12 @@ def add_expense():
     category = request.form.get('category')
     description = request.form.get('description')
     amount = request.form.get('amount')
-    if category and description and amount and date:
+    payment_type = request.form.get('payment_type') # Get payment type
+    if category and description and amount and date and payment_type:
         try:
             db = get_db()
-            db.execute("INSERT INTO expenses (month, date, category, description, amount) VALUES (?, ?, ?, ?, ?)",
-                       (active_month, date, category, description, float(amount)))
+            db.execute("INSERT INTO expenses (month, date, category, description, amount, payment_type) VALUES (?, ?, ?, ?, ?, ?)",
+                       (active_month, date, category, description, float(amount), payment_type))
             db.commit()
         except ValueError:
             pass # Optionally, flash an error message
@@ -276,32 +361,29 @@ def edit_expense(item_id):
     active_month = get_active_month()
     db = get_db()
     if request.method == 'POST':
-        date = request.form.get('date') # Ensure date is fetched from the form
+        date = request.form.get('date')
         category = request.form.get('category')
-        description = request.form.get('description') # This will be the combined description
+        description = request.form.get('description')
         amount = request.form.get('amount')
-        if category and description and amount and date: # Added date to validation
+        payment_type = request.form.get('payment_type') # Get payment type
+        if category and description and amount and date and payment_type:
             try:
-                db.execute("UPDATE expenses SET date = ?, category = ?, description = ?, amount = ? WHERE id = ? AND month = ?",
-                           (date, category, description, float(amount), item_id, active_month))
+                db.execute("UPDATE expenses SET date = ?, category = ?, description = ?, amount = ?, payment_type = ? WHERE id = ? AND month = ?",
+                           (date, category, description, float(amount), payment_type, item_id, active_month))
                 db.commit()
             except ValueError:
-                pass # Optionally, flash an error message for invalid amount
+                pass
             except sqlite3.Error as e:
                 app.logger.error(f"Database error on expense update: {e}")
-                # Optionally, flash a generic error message to the user
                 pass
         return redirect(url_for('index'))
     
     # GET request
-    expense_item_row = db.execute("SELECT * FROM expenses WHERE id = ? AND month = ?", (item_id, active_month)).fetchone()
-    if expense_item_row is None:
+    expense_item_res = db.execute("SELECT * FROM expenses WHERE id = ? AND month = ?", (item_id, active_month))
+    expense_item = db.fetchone(expense_item_res)
+    if expense_item is None:
         return "Error: Expense item not found", 404
     
-    # Convert sqlite3.Row to a mutable dictionary to pass to the template
-    # This allows the template to access item.date, item.description etc.
-    expense_item = dict(expense_item_row)
-
     return render_template('edit_item.html', item=expense_item, item_id=item_id, active_month=active_month, item_type='expense')
 
 @app.route('/delete_expense/<int:item_id>', methods=['POST'])
@@ -343,7 +425,8 @@ def edit_emi(item_id):
                 pass
         return redirect(url_for('index'))
         
-    emi_item = db.execute("SELECT * FROM emis WHERE id = ? AND month = ?", (item_id, active_month)).fetchone()
+    emi_item_res = db.execute("SELECT * FROM emis WHERE id = ? AND month = ?", (item_id, active_month))
+    emi_item = db.fetchone(emi_item_res)
     if emi_item is None:
         return "Error: EMI item not found", 404
     return render_template('edit_item.html', item=emi_item, item_id=item_id, active_month=active_month, item_type='emi')
@@ -358,5 +441,5 @@ def delete_emi(item_id):
 if __name__ == '__main__':
     # Note: This block is for local development only.
     # In production, a WSGI server like Gunicorn will run the app.
-    init_sqlite_db() # Initialize DB for local development
+    init_db() # Initialize DB for local development
     app.run(debug=True, port=8080)
