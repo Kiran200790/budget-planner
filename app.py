@@ -45,20 +45,24 @@ class DbWrapper:
     def fetchall(self, result_set_or_cursor):
         """Fetches all rows from a result set or cursor and returns them as a list of dicts."""
         if self._is_libsql:
-            # The rows from libsql-client are already dict-like.
-            # We just need to ensure they are plain dicts for consistent behavior.
-            return [dict(row.items()) for row in result_set_or_cursor]
+            # result_set_or_cursor is a ResultSet object from Turso
+            columns = result_set_or_cursor.columns
+            return [dict(zip(columns, row)) for row in result_set_or_cursor.rows]
         else:
+            # result_set_or_cursor is a standard sqlite3.Cursor
             rows = result_set_or_cursor.fetchall()
             return [dict(row) for row in rows]
 
     def fetchone(self, result_set_or_cursor):
         """Fetches one row and returns it as a dict."""
         if self._is_libsql:
-            # Assuming the result set might have one row
-            rows = [dict(row.items()) for row in result_set_or_cursor]
-            return rows[0] if rows else None
+            # result_set_or_cursor is a ResultSet object from Turso
+            if result_set_or_cursor and result_set_or_cursor.rows:
+                columns = result_set_or_cursor.columns
+                return dict(zip(columns, result_set_or_cursor.rows[0]))
+            return None
         else:
+            # result_set_or_cursor is a standard sqlite3.Cursor
             row = result_set_or_cursor.fetchone()
             return dict(row) if row else None
 
