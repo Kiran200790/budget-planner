@@ -1,0 +1,909 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+
+body {
+    font-family: 'Montserrat', sans-serif; /* Changed to Montserrat */
+    margin: 0;
+    background-color: #f0f2f5; /* Lighter, modern background */
+    color: #333;
+    line-height: 1.6;
+}
+
+h1, h2 {
+    color: #1a202c; /* Darker, more modern heading color */
+    text-align: center;
+    font-weight: 500;
+}
+
+h1 { /* Banner Style */
+    font-size: 2.8em; /* Slightly reduced font size for a more professional feel */
+    margin-bottom: 30px; /* Adjusted space below the banner */
+    padding: 25px 20px; /* Adjusted padding */
+    color: #ffffff;
+    background: #2a69a5; /* Darker solid blue, derived from button color #4299e1 */
+    border-radius: 8px; /* Less rounded corners for a sharper look */
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15); /* Refined shadow */
+    text-transform: none; /* Changed from uppercase for a more standard professional look */
+    letter-spacing: 0.5px; /* Reduced letter spacing */
+    font-weight: 600; /* Adjusted font weight */
+    text-align: center;
+    border-bottom: 3px solid #1A4E8A; /* Darker border for depth, matches darker blue */
+}
+
+h2 {
+    font-size: 1.8em;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #e2e8f0; /* Subtle separator for section titles */
+    padding-bottom: 10px;
+    text-align: left; /* Align section titles to the left */
+}
+
+.container { /* A main container for centering content */
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.card { /* New common card style */
+    background-color: #ffffff;
+    margin-bottom: 25px;
+    padding: 25px;
+    border-radius: 16px; /* Increased for a rounder look */
+    box-shadow: 0 8px 16px rgba(0,0,0,0.07), 0 3px 6px rgba(0,0,0,0.05); /* More layered shadow */
+    border: 1px solid #e2e8f0;
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out; /* For hover effects */
+}
+
+.card:hover {
+    transform: translateY(-4px); /* Lift card on hover */
+    box-shadow: 0 12px 24px rgba(0,0,0,0.1), 0 5px 10px rgba(0,0,0,0.07); /* Enhanced shadow on hover */
+}
+
+/* Consistent styling for H2 within cards */
+.card h2 {
+    font-size: 1.6em; /* Adjusted base size for card titles */
+    color: #334155; /* Softer dark color for titles */
+    margin-top: 0; /* Remove top margin for h2 inside card */
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e9ecef; /* Lighter border */
+    text-align: left;
+}
+
+/* New styles for the top row layout */
+.top-row-container {
+    display: flex;
+    flex-wrap: wrap; /* Allow wrapping on smaller screens */
+    gap: 25px; /* Space between month selector and summary/report block */
+    align-items: flex-start; /* Align items to the top */
+    margin-bottom: 25px; /* Add margin to separate from sections below */
+}
+
+.top-row-container > .month-selector { /* .month-selector should have .card class */
+    flex: 1; 
+    min-width: 300px; 
+}
+
+.top-row-container > .summary-and-report-container {
+    flex: 2; 
+    display: flex; 
+    gap: 25px; /* This will space out summary-section and budget-report-section */
+    /* The .summary-and-report-container itself is no longer a card */
+    background-color: transparent;
+    box-shadow: none;
+    border: none;
+    padding: 0;
+    margin-bottom: 0; /* Margin is handled by top-row-container or individual cards */
+}
+
+/* Adjustments for summary and report sections (which should have .card class) */
+.summary-and-report-container > div { /* Targets .summary-section and .budget-report-section, both should have .card */
+    flex: 1; 
+    min-width: 280px; 
+    /* Card properties (padding, margin-bottom etc.) are handled by .card class */
+    /* We only define specific overrides or additional styles here if needed */
+    max-height: 25vh; /* Adjusted height for these specific cards */
+    overflow-y: auto; 
+    font-size: 0.9em; 
+    padding: 15px; /* Override .card padding for more compact content if needed */
+}
+
+/* Ensure .summary-and-report-container is a flex container */
+.summary-and-report-container {
+    display: flex;
+    flex-wrap: wrap; /* Allow wrapping on smaller screens */
+    gap: 25px; /* Space between summary and report cards */
+    /* Remove card styling from the container itself */
+    background-color: transparent;
+    box-shadow: none;
+    border: none;
+    padding: 0; /* Remove padding if children are cards */
+    margin-bottom: 25px; /* Keep margin for spacing below */
+}
+
+/* Style for the individual summary and report cards */
+.summary-section,
+.budget-report-section,
+.chart-section { /* Added .chart-section here */
+    flex: 1; /* Each takes equal space */
+    min-width: 300px; /* Minimum width before wrapping */
+    /* Card styling is now applied by the .card class in HTML */
+    /* Specific overrides for these sections if needed */
+    max-height: 40vh; /* Increased max-height slightly */
+    overflow-y: auto;
+}
+
+.chart-section h3 {
+    text-align: center;
+    font-size: 1.1em;
+    margin-bottom: 10px;
+    color: #334155;
+}
+
+#activeMonthDoughnutChart {
+    max-width: 200px; /* Adjust for "small" doughnut */
+    max-height: 200px; /* Adjust for "small" doughnut */
+    margin: 0 auto; /* Center the canvas */
+    display: block; /* Ensure margin auto works */
+}
+
+/* Styles for the category bar chart */
+#categoryBarChart {
+    width: 100% !important; /* Ensure it uses full width of its container */
+    max-height: 200px; /* Adjust as needed, trying to make it compact, was 280px */
+    /* height: auto !important; /* Let chart.js determine height based on aspect ratio if possible */
+    /* aspect-ratio: 16 / 9; /* Or your preferred aspect ratio, might conflict with max-height */
+}
+
+.summary-and-report-container > div { /* Targets .summary-section and .budget-report-section */
+    /* flex: 1;  Already handled by .summary-section, .budget-report-section */
+    /* min-width: 320px; Already handled */
+    margin-bottom: 0; /* Children cards don't need bottom margin if parent has it */
+    padding: 15px; /* Compact padding for these cards */
+    /* max-height: 10%; /* Replaced with max-height in .summary-section, .budget-report-section */
+    overflow-y: auto; 
+    font-size: 0.9em; 
+}
+
+.summary-and-report-container h2 {
+    margin-top: 0; 
+    font-size: 1.3em; /* Further reduced font size for section titles */
+    padding-bottom: 8px; /* Reduced padding */
+    margin-bottom: 10px; /* Reduced margin */
+    color: #334155; /* Consistent color */
+    border-bottom: 1px solid #e9ecef; /* Consistent border */
+}
+
+.budget-report-section table {
+    width: 100%;
+    border-collapse: collapse; /* Crucial for borders to look right */
+    margin-top: 10px; /* Reduced margin-top */
+    font-size: 0.8em; /* Further reduced font size for compactness */
+}
+
+.budget-report-section th,
+.budget-report-section td {
+    border: 1px solid #cce0f5; /* Even lighter blue border */
+    padding: 5px 7px; /* Reduced padding for cell content */
+    text-align: left;
+    vertical-align: middle; /* Align text vertically in the middle */
+    white-space: nowrap; /* Prevent text wrapping */
+    overflow: hidden; /* Hide overflow */
+    text-overflow: ellipsis; /* Add ellipsis for overflowed text */
+}
+
+.budget-report-section th {
+    background-color: #eaf4fd; 
+    color: #495057; /* Darker text for contrast */
+    font-weight: 600; /* Slightly bolder */
+    padding: 8px 10px; /* Reduced padding */
+    border-bottom: 2px solid #dee2e6; /* Subtle bottom border */
+    white-space: nowrap; /* Prevent text wrapping */
+    overflow: hidden; /* Hide overflow */
+    text-overflow: ellipsis; /* Add ellipsis for overflow */
+    font-size: 0.8rem; /* Increased from 0.9rem */
+}
+
+.budget-report-section tbody tr:nth-child(even) {
+    background-color: #f0f8ff; /* Alice blue for even rows (very light blue) */
+}
+
+.budget-report-section tbody tr:hover {
+    background-color: #d4eaff; /* Slightly darker blue on hover */
+}
+
+.budget-report-section tfoot td {
+    font-weight: bold;
+    background-color: #e3f2fd; /* Similar to header for footer */
+    color: #0d47a1; /* Dark blue for footer text */
+    border-color: #bbdefb; /* Ensure footer border matches other cells if it was different */
+}
+
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px; /* Increased gap */
+}
+
+label {
+    font-weight: 500; /* Medium weight for labels */
+    color: #4a5568; /* Softer label color */
+    font-size: 0.95em;
+}
+
+input[type="text"], 
+input[type="number"], 
+input[type="date"], 
+select {
+    padding: 12px 15px; /* Increased padding */
+    border: 1px solid #cbd5e0; /* Lighter border */
+    border-radius: 6px; /* Softer rounding */
+    box-sizing: border-box;
+    font-size: 1em;
+    transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+input[type="text"]:focus, 
+input[type="number"]:focus, 
+input[type="date"]:focus, 
+select:focus {
+    border-color: #4299e1; /* Blue focus color */
+    box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.3); /* Subtle focus shadow */
+    outline: none;
+}
+
+button, .button-style { /* Added .button-style for consistent styling if needed on <a> tags */
+    background-color: #4299e1; /* Modern blue */
+    color: white;
+    padding: 12px 20px; /* Adjusted padding */
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 1em; /* Unified font size */
+    font-weight: 500;
+    transition: background-color 0.2s ease-in-out;
+    text-align: center;
+}
+
+button:hover, .button-style:hover {
+    background-color: #3182ce; /* Darker blue on hover */
+}
+
+/* Styles for list items (expenses, income, EMIs) */
+.expense-section ul li,
+.income-section ul li,
+.emi-section ul li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.expense-section ul li span,
+.income-section ul li span,
+.emi-section ul li span {
+    flex-grow: 1; /* Allows the text span to take up available space */
+    margin-right: 15px; /* Adds some space between text and actions */
+}
+
+.item-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px; /* Space between edit and delete buttons */
+    white-space: nowrap; /* Prevent buttons from wrapping */
+}
+
+.item-actions .edit-btn,
+.item-actions .delete-btn {
+    padding: 6px 12px; /* Smaller padding for buttons in lists */
+    font-size: 0.9em;
+}
+
+.item-actions .delete-btn {
+    background-color: #e53e3e; /* Red for delete */
+}
+
+.item-actions .delete-btn:hover {
+    background-color: #c53030; /* Darker red on hover */
+}
+
+.edit-btn,
+.delete-btn {
+    padding: 6px 12px; /* Adjusted padding */
+    text-decoration: none;
+    border-radius: 5px;
+    font-size: 0.85em;
+    margin-left: 8px;
+    vertical-align: middle;
+    border: none; /* Remove border, rely on background */
+}
+
+.edit-btn {
+    background-color: gray; /* Changed from #ecc94b */
+    color: #ffffff; /* Changed to white for better contrast with gray */
+    padding: 8px 15px; /* Adjusted padding */
+    border-radius: 6px; /* Softer rounding */
+    transition: background-color 0.2s ease-in-out;
+}
+
+.edit-btn:hover {
+    background-color: #d69e2e;
+}
+
+.delete-btn {
+    background-color: #f56565; /* Softer red */
+    color: white;
+}
+
+.delete-btn:hover {
+    background-color: #e53e3e;
+}
+
+ul {
+    list-style-type: none;
+    padding: 0;
+}
+
+li {
+    background-color: #edf2f7; /* Lighter list item background */
+    margin-top: 8px; /* Increased margin */
+    padding: 12px 15px; /* Increased padding */
+    border-radius: 6px;
+    border: 1px solid #e2e8f0; /* Subtle border for list items */
+    display: flex; /* For aligning items if needed */
+    justify-content: space-between; /* Space out text and buttons */
+    align-items: center;
+}
+
+.summary p {
+    font-size: 1em; /* Adjusted font size */
+    line-height: 1.6; /* Adjusted line height */
+    color: #4a5568; /* Softer text color */
+    margin: 5px 0; /* Reduced margin for p elements in summary */
+}
+
+.summary span {
+    font-weight: 700; /* Bolder span */
+    color: #2c3e50;
+}
+
+.collapsible {
+    background-color: #4a5568; /* Darker grey for collapsible */
+    color: white;
+    cursor: pointer;
+    padding: 12px 18px;
+    width: 100%; /* Make collapsible full width */
+    border: none;
+    text-align: left;
+    outline: none;
+    font-size: 1.1em; /* Larger font size */
+    margin-top: 15px;
+    margin-bottom: 0; /* Remove bottom margin, content will have it */
+    border-radius: 6px;
+    transition: background-color 0.2s ease-in-out;
+}
+
+.collapsible:hover {
+    background-color: #2d3748; /* Darker on hover */
+}
+
+.collapsible.active {
+    background-color: #4299e1; /* Blue when active */
+    border-bottom-left-radius: 0; /* Adjust radius when open */
+    border-bottom-right-radius: 0;
+}
+
+.collapsible-content {
+    padding: 20px; /* Increased padding */
+    display: none;
+    overflow: hidden;
+    background-color: #ffffff; /* White background for content */
+    border: 1px solid #e2e8f0; /* Border for content */
+    border-top: none; /* Remove top border as collapsible acts as header */
+    border-radius: 0 0 6px 6px; 
+    margin-bottom: 15px;
+}
+
+.expense-form-compact .form-row {
+    display: flex;
+    align-items: center; 
+    gap: 15px; 
+}
+
+.expense-form-compact .form-row label {
+    flex-basis: 120px; 
+    flex-shrink: 0;    
+}
+
+.expense-form-compact .form-row input,
+.expense-form-compact .form-row select {
+    flex-grow: 1; 
+}
+
+.expense-fields-inline {
+    display: flex;
+    flex-wrap: wrap; /* Allow wrapping */
+    gap: 15px; 
+    align-items: flex-end; 
+    margin-bottom: 15px; 
+}
+
+.expense-fields-inline .form-field {
+    display: flex;
+    flex-direction: column; 
+    flex: 1 1 150px; /* Flex grow, shrink, basis */
+    min-width: 150px; /* Minimum width before wrapping */
+}
+
+.expense-fields-inline .form-field label {
+    margin-bottom: 6px; 
+    font-size: 0.9em;
+}
+
+/* Remove specific basis for category, description, amount to allow better flex wrapping */
+/* .expense-fields-inline .form-field.category-field { ... } */
+/* .expense-fields-inline .form-field.description-field { ... } */
+/* .expense-fields-inline .form-field.amount-field { ... } */
+
+.expense-fields-inline .form-field input[type="date"] {
+    padding: 12px 15px;
+    border: 1px solid #cbd5e0;
+    border-radius: 6px;
+    box-sizing: border-box;
+    width: 100%; 
+}
+
+.expense-form-compact button[type="submit"] {
+    width: auto; 
+    align-self: flex-start; 
+    margin-top: 10px; /* Add some margin above button */
+}
+
+.month-selector {
+    background-color: transparent;
+    padding: 10px 0; /* Reduced vertical padding */
+    margin-bottom: 20px; /* Reduced space below */
+    box-shadow: none;
+    border: none;
+    text-align: left; /* Align content to the left */
+}
+
+.month-selector-inline {
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: flex-start; /* Align items to the start (left) */
+    align-items: center;
+    gap: 10px; /* Reduced gap for compactness */
+}
+
+.month-selector .month-form-inline {
+    display: flex;
+    align-items: center;
+    gap: 5px; /* Reduced gap within the form */
+    flex-wrap: nowrap;
+}
+
+.month-selector label {
+    margin-bottom: 0;
+    font-weight: 500;
+    margin-right: 5px;
+    font-size: 0.9em; /* Slightly smaller label */
+}
+
+.month-selector input[type="month"],
+.month-selector select {
+    padding: 6px 8px; /* Reduced padding */
+    font-size: 0.9em; /* Slightly smaller font */
+    border: 1px solid #cbd5e0;
+    border-radius: 4px; /* Smaller border-radius */
+    /* width: auto; /* Let browser/flexbox determine width */
+}
+
+.month-selector button {
+    padding: 6px 12px; /* Reduced padding */
+    font-size: 0.9em; /* Slightly smaller font */
+}
+
+.month-selector .current-view-month,
+.month-selector .available-months-dropdown {
+    font-size: 0.9em; /* Slightly smaller font */
+    color: #555;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+/* Tab Navigation Styles */
+.tabs-container {
+    display: flex;
+    flex-wrap: wrap; /* Allow tabs to wrap on smaller screens */
+    gap: 10px; /* Spacing between tab buttons */
+    margin-bottom: 20px; /* Space below the tabs */
+    /* If your cards have padding (e.g., 25px) and you want the tabs to align with the card content,
+       you might add a similar padding to the tabs-container or the element it's in.
+       Example: padding-left: 25px; if cards have padding-left: 25px and tabs are directly above. */
+}
+
+.tab-button { /* Styling for NON-ACTIVE tabs, similar to 'Change Month' button */
+    background-color: #4299e1; /* Modern blue from general button style */
+    color: white;
+    padding: 8px 15px; /* From .month-selector button */
+    font-size: 0.95em; /* From .month-selector button */
+    border: none; /* From general button style */
+    border-radius: 6px; /* From general button style */
+    cursor: pointer;
+    font-weight: 500; /* From general button style */
+    text-align: center; /* From general button style */
+    transition: background-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.tab-button:hover { /* Hover for NON-ACTIVE tabs */
+    background-color: #3182ce; /* Darker blue from general button:hover */
+    color: white; /* Ensure text color remains white */
+}
+
+.tab-button.active { /* Active tab needs to be distinct */
+    background-color: #3182ce; /* Darker blue, same as hover for emphasis */
+    color: white;
+    font-weight: bold; /* Make text bolder */
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2); /* Subtle inset shadow for "pressed" feel */
+    /* Ensure other properties like padding, font-size, border-radius are consistent */
+    padding: 8px 15px;
+    font-size: 0.95em;
+    border: none;
+    border-radius: 6px;
+    text-align: center;
+}
+
+/* Styles for Tab Panes (Content) */
+/* These styles ensure basic tab functionality.
+   If tab panes are styled as cards (i.e., have the .card class),
+   they will inherit card styling. */
+.tab-pane {
+    display: none; /* Hidden by default */
+    /* Add margin-top or padding here if needed, e.g., if panes are not cards */
+}
+
+.tab-pane.active {
+    display: block; /* Show active pane */
+}
+
+/* Tab Controls Styling */
+.tab-controls {
+    display: flex;
+    justify-content: space-around; /* Distribute space around items */
+    margin-bottom: 0; /* Remove bottom margin if panes have top margin/padding */
+    /* background-color: #fff; /* White background for the tab bar */
+    /* padding: 10px; /* Padding around the buttons */
+    /* border-radius: 8px; /* Rounded corners for the tab bar */
+    /* box-shadow: 0 2px 5px rgba(0,0,0,0.1); /* Subtle shadow */
+    /* The .card-style class now handles background, padding, margin, shadow, border */
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    border-bottom: none; /* Remove bottom border as it connects to the pane */
+}
+
+.tab-button {
+    flex-grow: 1; /* Make buttons share space equally */
+    padding: 15px 10px; /* Generous padding for larger clickable area */
+    font-size: 1.05em; /* Slightly larger font for tab buttons */
+    font-weight: 500;
+    color: #4a5568; /* Default tab text color - a muted gray */
+    background-color: transparent; /* Make default tabs transparent */
+    border: none; /* Remove default button border */
+    border-bottom: 3px solid transparent; /* Placeholder for active indicator */
+    cursor: pointer;
+    text-align: center;
+    transition: color 0.3s ease, border-bottom-color 0.3s ease, background-color 0.3s ease;
+}
+
+.tab-button:hover {
+    color: #2c5282; /* Darker blue on hover - for text */
+    background-color: #e2e8f0; /* Light background on hover for better feedback */
+}
+
+.tab-button.active {
+    color: #ffffff; /* White text for active tab */
+    background-color: #4299e1; /* Blue background, matching header */
+    border-bottom-color: #2b6cb0; /* Darker blue for the bottom border accent */
+    font-weight: 700;
+}
+
+/* Tab Content Pane Styling */
+.tab-pane {
+    /* background-color: #ffffff; /* White background for content */
+    /* padding: 25px; /* Padding inside the content pane */
+    /* border-radius: 8px; /* Rounded corners for the content pane */
+    /* box-shadow: 0 2px 5px rgba(0,0,0,0.1); /* Subtle shadow */
+    /* The .card-style class now handles background, padding, margin, shadow, border */
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    /* display: none; /* Handled by JS and .active class */
+}
+
+.tab-pane.active {
+    display: block;
+}
+
+/* Ensure card-style provides the necessary base for tabs and panes */
+.card-style {
+    background-color: #ffffff;
+    margin-bottom: 25px; /* Default margin, can be overridden */
+    padding: 25px;       /* Changed from 20px to 25px to match .card */
+    border-radius: 16px; /* Changed from 12px to 16px to match .card */
+    box-shadow: 0 8px 16px rgba(0,0,0,0.07), 0 3px 6px rgba(0,0,0,0.05); /* Match .card shadow */
+    border: 1px solid #e2e8f0;
+    /* Note: .card has a transition, .card-style does not. Add if needed. */
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+/* Style for search box with clear icon inside */
+.search-box-container {
+    position: relative;
+    width: 100%;
+    max-width: 300px;
+}
+#expenseSearchBox {
+    width: 100%;
+    padding-right: 32px; /* Space for the clear icon */
+    box-sizing: border-box;
+}
+#clearExpenseSearch {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    height: 24px;
+    z-index: 2;
+}
+#clearExpenseSearch svg {
+    pointer-events: none;
+}
+
+/* Comment out old collapsible styles */
+/*
+.collapsible {
+    background-color: #4299e1; 
+    color: white;
+    cursor: pointer;
+    padding: 18px;
+    width: 100%;
+    border: none;
+    text-align: left;
+    outline: none;
+    font-size: 1.3em; 
+    border-radius: 8px; 
+    margin-top: 15px; 
+    font-weight: 500;
+    transition: background-color 0.3s ease;
+}
+
+.collapsible:hover {
+    background-color: #3182ce; 
+}
+
+.collapsible.active {
+    background-color: #2b6cb0; 
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.collapsible-content {
+    padding: 20px;
+    display: none;
+    overflow: hidden;
+    background-color: #ffffff; 
+    border: 1px solid #e2e8f0; 
+    border-top: none; 
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.05); 
+}
+
+.collapsible-content.show {
+    display: block;
+}
+*/
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .container {
+        padding: 10px;
+    }
+    
+    h1 {
+        font-size: 2em;
+        padding: 15px 10px;
+        margin-bottom: 20px;
+    }
+    
+    h2 {
+        font-size: 1.4em;
+    }
+    
+    .summary-and-report-container {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .expense-fields-inline {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .expense-fields-inline .form-field {
+        flex-basis: auto;
+        width: 100%;
+        margin-bottom: 10px;
+    }
+    
+    .month-selector-inline {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .payment-radios {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    li {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 10px;
+    }
+    
+    li form {
+        margin-top: 8px;
+    }
+    
+    .item-actions {
+        margin-top: 10px;
+        width: 100%;
+        justify-content: flex-start;
+    }
+    
+    /* Tab buttons for mobile */
+    .tab-button {
+        font-size: 0.9em;
+        padding: 12px 8px;
+    }
+    
+    /* Search box mobile optimization */
+    .search-box-container {
+        max-width: 100%;
+    }
+    
+    /* Chart responsiveness */
+    .chart-section {
+        min-width: 100%;
+    }
+    
+    /* Payment type totals mobile view */
+    #payment-type-totals div {
+        flex-direction: column;
+        text-align: center;
+        gap: 15px;
+    }
+}
+
+/* Touch-friendly buttons and inputs */
+@media (pointer: coarse) {
+    button, .button-style, .edit-btn, .delete-btn {
+        min-height: 44px;
+        padding: 12px 16px;
+        font-size: 1em;
+    }
+    
+    input[type="text"], 
+    input[type="number"], 
+    input[type="date"], 
+    select {
+        min-height: 44px;
+        padding: 12px 15px;
+        font-size: 16px; /* Prevents zoom on iOS */
+    }
+    
+    .tab-button {
+        min-height: 44px;
+        padding: 12px 16px;
+    }
+}
+
+/* Prevent horizontal scrolling on mobile */
+* {
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+/* Additional mobile optimizations for data updates and forms */
+@media (max-width: 768px) {
+    /* Ensure forms don't break layout on mobile */
+    form {
+        width: 100%;
+        max-width: 100%;
+    }
+    
+    /* Mobile-specific input optimizations */
+    input[type="text"], 
+    input[type="number"], 
+    input[type="date"], 
+    select {
+        width: 100%;
+        max-width: 100%;
+        -webkit-appearance: none; /* Remove iOS styling */
+        -moz-appearance: none; /* Remove Firefox styling */
+        appearance: none;
+    }
+    
+    /* Prevent zoom on input focus for iOS */
+    input[type="text"]:focus,
+    input[type="number"]:focus,
+    input[type="date"]:focus,
+    select:focus {
+        font-size: 16px; /* Prevents zoom on iOS */
+    }
+    
+    /* Optimize payment type totals for mobile */
+    #payment-type-totals > div:first-child {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    /* Make search functionality more touch-friendly */
+    #expenseSearchBox {
+        font-size: 16px; /* Prevents zoom on iOS */
+        min-height: 44px; /* Touch-friendly height */
+    }
+    
+    /* Ensure edit/delete buttons are touch-friendly */
+    .edit-btn, .delete-btn {
+        min-width: 44px;
+        min-height: 44px;
+        margin: 2px;
+    }
+}
+
+/* Specific optimizations for mobile data operations */
+@media (max-width: 480px) {
+    /* Very small screens - optimize further */
+    .container {
+        padding: 5px;
+    }
+    
+    /* Stack payment radio buttons vertically on very small screens */
+    .payment-radios {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    /* Ensure submit buttons are prominent on small screens */
+    button[type="submit"] {
+        width: 100%;
+        min-height: 48px;
+        font-size: 1.1em;
+        margin-top: 15px;
+    }
+    
+    /* Optimize list items for very small screens */
+    li {
+        padding: 8px;
+        font-size: 0.9em;
+    }
+    
+    /* Make amount fields more prominent */
+    input[type="number"] {
+        font-size: 1.1em;
+        font-weight: 500;
+    }
+}
