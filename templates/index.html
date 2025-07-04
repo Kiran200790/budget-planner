@@ -4,16 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Budget Planner - {{ active_month }}</title> <!-- Dynamic title -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="/static/style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <!-- Added Chart.js CDN -->
     
     <!-- PWA manifest and meta tags -->
-    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <link rel="manifest" href="/static/manifest.json">
     <meta name="theme-color" content="#2a69a5">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Budget Planner">
-    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-192x192.png') }}">
+    <link rel="apple-touch-icon" href="/static/icon-192x192.png">
     
     <!-- Mobile optimization -->
     <meta name="mobile-web-app-capable" content="yes">
@@ -31,10 +31,10 @@
                     
                     <label for="month_select">Month (YYYY-MM):</label>
                     <input type="month" id="month_select" name="month_select" value="{{ active_month }}">
-                    <button type="button" onclick="var monthValue = document.getElementById('month_select').value; if (monthValue) { window.location.href = '{{ url_for('index') }}?month_select=' + monthValue; } else { alert('Please select a valid month.'); }">Change Month</button>
+                    <button type="button" onclick="var monthValue = document.getElementById('month_select').value; if (monthValue) { window.location.href = '/?month_select=' + monthValue; } else { alert('Please select a valid month.'); }">Change Month</button>
                     <p class="current-view-month">Currently viewing: <strong>{{ active_month }}</strong></p> <!-- Added class -->
                     <p class="available-months-dropdown">Available: <!-- Changed text for brevity -->
-                        <select onchange="if(this.value) { document.getElementById('month_select').value = this.value; window.location.href = '{{ url_for('index') }}?month_select=' + this.value; }" name="quick_month_select">
+                        <select onchange="if(this.value) { document.getElementById('month_select').value = this.value; window.location.href = '/?month_select=' + this.value; }" name="quick_month_select">
                             <option value="">Quick select...</option>
                             {% for month in available_months %}
                             <option value="{{ month }}" {% if month == active_month %}selected{% endif %}>{{ month }}</option>
@@ -164,8 +164,8 @@
                         <li>
                             <span>{{ record.date }} - {{ record.category }} - {{ record.description }}: {{ "%.2f"|format(record.amount) }}</span>
                             <div class="item-actions">
-                                <a href="{{ url_for('edit_expense', item_id=record.id) }}" class="edit-btn">Edit</a>
-                                <form action="{{ url_for('delete_expense', item_id=record.id) }}" method="post" style="display: inline;">
+                                <a href="/edit_expense/{{ record.id }}" class="edit-btn">Edit</a>
+                                <form action="/delete_expense/{{ record.id }}" method="post" style="display: inline;">
                                     <button type="submit" class="delete-btn" onclick="return confirm('Are you sure you want to delete this expense item?');">Delete</button>
                                 </form>
                             </div>
@@ -228,8 +228,8 @@
                         <li>
                             <span>{{ record.description }}: {{ "%.2f"|format(record.amount) }}</span>
                             <div class="item-actions">
-                                <a href="{{ url_for('edit_income', item_id=record.id) }}" class="edit-btn">Edit</a>
-                                <form action="{{ url_for('delete_income', item_id=record.id) }}" method="post" style="display: inline;">
+                                <a href="/edit_income/{{ record.id }}" class="edit-btn">Edit</a>
+                                <form action="/delete_income/{{ record.id }}" method="post" style="display: inline;">
                                     <button type="submit" class="delete-btn" onclick="return confirm('Are you sure you want to delete this income item?');">Delete</button>
                                 </form>
                             </div>
@@ -262,8 +262,8 @@
                         <li>
                             <span>{{ emi.loan_name }}: {{ "%.2f"|format(emi.emi_amount) }}</span>
                             <div class="item-actions">
-                                <a href="{{ url_for('edit_emi', item_id=emi.id) }}" class="edit-btn">Edit</a>
-                                <form action="{{ url_for('delete_emi', item_id=emi.id) }}" method="post" style="display: inline;">
+                                <a href="/edit_emi/{{ emi.id }}" class="edit-btn">Edit</a>
+                                <form action="/delete_emi/{{ emi.id }}" method="post" style="display: inline;">
                                     <button type="submit" class="delete-btn" onclick="return confirm('Are you sure you want to delete this EMI item?');">Delete</button>
                                 </form>
                             </div>
@@ -290,7 +290,7 @@
         <script>
             if ('serviceWorker' in navigator) {
                 window.addEventListener('load', function() {
-                    navigator.serviceWorker.register('{{ url_for('static', filename='service-worker.js') }}')
+                    navigator.serviceWorker.register('/static/service-worker.js')
                     .then(function(registration) {
                         console.log('ServiceWorker registration successful');
                     }, function(err) {
@@ -313,6 +313,6 @@
                 "chart_spent_values": {{ chart_spent_values|tojson|safe }} {# Added for the new bar chart #}
             }
         </script>
-        <script src="{{ url_for('static', filename='script.js') }}"></script>
+        <script src="/static/script.js"></script>
     </body>
 </html>
