@@ -4,15 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Edit {{ item_type|capitalize }} - {{ active_month }}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="/static/style.css">
     
     <!-- PWA manifest and meta tags -->
-    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <link rel="manifest" href="/static/manifest.json">
     <meta name="theme-color" content="#2a69a5">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Budget Planner">
-    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-192x192.png') }}">
+    <link rel="apple-touch-icon" href="/static/icon-192x192.png">
 </head>
 <body>
     <div class="container"> <!-- Added container div -->
@@ -79,8 +79,8 @@
             </form>
         </div> <!-- Closed this wrapper -->
 
-        <p><a href="{{ url_for('index') }}" class="button-style">Back to Overview</a></p> <!-- Added class="button-style" -->
+        <p><a href="/" class="button-style">Back to Overview</a></p> <!-- Added class="button-style" -->
     </div> <!-- Close container div -->
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script src="/static/script.js"></script>
 </body>
 </html>
