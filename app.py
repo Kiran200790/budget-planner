@@ -45,7 +45,9 @@ class DbWrapper:
     def fetchall(self, result_set_or_cursor):
         """Fetches all rows from a result set or cursor and returns them as a list of dicts."""
         if self._is_libsql:
-            return [dict(row) for row in result_set_or_cursor.rows]
+            # The rows from libsql-client are already dict-like.
+            # We just need to ensure they are plain dicts for consistent behavior.
+            return [dict(row.items()) for row in result_set_or_cursor]
         else:
             rows = result_set_or_cursor.fetchall()
             return [dict(row) for row in rows]
@@ -53,7 +55,9 @@ class DbWrapper:
     def fetchone(self, result_set_or_cursor):
         """Fetches one row and returns it as a dict."""
         if self._is_libsql:
-            return dict(result_set_or_cursor.rows[0]) if result_set_or_cursor.rows else None
+            # Assuming the result set might have one row
+            rows = [dict(row.items()) for row in result_set_or_cursor]
+            return rows[0] if rows else None
         else:
             row = result_set_or_cursor.fetchone()
             return dict(row) if row else None
