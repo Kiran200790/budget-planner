@@ -301,6 +301,56 @@ def index():
                            active_month_total_budget=active_month_total_budget, 
                            active_month_total_spent=active_month_total_spent)
 
+@app.route('/api/budget_report_data')
+def budget_report_data():
+    active_month = get_active_month()
+    db = get_db()
+
+    # Fetch budget
+    budget_res = db.execute("SELECT category, amount FROM budgets WHERE month = ?", (active_month,))
+    budget_rows = db.fetchall(budget_res)
+    current_budget = {row["category"]: row["amount"] for row in budget_rows}
+
+    # Fetch expenses
+    expenses_data_res = db.execute("SELECT category, amount FROM expenses WHERE month = ?", (active_month,))
+    expenses_data = db.fetchall(expenses_data_res)
+
+    # Define categories to ensure consistent order and inclusion
+    categories = ['Food', 'Cloth', 'Online', 'Miscellaneous', 'Other']
+    
+    spent_by_category = {category: 0.0 for category in categories}
+    for expense in expenses_data:
+        category = expense['category']
+        if category in spent_by_category:
+            spent_by_category[category] += float(expense.get('amount', 0.0))
+
+    report_data = []
+    for category in categories:
+        budgeted = float(current_budget.get(category, 0.0))
+        spent = spent_by_category.get(category, 0.0)
+        difference = budgeted - spent
+        report_data.append({
+            "category": category,
+            "budgeted": budgeted,
+            "spent": spent,
+            "difference": difference
+        })
+    
+    # Calculate totals
+    total_budgeted = sum(item['budgeted'] for item in report_data)
+    total_spent = sum(item['spent'] for item in report_data)
+    total_difference = total_budgeted - total_spent
+
+    return {
+        "report_data": report_data,
+        "totals": {
+            "budgeted": total_budgeted,
+            "spent": total_spent,
+            "difference": total_difference
+        }
+    }
+
+
 @app.route('/add_income', methods=['POST'])
 def add_income():
     active_month = get_active_month()
@@ -448,6 +498,95 @@ def delete_emi(item_id):
     db.execute("DELETE FROM emis WHERE id = ? AND month = ?", (item_id, active_month))
     db.commit()
     return redirect(url_for('index'))
+
+@app.route('/report')
+def report():
+    active_month = get_active_month()
+    db = get_db()
+
+    # Fetch all data for the active month
+    income_res = db.execute("SELECT * FROM income WHERE month = ?", (active_month,))
+    income_data = db.fetchall(income_res)
+    total_income = sum(item['amount'] for item in income_data)
+
+    expenses_res = db.execute("SELECT * FROM expenses WHERE month = ?", (active_month,))
+    expenses_data = db.fetchall(expenses_res)
+    total_expenses = sum(item['amount'] for item in expenses_data)
+
+    emis_res = db.execute("SELECT * FROM emis WHERE month = ?", (active_month,))
+    emis_data = db.fetchall(emis_res)
+    total_emis = sum(item['emi_amount'] for item in emis_data)
+
+    budget_res = db.execute("SELECT * FROM budgets WHERE month = ?", (active_month,))
+    budget_data = db.fetchall(budget_res)
+    total_budgeted = sum(item['amount'] for item in budget_data)
+
+    net_savings = total_income - total_expenses - total_emis
+
+    # Prepare data for the bar chart
+    categories = ['Food', 'Cloth', 'Online', 'Miscellaneous', 'Other']
+    spent_by_category = {cat: 0 for cat in categories}
+    for expense in expenses_data:
+        if expense['category'] in spent_by_category:
+            spent_by_category[expense['category']] += expense['amount']
+    
+    current_budget = {item['category']: item['amount'] for item in budget_data}
+    
+    chart_labels = categories
+    chart_budgeted_values = [current_budget.get(cat, 0) for cat in categories]
+    chart_spent_values = [spent_by_category.get(cat, 0) for cat in categories]
+
+    # PDF generation is temporarily disabled.
+    # To re-enable, uncomment the code below and ensure WeasyPrint is working.
+    return "PDF report generation is temporarily disabled.", 200
+
+    # # Render the HTML template with the fetched data
+    # html_out = render_template(
+    #     'report_template.html',
+    #     is_pdf_render=True, 
+    #     month=datetime.datetime.strptime(active_month, "%Y-%m").strftime("%B, %Y"),
+    #     report_date=datetime.date.today().strftime("%B %d, %Y"),
+    #     total_income=total_income,
+    #     total_expenses=total_expenses,
+    #     total_emis=total_emis,
+    #     total_budgeted=total_budgeted,
+    #     net_savings=net_savings,
+    #     income_data=income_data,
+    #     expenses_data=expenses_data,
+    #     emis_data=emis_data,
+    #     budget_data=budget_data,
+    #     chart_labels=chart_labels,
+    #     chart_budgeted_values=chart_budgeted_values,
+    #     chart_spent_values=chart_spent_values
+    # )
+
+    # # Define a print-specific CSS
+    # print_css = """
+    # body { font-family: sans-serif; font-size: 10pt; }
+    # h1, h2, h3 { color: #333; }
+    # table { border-collapse: collapse; width: 100%; margin-bottom: 15px; }
+    # th, td { border: 1px solid #ccc; padding: 4px; text-align: left; }
+    # th { background-color: #f2f2f2; }
+    # .section { margin-bottom: 20px; }
+    # .no-data { font-style: italic; color: #777; }
+    # .footer { text-align: center; margin-top: 20px; font-size: 0.9em; color: #777; }
+    # .chart-section { display: none !important; }
+    # """
+
+    # # Generate PDF
+    # try:
+    #     pdf = HTML(string=html_out).write_pdf(stylesheets=[CSS(string=print_css)])
+    # except Exception as e:
+    #     app.logger.error(f"Error generating PDF: {e}")
+    #     return "Error generating PDF. Please check the logs.", 500
+    
+    # # Return the generated PDF
+    # return send_file(
+    #     io.BytesIO(pdf),
+    #     mimetype='application/pdf',
+    #     as_attachment=True,
+    #     download_name=f'budget_report_{active_month}.pdf'
+    # )
 
 if __name__ == '__main__':
     # Note: This block is for local development only.

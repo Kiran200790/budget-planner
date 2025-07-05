@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Budget Report - {{ month }}</title>
 </head>
 <body>
@@ -16,42 +15,14 @@
                 <tr><th>Total Expenses</th><td>{{ "%.2f"|format(total_expenses) }}</td></tr>
                 <tr><th>Total EMIs</th><td>{{ "%.2f"|format(total_emis) }}</td></tr>
                 <tr><th>Total Budgeted</th><td>{{ "%.2f"|format(total_budgeted) }}</td></tr>
-                <tr><th>Net Savings (Income - Expenses - EMIs)</th><td>{{ "%.2f"|format(net_savings) }}</td></tr>
+                <tr><th>Net Savings</th><td>{{ "%.2f"|format(net_savings) }}</td></tr>
             </table>
         </div>
-
-        {% if not is_pdf_render %}
-        <div class="section chart-section">
-            <h2>Budget vs. Spending Chart</h2>
-            <div class="chart-container">
-                <p style="text-align:center; font-size:0.9em; margin-bottom:15px;">
-                    <span style="display:inline-block; width:12px; height:12px; background-color:#3498db; margin-right:5px;"></span> Budgeted
-                    <span style="display:inline-block; width:12px; height:12px; background-color:#e74c3c; margin-left:10px; margin-right:5px;"></span> Spent
-                </p>
-                <div class="bar-chart">
-                    {% set max_val = ([chart_budgeted_values|max, chart_spent_values|max, 1]|max) %}
-                    {% for i in range(chart_labels|length) %}
-                    <div class="bar-category-group"> <!-- Changed class name -->
-                        <div class="bars-container"> <!-- New wrapper for side-by-side bars -->
-                            <div class="bar" style="height: {{ (chart_budgeted_values[i] / max_val * 200) if max_val > 0 else 0 }}px;">
-                                <span class="bar-value">{{ "%.0f"|format(chart_budgeted_values[i]) }}</span>
-                            </div>
-                            <div class="bar spent" style="height: {{ (chart_spent_values[i] / max_val * 200) if max_val > 0 else 0 }}px;"> <!-- Removed inline margin-left -->
-                                 <span class="bar-value">{{ "%.0f"|format(chart_spent_values[i]) }}</span>
-                            </div>
-                        </div>
-                        <div class="bar-label">{{ chart_labels[i] }}</div>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-        {% endif %}
 
         <div class="section">
             <h2>Income Details</h2>
             {% if income_data %}
-            <table class="income-details-table">
+            <table>
                 <thead><tr><th>Description</th><th>Amount</th></tr></thead>
                 <tbody>
                 {% for item in income_data %}
@@ -67,7 +38,7 @@
         <div class="section">
             <h2>Expense Details</h2>
             {% if expenses_data %}
-            <table class="expense-details-table">
+            <table>
                 <thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Amount</th></tr></thead>
                 <tbody>
                 {% for item in expenses_data %}
@@ -83,7 +54,7 @@
         <div class="section">
             <h2>EMI Details</h2>
             {% if emis_data %}
-            <table class="emi-details-table">
+            <table>
                 <thead><tr><th>Loan Name</th><th>EMI Amount</th></tr></thead>
                 <tbody>
                 {% for item in emis_data %}
@@ -99,7 +70,7 @@
         <div class="section">
             <h2>Budget Allocation</h2>
             {% if budget_data %}
-            <table class="budget-details-table">
+            <table>
                 <thead><tr><th>Category</th><th>Budgeted Amount</th></tr></thead>
                 <tbody>
                 {% for item in budget_data %}

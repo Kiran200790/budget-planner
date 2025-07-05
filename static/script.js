@@ -463,4 +463,139 @@ document.addEventListener('DOMContentLoaded', function () {
             expenseSearchBox.focus();
         });
     }
+
+    function initializeMobileView() {
+        const navItems = document.querySelectorAll('.nav-item');
+        const fab = document.getElementById('fab-add-expense');
+        const modal = document.getElementById('add-expense-modal');
+        const closeModalBtn = document.getElementById('close-modal-button');
+        const expenseForm = document.querySelector('form[action="/add_expense"]');
+        const modalContent = modal.querySelector('.modal-content');
+
+        // Move the expense form into the modal
+        if (expenseForm && modalContent) {
+            modalContent.appendChild(expenseForm);
+        }
+
+        // FAB and Modal logic
+        if (fab && modal && closeModalBtn) {
+            fab.addEventListener('click', () => { modal.style.display = 'flex'; });
+            closeModalBtn.addEventListener('click', () => { modal.style.display = 'none'; });
+            window.addEventListener('click', (event) => {
+                if (event.target == modal) {
+                    modal.style.display = 'none';
+                }
+            });
+        }
+
+        // Bottom navigation logic
+        navItems.forEach(item => {
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+
+                // Deactivate all items and panes
+                navItems.forEach(i => i.classList.remove('active'));
+                document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+
+                // Activate the clicked item and its corresponding pane
+                this.classList.add('active');
+                const targetPaneId = this.getAttribute('data-target');
+                const targetPane = document.querySelector(targetPaneId);
+                if (targetPane) {
+                    targetPane.classList.add('active');
+                }
+            });
+        });
+
+        // Set initial active state based on the default active nav item
+        const activeNavItem = document.querySelector('.nav-item.active');
+        if (activeNavItem) {
+            activeNavItem.click();
+        }
+
+        // --- Populate Mobile Dashboard ---
+        const flaskData = JSON.parse(document.getElementById('flaskData').textContent);
+
+        // 1. Update summary cards
+        const totalIncome = flaskData.income.reduce((acc, item) => acc + item.amount, 0);
+        const totalExpenses = flaskData.expenses.reduce((acc, item) => acc + item.amount, 0);
+        const totalEMI = flaskData.emis.reduce((acc, item) => acc + item.emi_amount, 0);
+        const netSavings = totalIncome - (totalExpenses + totalEMI);
+
+        document.getElementById('mobile-totalIncome').textContent = totalIncome.toFixed(2);
+        document.getElementById('mobile-totalExpenses').textContent = totalExpenses.toFixed(2);
+        document.getElementById('mobile-totalEMI').textContent = totalEMI.toFixed(2);
+        document.getElementById('mobile-netSavings').textContent = netSavings.toFixed(2);
+
+        // 2. Render mobile bar chart
+        const mobileCtx = document.getElementById('mobileCategoryBarChart').getContext('2d');
+        new Chart(mobileCtx, {
+            type: 'bar',
+            data: {
+                labels: flaskData.doughnut_chart_labels,
+                datasets: [
+                    {
+                        label: 'Budgeted',
+                        data: flaskData.doughnut_chart_values,
+                        backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Spent',
+                        data: flaskData.chart_spent_values,
+                        backgroundColor: 'rgba(255, 99, 132, 0.6)',
+                        borderColor: 'rgba(255, 99, 132, 1)',
+                        borderWidth: 1
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+
+        // 3. Fetch and render budget report table
+        fetch('/api/budget_report_data')
+            .then(response => response.json())
+            .then(data => {
+                const container = document.getElementById('mobile-budget-report-table-container');
+                const table = document.createElement('table');
+                table.className = 'budget-report-section'; // Reuse existing style
+                table.innerHTML = `
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th>Budgeted</th>
+                            <th>Spent</th>
+                            <th>Diff</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.report_data.map(row => `
+                            <tr>
+                                <td>${row.category}</td>
+                                <td>${row.budgeted.toFixed(2)}</td>
+                                <td>${row.spent.toFixed(2)}</td>
+                                <td style="color: ${row.difference < 0 ? 'red' : 'green'};">${row.difference.toFixed(2)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td><strong>Total</strong></td>
+                            <td><strong>${data.totals.budgeted.toFixed(2)}</strong></td>
+                            <td><strong>${data.totals.spent.toFixed(2)}</strong></td>
+                            <td style="color: ${data.totals.difference < 0 ? 'red' : 'green'};"><strong>${data.totals.difference.toFixed(2)}</strong></td>
+                        </tr>
+                    </tfoot>
+                `;
+                container.innerHTML = ''; // Clear previous content
+                container.appendChild(table);
+            });
+    }
+
+    // Initialize mobile view components
+    initializeMobileView();
 }); // Closing for DOMContentLoaded

@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Edit {{ item_type|capitalize }} - {{ active_month }}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="stylesheet" href="/static/style.css">
     
     <!-- PWA manifest and meta tags -->
@@ -15,26 +16,27 @@
     <link rel="apple-touch-icon" href="/static/icon-192x192.png">
 </head>
 <body>
-    <div class="container"> <!-- Added container div -->
-        <h1>Edit {{ item_type|capitalize }} for {{ active_month }}</h1>
+    <div class="container card"> <!-- Added card class -->
+        <a href="/" class="back-link"><i class="fas fa-arrow-left"></i> Back</a>
+        <h1>Edit {{ item_type|capitalize }}</h1>
 
-        <div class="edit-form-container"> <!-- Added this wrapper -->
+        <div class="edit-form-container">
             <form method="post" id="editExpenseFormHtml">
                 {% if item_type == 'income' %}
-                    <div class="edit-form-field">
+                    <div class="form-group">
                         <label for="description">Description:</label>
-                        <input type="text" id="description" name="description" value="{{ item.description }}" placeholder="Description" required>
+                        <input type="text" id="description" name="description" value="{{ item.description }}" placeholder="e.g., Monthly Salary" required>
                     </div>
-                    <div class="edit-form-field">
+                    <div class="form-group">
                         <label for="amount">Amount:</label>
                         <input type="number" step="0.01" id="amount" name="amount" value="{{ item.amount }}" required>
                     </div>
                 {% elif item_type == 'expense' %}
-                    <div class="edit-form-field">
+                    <div class="form-group">
                         <label for="date">Date:</label>
                         <input type="date" id="date" name="date" value="{{ item.date }}" required>
                     </div>
-                    <div class="edit-form-field">
+                    <div class="form-group">
                         <label for="category">Category:</label>
                         <select id="expense_category" name="category">
                             <option value="Food" {% if item.category == 'Food' %}selected{% endif %}>Food</option>
@@ -44,43 +46,43 @@
                             <option value="Other" {% if item.category == 'Other' %}selected{% endif %}>Other</option>
                         </select>
                     </div>
-                    <div class="edit-form-field">
-                        
-                        <div class="payment-options"> <!-- Changed class to payment-options -->
-                            <label for="payment_type_edit">Payment:</label> 
-                            <input type="radio" id="edit_pay_amex" name="payment_type_edit" value="Amex"> <!-- Removed inline style -->
-                            <label for="edit_pay_amex">Amex</label> <!-- Removed inline style -->
-                            <input type="radio" id="edit_pay_rbl" name="payment_type_edit" value="RBL"> <!-- Removed inline style -->
-                            <label for="edit_pay_rbl">RBL</label> <!-- Removed inline style -->
-                            <input type="radio" id="edit_pay_cash" name="payment_type_edit" value="CASH"> <!-- Removed inline style -->
-                            <label for="edit_pay_cash">Cash</label> <!-- Removed inline style -->
+                    <div class="form-group">
+                        <label>Payment Method:</label>
+                        <div class="payment-options">
+                            <input type="radio" id="edit_pay_amex" name="payment_type" value="Amex" {% if item.payment_type == 'Amex' %}checked{% endif %}>
+                            <label for="edit_pay_amex">Amex</label>
+                            <input type="radio" id="edit_pay_rbl" name="payment_type" value="RBL" {% if item.payment_type == 'RBL' %}checked{% endif %}>
+                            <label for="edit_pay_rbl">RBL</label>
+                            <input type="radio" id="edit_pay_cash" name="payment_type" value="CASH" {% if item.payment_type == 'CASH' %}checked{% endif %}>
+                            <label for="edit_pay_cash">Cash</label>
                         </div>
                     </div>
-                    <div class="edit-form-field">
-                        <label for="expense_description_display_edit">Description:</label> <!-- Removed colon -->
-                        <input type="text" id="expense_description_display_edit" name="description_display_edit" placeholder="Description" required>
+                    <div class="form-group">
+                        <label for="expense_description_display_edit">Description:</label>
+                        <input type="text" id="expense_description_display_edit" name="description_display_edit" placeholder="e.g., Coffee" value="{{ item.description }}" required>
                         <input type="hidden" id="expense_description_edit" name="description" value="{{ item.description }}">
                     </div>
-                    <div class="edit-form-field">
+                    <div class="form-group">
                         <label for="amount">Amount:</label>
                         <input type="number" step="0.01" id="amount" name="amount" value="{{ item.amount }}" required>
                     </div>
                 {% elif item_type == 'emi' %}
-                    <div class="edit-form-field">
+                    <div class="form-group">
                         <label for="loan_name">Loan Name/Description:</label>
                         <input type="text" id="loan_name" name="loan_name" value="{{ item.loan_name }}" required>
                     </div>
-                    <div class="edit-form-field">
+                    <div class="form-group">
                         <label for="emi_amount">EMI Amount:</label>
                         <input type="number" step="0.01" id="emi_amount" name="emi_amount" value="{{ item.emi_amount }}" required>
                     </div>
                 {% endif %}
-                <button type="submit">Save Changes</button>
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Save Changes</button>
+                    <a href="/" class="btn-secondary">Cancel</a>
+                </div>
             </form>
-        </div> <!-- Closed this wrapper -->
-
-        <p><a href="/" class="button-style">Back to Overview</a></p> <!-- Added class="button-style" -->
-    </div> <!-- Close container div -->
+        </div>
+    </div>
     <script src="/static/script.js"></script>
 </body>
 </html>
