@@ -1,15 +1,69 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for, session, g, send_file, flash
 import sqlite3
-import datetime
+import logging
+import libsql_client
+
+from flask import Flask, render_template, request, redirect, url_for, session, g, send_file, flash, jsonify
+from datetime import datetime, date
+from dateutil.relativedelta import relativedelta # Added for month iteration
 import io
 import csv
-from weasyprint import HTML, CSS # Added for PDF generation
-import libsql_client
 
 app = Flask(__name__)
 # Use an environment variable for the secret key in production, with a fallback for local dev
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'a_default_fallback_key_for_development')
+
+# Configure logging to see output in the terminal
+logging.basicConfig(level=logging.INFO)
+# --- ADD /api/edit_income/<int:income_id> API ENDPOINT ---
+
+# --- ADD /api/edit_income/<int:income_id> API ENDPOINT ---
+@app.route('/api/edit_income/<int:income_id>', methods=['POST'])
+def api_edit_income(income_id):
+    """API endpoint to update an existing income record."""
+    description = request.form.get('description')
+    amount = request.form.get('amount')
+    month = request.form.get('month') or request.form.get('month_select')
+    propagate = request.form.get('propagate', 'false').lower() == 'true'
+
+    if not all([description, amount, month]):
+        return jsonify({'status': 'error', 'message': 'All fields are required!'}), 400
+
+    try:
+        db = get_db()
+        # Get the original description to identify records to propagate
+        original_income_cursor = db.execute('SELECT description FROM income WHERE id = ?', (income_id,))
+        original_income = db.fetchone(original_income_cursor)
+        if not original_income:
+            return jsonify({'status': 'error', 'message': 'Original income record not found.'}), 404
+        original_description = original_income['description']
+
+        if propagate:
+            start_month = datetime.strptime(month, '%Y-%m')
+            queries = []
+            for i in range(12):
+                current_month_dt = start_month + relativedelta(months=i)
+                current_month_str = current_month_dt.strftime('%Y-%m')
+                queries.append(
+                    ("UPDATE income SET description = ?, amount = ? WHERE description = ? AND month = ?",
+                    (description, float(amount), original_description, current_month_str))
+                )
+            db.execute_batch(queries)
+            message = 'Income updated for all future entries successfully!'
+        else:
+            db.execute(
+                'UPDATE income SET description = ?, amount = ?, month = ? WHERE id = ?',
+                (description, float(amount), month, income_id)
+            )
+            db.commit()
+            message = 'Income updated successfully!'
+
+        return jsonify({'status': 'success', 'message': message})
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Invalid amount. Please use numbers only.'}), 400
+    except Exception as e:
+        app.logger.error(f"Error updating income {income_id} via API: {e}")
+        return jsonify({'status': 'error', 'message': 'An error occurred while updating the income.'}), 500
 
 # --- Database Abstraction ---
 # This wrapper provides a unified interface for both SQLite and Turso (libSQL).
@@ -149,447 +203,692 @@ def init_db():
             """
         ]
         db.execute_batch(schema_queries)
-        db.commit() # Commit is a no-op for Turso but necessary for SQLite
+        # db.commit() is not needed here for Turso, and execute_batch handles it for SQLite
 
 # Call this function once to initialize/update the database schema
 # init_db() # Commented out for production, will be run via build.sh
 
-def get_active_month():
-    return session.get('active_month', datetime.date.today().strftime("%Y-%m"))
-
-@app.route('/', methods=['GET']) # Simplified to GET only for month selection via query param
-def index():
-    month_from_get = request.args.get('month_select')
-    if month_from_get:
-        previous_active_month = get_active_month() # This is the month we might copy FROM
-        new_active_month = month_from_get
-
-        # Only proceed with carry-over logic if the selected month is different
-        if new_active_month != previous_active_month:
-            try:
-                # Add a dummy day for parsing, as months are YYYY-MM
-                prev_month_date = datetime.datetime.strptime(previous_active_month + "-01", "%Y-%m-%d").date()
-                new_month_date = datetime.datetime.strptime(new_active_month + "-01", "%Y-%m-%d").date()
-
-                if new_month_date > prev_month_date:
-                    db = get_db()
-                    # Check if the new_active_month is truly empty
-                    income_count_res = db.execute("SELECT COUNT(*) as count FROM income WHERE month = ?", (new_active_month,))
-                    income_count = db.fetchone(income_count_res)['count']
-                    
-                    expenses_count_res = db.execute("SELECT COUNT(*) as count FROM expenses WHERE month = ?", (new_active_month,))
-                    expenses_count = db.fetchone(expenses_count_res)['count']
-
-                    emis_count_res = db.execute("SELECT COUNT(*) as count FROM emis WHERE month = ?", (new_active_month,))
-                    emis_count = db.fetchone(emis_count_res)['count']
-
-                    budgets_count_res = db.execute("SELECT COUNT(*) as count FROM budgets WHERE month = ?", (new_active_month,))
-                    budgets_count = db.fetchone(budgets_count_res)['count']
-
-
-                    if income_count == 0 and expenses_count == 0 and emis_count == 0 and budgets_count == 0:
-                        # This is a new, future month. Carry over data.
-                        
-                        # 1. Carry over Income
-                        income_to_carry_res = db.execute("SELECT description, amount FROM income WHERE month = ?", (previous_active_month,))
-                        income_to_carry = db.fetchall(income_to_carry_res)
-                        for item in income_to_carry:
-                            db.execute("INSERT INTO income (month, description, amount) VALUES (?, ?, ?)",
-                                       (new_active_month, item['description'], item['amount']))
-                        
-                        # 2. Carry over Budgets
-                        budgets_to_carry_res = db.execute("SELECT category, amount FROM budgets WHERE month = ?", (previous_active_month,))
-                        budgets_to_carry = db.fetchall(budgets_to_carry_res)
-                        for budget_item in budgets_to_carry:
-                            # Note: ON CONFLICT is SQLite specific. For Turso/libSQL, this needs to be handled carefully.
-                            # The current implementation will work for SQLite and might raise an error on Turso if a duplicate is inserted.
-                            # A robust solution would be to check for existence first.
-                            # For now, we assume new months are empty, making this safe.
-                            db.execute("""INSERT INTO budgets (month, category, amount) VALUES (?, ?, ?)""",
-                                       (new_active_month, budget_item['category'], budget_item['amount']))
-
-                        # 3. Carry over EMIs
-                        emis_to_carry_res = db.execute("SELECT loan_name, emi_amount FROM emis WHERE month = ?", (previous_active_month,))
-                        emis_to_carry = db.fetchall(emis_to_carry_res)
-                        for emi in emis_to_carry:
-                            db.execute("INSERT INTO emis (month, loan_name, emi_amount) VALUES (?, ?, ?)",
-                                       (new_active_month, emi['loan_name'], emi['emi_amount']))
-                        
-                        db.commit()
-            except ValueError:
-                # Handle cases where month strings might be invalid during parsing
-                # If parsing fails, we just proceed to set the active month without carry-over
-                pass
-            except Exception as e:
-                # Log other potential errors during carry-over if necessary
-                # For now, just proceed
-                app.logger.error(f"Error during data carry-over: {e}")
-                pass
-
-        session['active_month'] = new_active_month
-        return redirect(url_for('index')) # Redirect to clean URL
-
-    active_month = get_active_month()
-    db = get_db()
-    
-    # Fetch data using the wrapper
-    income_data_res = db.execute("SELECT * FROM income WHERE month = ? ORDER BY id", (active_month,))
-    income_data = db.fetchall(income_data_res)
-
-    expenses_data_res = db.execute("SELECT * FROM expenses WHERE month = ? ORDER BY date DESC, id DESC", (active_month,))
-    expenses_data = db.fetchall(expenses_data_res)
-
-    emis_data_res = db.execute("SELECT * FROM emis WHERE month = ? ORDER BY id", (active_month,))
-    emis_data = db.fetchall(emis_data_res)
-    
-    budget_res = db.execute("SELECT category, amount FROM budgets WHERE month = ?", (active_month,))
-    budget_rows = db.fetchall(budget_res)
-    current_budget = {row["category"]: row["amount"] for row in budget_rows}
-
-    # Generate available_months from all tables
-    # The UNION query is standard SQL and should work on both
-    months_res = db.execute("SELECT DISTINCT month FROM income UNION SELECT DISTINCT month FROM expenses UNION SELECT DISTINCT month FROM emis UNION SELECT DISTINCT month FROM budgets ORDER BY month DESC")
-    available_months_dicts = db.fetchall(months_res)
-    available_months = [row['month'] for row in available_months_dicts]
-    
-    if not available_months: # Ensure at least the current month is available if DB is empty
-        available_months = [active_month]
-    elif active_month not in available_months: # If active_month has no data yet, add it for selection
-        # This case might be complex if we only want to show months with data.
-        # For now, let's ensure active_month is added to the list if it's the default.
-        if datetime.date.today().strftime("%Y-%m") == active_month and active_month not in available_months:
-             available_months.append(active_month)
-             available_months.sort(reverse=True)
-
-
-    current_date = datetime.date.today().strftime("%Y-%m-%d")
-    
-    categories = ['Food', 'Cloth', 'Online', 'Miscellaneous', 'Other'] # Define categories
-    
-    spent_by_category_for_table = {category: 0.0 for category in categories}
-    for expense in expenses_data: # Use the converted list of dicts
-        category = expense['category']
-        try:
-            amount = float(expense['amount'])
-        except (ValueError, TypeError):
-            amount = 0.0
-        if category in spent_by_category_for_table:
-            spent_by_category_for_table[category] += amount
-            
-    chart_labels_table = categories
-    chart_budgeted_values_table = [float(current_budget.get(cat, 0.0)) for cat in categories]
-    chart_spent_values_table = [spent_by_category_for_table.get(cat, 0.0) for cat in categories]
-
-    doughnut_chart_labels = chart_labels_table
-    doughnut_chart_budget_values = chart_budgeted_values_table
-    active_month_total_budget = sum(doughnut_chart_budget_values)
-    active_month_total_spent = sum(chart_spent_values_table)
-
-    return render_template('index.html',
-                           active_month=active_month,
-                           available_months=available_months,
-                           income=income_data,
-                           expenses=expenses_data,
-                           emis=emis_data,
-                           budget=current_budget, # Pass the dictionary
-                           current_date=current_date,
-                           chart_labels=chart_labels_table,
-                           chart_budgeted_values=chart_budgeted_values_table,
-                           chart_spent_values=chart_spent_values_table,
-                           doughnut_chart_labels=doughnut_chart_labels,
-                           doughnut_chart_values=doughnut_chart_budget_values,
-                           active_month_total_budget=active_month_total_budget, 
-                           active_month_total_spent=active_month_total_spent)
-
-@app.route('/api/budget_report_data')
-def budget_report_data():
-    active_month = get_active_month()
+def get_budget_data(active_month):
+    """Fetches and calculates all necessary data for a given month."""
+    app.logger.info(f"--- Fetching data for active_month: {active_month} ---")
     db = get_db()
 
-    # Fetch budget
-    budget_res = db.execute("SELECT category, amount FROM budgets WHERE month = ?", (active_month,))
-    budget_rows = db.fetchall(budget_res)
-    current_budget = {row["category"]: row["amount"] for row in budget_rows}
+    # Fetch all data for the active month
+    expenses_rs = db.execute('SELECT * FROM expenses WHERE strftime("%Y-%m", date) = ? ORDER BY date DESC', (active_month,))
+    expenses = db.fetchall(expenses_rs)
+    app.logger.info(f"Found {len(expenses)} expenses.")
 
-    # Fetch expenses
-    expenses_data_res = db.execute("SELECT category, amount FROM expenses WHERE month = ?", (active_month,))
-    expenses_data = db.fetchall(expenses_data_res)
+    income_rs = db.execute('SELECT * FROM income WHERE month = ? ORDER BY id DESC', (active_month,))
+    income = db.fetchall(income_rs)
+    app.logger.info(f"Found {len(income)} income records.")
 
-    # Define categories to ensure consistent order and inclusion
-    categories = ['Food', 'Cloth', 'Online', 'Miscellaneous', 'Other']
+    emis_rs = db.execute('SELECT * FROM emis WHERE month = ? ORDER BY id DESC', (active_month,))
+    emis = db.fetchall(emis_rs)
+    app.logger.info(f"Found {len(emis)} EMI records.")
+
+    budget_cursor = db.execute('SELECT category, amount FROM budgets WHERE month = ?', (active_month,))
+    budget = {row['category']: row['amount'] for row in db.fetchall(budget_cursor)}
+    app.logger.info(f"Found budget categories: {list(budget.keys())}")
+
+
+    # --- SERVER-SIDE CALCULATIONS ---
+    total_income = sum(i['amount'] for i in income)
+    total_expenses = sum(e['amount'] for e in expenses)
+    total_emi = sum(e['emi_amount'] for e in emis)
+    total_budget = sum(budget.values())
+    remaining_budget = total_budget - total_expenses
+    net_savings = total_income - (total_expenses + total_emi)
     
-    spent_by_category = {category: 0.0 for category in categories}
-    for expense in expenses_data:
+    app.logger.info(f"Calculated Totals: Income={total_income}, Expenses={total_expenses}, EMI={total_emi}, Budget={total_budget}")
+
+
+    # Prepare data for bar chart (budget vs. spent)
+    category_totals = {}
+    for expense in expenses:
         category = expense['category']
-        if category in spent_by_category:
-            spent_by_category[category] += float(expense.get('amount', 0.0))
+        amount = expense['amount']
+        category_totals[category] = category_totals.get(category, 0) + amount
 
-    report_data = []
-    for category in categories:
-        budgeted = float(current_budget.get(category, 0.0))
-        spent = spent_by_category.get(category, 0.0)
-        difference = budgeted - spent
-        report_data.append({
-            "category": category,
-            "budgeted": budgeted,
-            "spent": spent,
-            "difference": difference
-        })
-    
-    # Calculate totals
-    total_budgeted = sum(item['budgeted'] for item in report_data)
-    total_spent = sum(item['spent'] for item in report_data)
-    total_difference = total_budgeted - total_spent
+    # Define a fixed list of all possible categories to ensure they always appear.
+    all_categories = sorted(['Food', 'Cloth', 'Online', 'Miscellaneous', 'Other'])
 
-    return {
-        "report_data": report_data,
-        "totals": {
-            "budgeted": total_budgeted,
-            "spent": total_spent,
-            "difference": total_difference
-        }
+    chart_labels = all_categories
+    budget_values = [budget.get(cat, 0) for cat in chart_labels]
+    spent_values = [category_totals.get(cat, 0) for cat in chart_labels]
+
+    # Fetch recent transactions for mobile view
+    # Ensure date for income is a full date string for proper sorting
+    recent_trans_rs = db.execute("""
+        SELECT date, category, description, amount, 'expense' as type
+        FROM expenses
+        WHERE strftime('%Y-%m', date) = ?
+        UNION ALL
+        SELECT month || '-01' as date, 'Income' as category, description, amount, 'income' as type
+        FROM income
+        WHERE month = ?
+        ORDER BY date DESC
+        LIMIT 5
+    """, (active_month, active_month))
+    recent_transactions = db.fetchall(recent_trans_rs)
+    app.logger.info(f"Found {len(recent_transactions)} recent transactions for mobile view.")
+
+    # This dictionary is the single source of truth for the frontend.
+    result_data = {
+        'active_month': active_month,
+        'expenses': expenses,
+        'income': income,
+        'emis': emis,
+        'budget': budget,
+        'doughnut_chart_labels': chart_labels,
+        'budget_values': budget_values,
+        'spent_values': spent_values,
+        'total_income': total_income,
+        'total_expenses': total_expenses,
+        'total_emi': total_emi,
+        'total_budget': total_budget,
+        'remaining_budget': remaining_budget,
+        'net_savings': net_savings,
+        'recent_transactions': recent_transactions
     }
+    app.logger.info(f"--- Finished fetching data for {active_month}. Returning {len(result_data)} keys. ---")
+    return result_data
 
+@app.route('/api/report_data', methods=['GET'])
+def api_report_data():
+    """API endpoint to fetch all dashboard data for a given month."""
+    active_month = request.args.get('month_select')
+    if not active_month:
+        return jsonify({'status': 'error', 'message': 'Month parameter is required.'}), 400
 
-@app.route('/add_income', methods=['POST'])
-def add_income():
-    active_month = get_active_month()
-    description = request.form.get('description')
-    amount = request.form.get('amount')
-    if description and amount:
-        try:
-            db = get_db()
-            db.execute("INSERT INTO income (month, description, amount) VALUES (?, ?, ?)",
-                       (active_month, description, float(amount)))
-            db.commit()
-        except ValueError:
-            flash('Invalid amount. Please enter a valid number.', 'error')
-    return redirect(url_for('index'))
+    try:
+        data = get_budget_data(active_month)
+        return jsonify(data)
+    except Exception as e:
+        app.logger.error(f"Error fetching report data for month {active_month}: {e}")
+        return jsonify({'status': 'error', 'message': 'An internal error occurred.'}), 500
 
-@app.route('/edit_income/<int:item_id>', methods=['GET', 'POST'])
-def edit_income(item_id):
-    active_month = get_active_month() # Keep for context if needed, or remove if item_id is globally unique
+@app.route('/', methods=['GET'])
+def index():
+    active_month = request.args.get('month_select', default=datetime.now().strftime('%Y-%m'))
+    # Check for a success message passed in the URL, used for redirects from edit pages
+    flash_success = request.args.get('flash_success')
+    if flash_success:
+        flash(flash_success, 'success')
+
+    js_data = get_budget_data(active_month)
+
     db = get_db()
-    
-    if request.method == 'POST':
-        description = request.form.get('description')
-        amount = request.form.get('amount')
-        if description and amount:
-            try:
-                db.execute("UPDATE income SET description = ?, amount = ? WHERE id = ? AND month = ?",
-                           (description, float(amount), item_id, active_month))
-                db.commit()
-            except ValueError:
-                flash('Invalid amount. Please enter a valid number.', 'error')
-        return redirect(url_for('index'))
-    
-    # GET request
-    income_item_res = db.execute("SELECT * FROM income WHERE id = ? AND month = ?", (item_id, active_month))
-    income_item = db.fetchone(income_item_res)
-    if income_item is None:
-        return "Error: Income item not found", 404
-    return render_template('edit_item.html', item=income_item, item_id=item_id, active_month=active_month, item_type='income')
+    available_months_rs = db.execute('''
+        SELECT DISTINCT strftime("%Y-%m", date) as month FROM expenses
+        UNION
+        SELECT DISTINCT month FROM income
+        UNION
+        SELECT DISTINCT month FROM emis
+        ORDER BY month DESC
+    ''')
+    available_months = [row['month'] for row in db.fetchall(available_months_rs)]
 
-@app.route('/delete_income/<int:item_id>', methods=['POST'])
-def delete_income(item_id):
-    active_month = get_active_month() # To ensure deletion is for the correct month context
-    db = get_db()
-    db.execute("DELETE FROM income WHERE id = ? AND month = ?", (item_id, active_month))
-    db.commit()
-    return redirect(url_for('index'))
+    return render_template('index.html', 
+                         js_data=js_data, 
+                         active_month=active_month, 
+                         available_months=available_months, 
+                         current_date=datetime.now().strftime('%Y-%m-%d'),
+                         # Pass individual data points that the template still needs directly
+                         budget=js_data.get('budget', {}),
+                         income=js_data.get('income', []),
+                         expenses=js_data.get('expenses', []),
+                         emis=js_data.get('emis', []))
+
 
 @app.route('/add_expense', methods=['POST'])
 def add_expense():
-    active_month = get_active_month()
+    active_month = request.form.get('month_select')
     date = request.form.get('date')
     category = request.form.get('category')
     description = request.form.get('description')
     amount = request.form.get('amount')
-    payment_type = request.form.get('payment_type') # Get payment type
-    if category and description and amount and date and payment_type:
-        try:
-            db = get_db()
-            db.execute("INSERT INTO expenses (month, date, category, description, amount, payment_type) VALUES (?, ?, ?, ?, ?, ?)",
-                       (active_month, date, category, description, float(amount), payment_type))
-            db.commit()
-        except ValueError:
-            flash('Invalid amount. Please enter a valid number.', 'error')
-    return redirect(url_for('index'))
+    payment_type = request.form.get('payment_type')
 
-@app.route('/edit_expense/<int:item_id>', methods=['GET', 'POST'])
-def edit_expense(item_id):
-    active_month = get_active_month()
-    db = get_db()
-    if request.method == 'POST':
-        date = request.form.get('date')
-        category = request.form.get('category')
-        description = request.form.get('description')
-        amount = request.form.get('amount')
-        payment_type = request.form.get('payment_type') # Get payment type
-        if category and description and amount and date and payment_type:
-            try:
-                db.execute("UPDATE expenses SET date = ?, category = ?, description = ?, amount = ?, payment_type = ? WHERE id = ? AND month = ?",
-                           (date, category, description, float(amount), payment_type, item_id, active_month))
-                db.commit()
-            except ValueError:
-                flash('Invalid amount. Please enter a valid number.', 'error')
-            except sqlite3.Error as e:
-                app.logger.error(f"Database error on expense update: {e}")
-                flash('A database error occurred.', 'error')
-        return redirect(url_for('index'))
-    
-    # GET request
-    expense_item_res = db.execute("SELECT * FROM expenses WHERE id = ? AND month = ?", (item_id, active_month))
-    expense_item = db.fetchone(expense_item_res)
-    if expense_item is None:
-        return "Error: Expense item not found", 404
-    
-    return render_template('edit_item.html', item=expense_item, item_id=item_id, active_month=active_month, item_type='expense')
+    if not all([active_month, date, category, description, amount, payment_type]):
+        flash('All fields are required!', 'error')
+        return redirect(url_for('index', month_select=active_month))
 
-@app.route('/delete_expense/<int:item_id>', methods=['POST'])
-def delete_expense(item_id):
-    active_month = get_active_month()
-    db = get_db()
-    db.execute("DELETE FROM expenses WHERE id = ? AND month = ?", (item_id, active_month))
-    db.commit()
-    return redirect(url_for('index'))
+    try:
+        # The month for the expense record should match the month context
+        month_for_db = datetime.strptime(date, '%Y-%m-%d').strftime('%Y-%m')
 
-@app.route('/add_emi', methods=['POST'])
-def add_emi():
-    active_month = get_active_month()
+        db = get_db()
+        db.execute(
+            '''INSERT INTO expenses (month, date, category, description, amount, payment_type)
+               VALUES (?, ?, ?, ?, ?, ?)''',
+            (month_for_db, date, category, description, float(amount), payment_type)
+        )
+        db.commit()
+        flash('Expense added successfully!', 'success')
+    except ValueError:
+        flash('Invalid amount entered. Please use numbers only.', 'error')
+    except Exception as e:
+        app.logger.error(f"Error adding expense: {e}")
+        flash('An error occurred while adding the expense.', 'error')
+
+    return redirect(url_for('index', month_select=active_month))
+
+
+@app.route('/api/add_expense', methods=['POST'])
+def api_add_expense():
+    active_month = request.form.get('month_select')
+    date = request.form.get('date')
+    category = request.form.get('category')
+    description = request.form.get('description')
+    amount = request.form.get('amount')
+    payment_type = request.form.get('payment_type')
+
+    if not all([active_month, date, category, description, amount, payment_type]):
+        return jsonify({'status': 'error', 'message': 'All fields are required!'}), 400
+
+    try:
+        month_for_db = datetime.strptime(date, '%Y-%m-%d').strftime('%Y-%m')
+        db = get_db()
+        db.execute(
+            '''INSERT INTO expenses (month, date, category, description, amount, payment_type)
+               VALUES (?, ?, ?, ?, ?, ?)''',
+            (month_for_db, date, category, description, float(amount), payment_type)
+        )
+        db.commit()
+        return jsonify({'status': 'success', 'message': 'Expense added successfully!'})
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Invalid amount. Please use numbers only.'}), 400
+    except Exception as e:
+        app.logger.error(f"Error adding expense via API: {e}")
+        return jsonify({'status': 'error', 'message': 'An error occurred while adding the expense.'}), 500
+
+
+@app.route('/api/add_income', methods=['POST'])
+def api_add_income():
+    description = request.form.get('description')
+    amount = request.form.get('amount')
+    month = request.form.get('month_select')
+    propagate = request.form.get('propagate', 'false').lower() == 'true'
+
+
+    if not all([description, amount, month]):
+        return jsonify({'status': 'error', 'message': 'All fields are required!'}), 400
+
+    try:
+        db = get_db()
+        num_months = 12 if propagate else 1
+        start_month = datetime.strptime(month, '%Y-%m')
+        
+        queries = []
+        for i in range(num_months):
+            current_month_dt = start_month + relativedelta(months=i)
+            current_month_str = current_month_dt.strftime('%Y-%m')
+            queries.append(
+                ('INSERT INTO income (description, amount, month) VALUES (?, ?, ?)',
+                (description, float(amount), current_month_str))
+            )
+        
+        db.execute_batch(queries)
+        message = f'Income added for {num_months} month(s) successfully!'
+        return jsonify({'status': 'success', 'message': message})
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Invalid amount. Please use numbers only.'}), 400
+    except Exception as e:
+        app.logger.error(f"Error adding income via API: {e}")
+        return jsonify({'status': 'error', 'message': 'An error occurred while adding the income.'}), 500
+
+@app.route('/api/add_emi', methods=['POST'])
+def api_add_emi():
     loan_name = request.form.get('loan_name')
     emi_amount = request.form.get('emi_amount')
-    if loan_name and emi_amount:
-        try:
-            db = get_db()
-            db.execute("INSERT INTO emis (month, loan_name, emi_amount) VALUES (?, ?, ?)",
-                       (active_month, loan_name, float(emi_amount)))
-            db.commit()
-        except ValueError:
-            flash('Invalid EMI amount. Please enter a valid number.', 'error')
-    return redirect(url_for('index'))
+    month = request.form.get('month_select')
+    propagate = request.form.get('propagate', 'false').lower() == 'true'
 
-@app.route('/edit_emi/<int:item_id>', methods=['GET', 'POST'])
-def edit_emi(item_id):
-    active_month = get_active_month()
-    db = get_db()
-    if request.method == 'POST':
-        loan_name = request.form.get('loan_name')
-        emi_amount = request.form.get('emi_amount')
-        if loan_name and emi_amount:
+    if not all([loan_name, emi_amount, month]):
+        return jsonify({'status': 'error', 'message': 'All fields are required!'}), 400
+    
+    try:
+        db = get_db()
+        num_months = 12 if propagate else 1
+        start_month = datetime.strptime(month, '%Y-%m')
+
+        queries = []
+        for i in range(num_months):
+            current_month_dt = start_month + relativedelta(months=i)
+            current_month_str = current_month_dt.strftime('%Y-%m')
+            queries.append(
+                ('INSERT INTO emis (loan_name, emi_amount, month) VALUES (?, ?, ?)',
+                (loan_name, float(emi_amount), current_month_str))
+            )
+
+        db.execute_batch(queries)
+        message = f'EMI added for {num_months} month(s) successfully!'
+        return jsonify({'status': 'success', 'message': message})
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Invalid amount. Please use numbers only.'}), 400
+    except Exception as e:
+        app.logger.error(f"Error adding EMI via API: {e}")
+        return jsonify({'status': 'error', 'message': 'An error occurred while adding the EMI.'}), 500
+
+
+@app.route('/set_budget', methods=['POST'])
+def set_budget():
+    active_month = request.form.get('month_select')
+    # This route now handles multiple budget entries from the form
+    for category in ['Food', 'Cloth', 'Online', 'Miscellaneous', 'Other']:
+        amount = request.form.get(category)
+        if amount:  # Only process if an amount was entered
             try:
-                db.execute("UPDATE emis SET loan_name = ?, emi_amount = ? WHERE id = ? AND month = ?",
-                           (loan_name, float(emi_amount), item_id, active_month))
+                db = get_db()
+                # Use UPSERT logic to either insert a new budget or update the existing one
+                db.execute(
+                    '''INSERT INTO budgets (month, category, amount)
+                       VALUES (?, ?, ?)
+                       ON CONFLICT(month, category) DO UPDATE SET amount = excluded.amount''',
+                    (active_month, category, float(amount))
+                )
                 db.commit()
             except ValueError:
-                flash('Invalid EMI amount. Please enter a valid number.', 'error')
-        return redirect(url_for('index'))
+                flash(f'Invalid amount entered for {category}. Please use numbers only.', 'error')
+            except Exception as e:
+                app.logger.error(f"Error setting budget for {category}: {e}")
+                flash(f'An error occurred while setting the budget for {category}.', 'error')
+    
+    flash('Budget updated successfully!', 'success')
+    return redirect(url_for('index', month_select=active_month))
+
+
+@app.route('/api/set_budget', methods=['POST'])
+def api_set_budget():
+    active_month = request.form.get('month_select')
+    category = request.form.get('category')
+    amount = request.form.get('amount')
+
+    if not all([active_month, category, amount]):
+        return jsonify({'status': 'error', 'message': 'All fields are required!'}), 400
+
+    try:
+        db = get_db()
+        db.execute(
+            '''INSERT INTO budgets (month, category, amount)
+               VALUES (?, ?, ?)
+               ON CONFLICT(month, category) DO UPDATE SET amount = excluded.amount''',
+            (active_month, category, float(amount))
+        )
+        db.commit()
+        return jsonify({'status': 'success', 'message': 'Budget set successfully!'})
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Invalid amount. Please use numbers only.'}), 400
+    except Exception as e:
+        app.logger.error(f"Error setting budget via API: {e}")
+        return jsonify({'status': 'error', 'message': 'An error occurred while setting the budget.'}), 500
+
+
+@app.route('/api/set_budgets', methods=['POST'])
+def api_set_budgets():
+    active_month = request.form.get('month_select')
+    propagate = request.form.get('propagate', 'false').lower() == 'true'
+
+    if not active_month:
+        return jsonify({'status': 'error', 'message': 'Month is required!'}), 400
+
+    try:
+        db = get_db()
+        num_months = 12 if propagate else 1
+        start_month = datetime.strptime(active_month, '%Y-%m')
         
-    emi_item_res = db.execute("SELECT * FROM emis WHERE id = ? AND month = ?", (item_id, active_month))
-    emi_item = db.fetchone(emi_item_res)
-    if emi_item is None:
-        return "Error: EMI item not found", 404
-    return render_template('edit_item.html', item=emi_item, item_id=item_id, active_month=active_month, item_type='emi')
+        queries = []
+        for i in range(num_months):
+            current_month_dt = start_month + relativedelta(months=i)
+            current_month_str = current_month_dt.strftime('%Y-%m')
 
-@app.route('/delete_emi/<int:item_id>', methods=['POST'])
-def delete_emi(item_id):
-    active_month = get_active_month()
+            for category in ['Food', 'Cloth', 'Online', 'Miscellaneous', 'Other']:
+                amount_str = request.form.get(category, '0.0').strip()
+                amount = float(amount_str) if amount_str else 0.0
+                queries.append(
+                    ('INSERT INTO budgets (month, category, amount) VALUES (?, ?, ?) ON CONFLICT(month, category) DO UPDATE SET amount = excluded.amount',
+                    (current_month_str, category, amount))
+                )
+
+        db.execute_batch(queries)
+        message = f'Budget updated for {num_months} month(s) successfully!'
+        return jsonify({'status': 'success', 'message': message})
+    except ValueError as e:
+        app.logger.error(f"Error setting budgets via API: Invalid amount - {e}")
+        return jsonify({'status': 'error', 'message': 'Invalid amount entered. Please use numbers only.'}), 400
+    except Exception as e:
+        app.logger.error(f"Error setting budgets via API: {e}")
+        return jsonify({'status': 'error', 'message': 'An error occurred while updating the budget.'}), 500
+
+
+@app.route('/api/get_income/<int:income_id>', methods=['GET'])
+def api_get_income(income_id):
+    """API endpoint to fetch a single income entry by its ID."""
+    try:
+        db = get_db()
+        income_rs = db.execute('SELECT * FROM income WHERE id = ?', (income_id,))
+        income = db.fetchone(income_rs)
+        if income:
+            return jsonify(income)
+        else:
+            return jsonify({'status': 'error', 'message': 'Income entry not found'}), 404
+    except Exception as e:
+        app.logger.error(f"Error fetching income via API: {e}")
+        return jsonify({'status': 'error', 'message': 'An error occurred'}), 500
+
+@app.route('/api/get_emi/<int:emi_id>', methods=['GET'])
+def api_get_emi(emi_id):
+    """API endpoint to fetch a single EMI entry by its ID."""
+    try:
+        db = get_db()
+        emi_rs = db.execute('SELECT * FROM emis WHERE id = ?', (emi_id,))
+        emi = db.fetchone(emi_rs)
+        if emi:
+            return jsonify(emi)
+        else:
+            return jsonify({'status': 'error', 'message': 'EMI entry not found'}), 404
+    except Exception as e:
+        app.logger.error(f"Error fetching EMI via API: {e}")
+        return jsonify({'status': 'error', 'message': 'An error occurred'}), 500
+
+
+
+@app.route('/api/delete_expense/<int:expense_id>', methods=['DELETE'])
+def api_delete_expense(expense_id):
+    """API endpoint to delete an expense."""
+    try:
+        db = get_db()
+        db.execute('DELETE FROM expenses WHERE id = ?', (expense_id,))
+        db.commit()
+        return jsonify({'status': 'success', 'message': 'Expense deleted successfully!'})
+    except Exception as e:
+        app.logger.error(f"Error deleting expense {expense_id} via API: {e}")
+        return jsonify({'status': 'error', 'message': 'An error occurred while deleting.'}), 500
+
+
+# This route is kept for non-JS compatibility if needed, but the primary delete is via API
+@app.route('/delete_expense/<int:expense_id>', methods=['POST'])
+def delete_expense(expense_id):
+    """Route to delete a single expense item."""
+    # The month is needed to redirect back correctly
+    active_month = request.args.get('month_select', default=datetime.now().strftime('%Y-%m'))
+    try:
+        db = get_db()
+        db.execute('DELETE FROM expenses WHERE id = ?', (expense_id,))
+        db.commit()
+        flash('Expense deleted successfully!', 'success')
+    except Exception as e:
+        app.logger.error(f"Error deleting expense {expense_id}: {e}")
+        flash('An error occurred while deleting the expense.', 'error')
+    return redirect(url_for('index', month_select=active_month))
+
+
+# This route is kept for non-JS compatibility if needed, but the primary edit is via API
+@app.route('/edit_expense/<int:expense_id>', methods=['GET', 'POST'])
+def edit_expense(expense_id):
     db = get_db()
-    db.execute("DELETE FROM emis WHERE id = ? AND month = ?", (item_id, active_month))
-    db.commit()
-    return redirect(url_for('index'))
+    active_month = request.args.get('month_select', default=datetime.now().strftime('%Y-%m'))
 
-@app.route('/report')
-def report():
-    active_month = get_active_month()
+    if request.method == 'POST':
+        date = request.form['date']
+        category = request.form['category']
+        description = request.form['description']
+        amount = request.form['amount']
+        payment_type = request.form['payment_type']
+        month_for_db = datetime.strptime(date, '%Y-%m-%d').strftime('%Y-%m')
+
+        db.execute('''UPDATE expenses 
+                   SET month = ?, date = ?, category = ?, description = ?, amount = ?, payment_type = ?
+                   WHERE id = ?''',
+                   (month_for_db, date, category, description, float(amount), payment_type, expense_id))
+        db.commit()
+        flash('Expense updated successfully!', 'success')
+        return redirect(url_for('index', month_select=active_month))
+
+    # For GET request
+    expense_rs = db.execute('SELECT * FROM expenses WHERE id = ?', (expense_id,))
+    expense = db.fetchone(expense_rs)
+    if expense is None:
+        flash('Expense not found!', 'error')
+        return redirect(url_for('index', month_select=active_month))
+
+    # Pass the expense object as 'item' and specify the 'item_type'
+    return render_template('edit_item.html', item=expense, item_type='expense', active_month=active_month)
+
+
+@app.route('/edit_item/<int:item_id>', methods=['GET'])
+def edit_item(item_id):
+    """Serves the page to edit an existing expense."""
+    db = get_db()
+    active_month = request.args.get('month_select', datetime.now().strftime('%Y-%m'))
+    
+    item_cursor = db.execute('SELECT * FROM expenses WHERE id = ?', (item_id,))
+    item = db.fetchone(item_cursor)
+
+    if item is None:
+        return "Item not found", 404
+        
+    return render_template('edit_item.html', item=item, active_month=active_month)
+
+@app.route('/edit_income/<int:income_id>', methods=['GET'])
+def edit_income(income_id):
+    """Serves the page to edit an existing income record."""
+    db = get_db()
+    active_month = request.args.get('month_select', datetime.now().strftime('%Y-%m'))
+
+    income_cursor = db.execute('SELECT * FROM income WHERE id = ?', (income_id,))
+    income = db.fetchone(income_cursor)
+
+    if income is None:
+        return "Income record not found", 404
+        
+    return render_template('edit_income.html', income=income, active_month=active_month)
+
+@app.route('/edit_emi/<int:emi_id>', methods=['GET'])
+def edit_emi(emi_id):
+    """Serves the page to edit an existing EMI record."""
+    db = get_db()
+    active_month = request.args.get('month_select', datetime.now().strftime('%Y-%m'))
+
+    emi_cursor = db.execute('SELECT * FROM emis WHERE id = ?', (emi_id,))
+    emi = db.fetchone(emi_cursor)
+
+    if emi is None:
+        return "EMI record not found", 404
+        
+    return render_template('edit_emi.html', emi=emi, active_month=active_month)
+
+
+@app.route('/api/edit_item/<int:item_id>', methods=['POST'])
+def api_edit_item(item_id):
+    """API endpoint to update an existing expense."""
+    date = request.form.get('date')
+    category = request.form.get('category')
+    description = request.form.get('description')
+    amount = request.form.get('amount')
+    payment_type = request.form.get('payment_type')
+
+    if not all([date, category, description, amount, payment_type]):
+        return jsonify({'status': 'error', 'message': 'All fields are required!'}), 400
+
+    try:
+        month_for_db = datetime.strptime(date, '%Y-%m-%d').strftime('%Y-%m')
+        db = get_db()
+        db.execute(
+            """UPDATE expenses 
+               SET date = ?, category = ?, description = ?, amount = ?, payment_type = ?, month = ?
+               WHERE id = ?""",
+            (date, category, description, float(amount), payment_type, month_for_db, item_id)
+        )
+        db.commit()
+        return jsonify({'status': 'success', 'message': 'Expense updated successfully!'})
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Invalid amount. Please use numbers only.'}), 400
+    except Exception as e:
+        app.logger.error(f"Error updating expense {item_id} via API: {e}")
+        return jsonify({'status': 'error', 'message': 'An error occurred while updating the expense.'}), 500
+
+
+# --- RESTORE /api/edit_emi/<int:emi_id> API ENDPOINT ---
+@app.route('/api/edit_emi/<int:emi_id>', methods=['POST'])
+def api_edit_emi(emi_id):
+    """API endpoint to update an existing EMI record."""
+    loan_name = request.form.get('loan_name')
+    emi_amount = request.form.get('emi_amount')
+    month = request.form.get('month')
+    propagate = request.form.get('propagate', 'false').lower() == 'true'
+
+    if not all([loan_name, emi_amount, month]):
+        return jsonify({'status': 'error', 'message': 'All fields are required!'}), 400
+
+    try:
+        db = get_db()
+
+        # Get the original loan name to identify records to propagate
+        original_emi_cursor = db.execute('SELECT loan_name FROM emis WHERE id = ?', (emi_id,))
+        original_emi = db.fetchone(original_emi_cursor)
+        if not original_emi:
+            return jsonify({'status': 'error', 'message': 'Original EMI record not found.'}), 404
+        original_loan_name = original_emi['loan_name']
+
+        if propagate:
+            start_month = datetime.strptime(month, '%Y-%m')
+            queries = []
+            for i in range(12):
+                current_month_dt = start_month + relativedelta(months=i)
+                current_month_str = current_month_dt.strftime('%Y-%m')
+                queries.append(
+                    ("UPDATE emis SET loan_name = ?, emi_amount = ? WHERE loan_name = ? AND month = ?",
+                    (loan_name, float(emi_amount), original_loan_name, current_month_str))
+                )
+            db.execute_batch(queries)
+            message = 'EMI updated for all future entries successfully!'
+        else:
+            db.execute(
+                'UPDATE emis SET loan_name = ?, emi_amount = ? WHERE id = ?',
+                (loan_name, float(emi_amount), emi_id)
+            )
+            db.commit()
+            message = 'EMI updated successfully!'
+
+        return jsonify({'status': 'success', 'message': message})
+    except ValueError:
+        return jsonify({'status': 'error', 'message': 'Invalid amount. Please use numbers only.'}), 400
+    except Exception as e:
+        app.logger.error(f"Error updating EMI {emi_id} via API: {e}")
+        return jsonify({'status': 'error', 'message': 'An error occurred while updating the EMI.'}), 500
+
+
+
+@app.route('/api/delete_expense/<int:item_id>', methods=['POST'])
+def api_delete_expense_post(item_id):
+    try:
+        db = get_db()
+        db.execute('DELETE FROM expenses WHERE id = ?', (item_id,))
+        db.commit()
+        return jsonify({'status': 'success', 'message': 'Expense deleted successfully!'})
+    except Exception as e:
+        app.logger.error(f"Error deleting expense {item_id}: {e}")
+        return jsonify({'status': 'error', 'message': 'An error occurred while deleting the expense.'}), 500
+
+@app.route('/api/delete_income/<int:income_id>', methods=['POST'])
+def api_delete_income(income_id):
+    try:
+        db = get_db()
+        db.execute('DELETE FROM income WHERE id = ?', (income_id,))
+        db.commit()
+        return jsonify({'status': 'success', 'message': 'Income record deleted successfully!'})
+    except Exception as e:
+        app.logger.error(f"Error deleting income {income_id}: {e}")
+        return jsonify({'status': 'error', 'message': 'An error occurred while deleting the income record.'}), 500
+
+@app.route('/api/delete_emi/<int:emi_id>', methods=['POST'])
+def api_delete_emi(emi_id):
+    try:
+        db = get_db()
+        db.execute('DELETE FROM emis WHERE id = ?', (emi_id,))
+        db.commit()
+        return jsonify({'status': 'success', 'message': 'EMI record deleted successfully!'})
+    except Exception as e:
+        app.logger.error(f"Error deleting EMI {emi_id}: {e}")
+        return jsonify({'status': 'error', 'message': 'An error occurred while deleting the EMI record.'}), 500
+
+
+@app.route('/generate_report')
+def generate_report():
+    # This route will generate a report for the current month.
+    active_month = datetime.now().strftime('%Y-%m')
     db = get_db()
 
-    # Fetch all data for the active month
-    income_res = db.execute("SELECT * FROM income WHERE month = ?", (active_month,))
-    income_data = db.fetchall(income_res)
-    total_income = sum(item['amount'] for item in income_data)
+    # Fetch data
+    expenses_rs = db.execute('SELECT * FROM expenses WHERE strftime("%Y-%m", date) = ?', (active_month,))
+    expenses = db.fetchall(expenses_rs)
 
-    expenses_res = db.execute("SELECT * FROM expenses WHERE month = ?", (active_month,))
-    expenses_data = db.fetchall(expenses_res)
-    total_expenses = sum(item['amount'] for item in expenses_data)
+    income_rs = db.execute('SELECT * FROM income WHERE month = ?', (active_month,))
+    income = db.fetchall(income_rs)
 
-    emis_res = db.execute("SELECT * FROM emis WHERE month = ?", (active_month,))
-    emis_data = db.fetchall(emis_res)
-    total_emis = sum(item['emi_amount'] for item in emis_data)
+    emis_rs = db.execute('SELECT * FROM emis WHERE month = ?', (active_month,))
+    emis = db.fetchall(emis_rs)
 
-    budget_res = db.execute("SELECT * FROM budgets WHERE month = ?", (active_month,))
-    budget_data = db.fetchall(budget_res)
-    total_budgeted = sum(item['amount'] for item in budget_data)
+    budget_rs = db.execute('SELECT category, amount FROM budgets WHERE month = ?', (active_month,))
+    budget = {row['category']: row['amount'] for row in db.fetchall(budget_rs)}
 
-    net_savings = total_income - total_expenses - total_emis
+    # Calculate totals
+    total_income = sum(i['amount'] for i in income)
+    total_expenses = sum(e['amount'] for e in expenses)
+    total_emi = sum(e['emi_amount'] for e in emis)
+    total_budget = sum(budget.values())
+    remaining_budget = total_budget - total_expenses
+    net_savings = total_income - (total_expenses + total_emi)
 
-    # Prepare data for the bar chart
-    categories = ['Food', 'Cloth', 'Online', 'Miscellaneous', 'Other']
-    spent_by_category = {cat: 0 for cat in categories}
-    for expense in expenses_data:
-        if expense['category'] in spent_by_category:
-            spent_by_category[expense['category']] += expense['amount']
+    # Generate CSV report
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Category', 'Budgeted Amount', 'Actual Amount', 'Difference'])
     
-    current_budget = {item['category']: item['amount'] for item in budget_data}
-    
-    chart_labels = categories
-    chart_budgeted_values = [current_budget.get(cat, 0) for cat in categories]
-    chart_spent_values = [spent_by_category.get(cat, 0) for cat in categories]
+    for category, budgeted_amount in budget.items():
+        actual_amount = sum(e['amount'] for e in expenses if e['category'] == category)
+        difference = budgeted_amount - actual_amount
+        writer.writerow([category, budgeted_amount, actual_amount, difference])
 
-    # PDF generation is temporarily disabled.
-    # To re-enable, uncomment the code below and ensure WeasyPrint is working.
-    return "PDF report generation is temporarily disabled.", 200
+    # Add summary row
+    writer.writerow(['Total', total_budget, total_expenses, total_budget - total_expenses])
 
-    # # Render the HTML template with the fetched data
-    # html_out = render_template(
-    #     'report_template.html',
-    #     is_pdf_render=True, 
-    #     month=datetime.datetime.strptime(active_month, "%Y-%m").strftime("%B, %Y"),
-    #     report_date=datetime.date.today().strftime("%B %d, %Y"),
-    #     total_income=total_income,
-    #     total_expenses=total_expenses,
-    #     total_emis=total_emis,
-    #     total_budgeted=total_budgeted,
-    #     net_savings=net_savings,
-    #     income_data=income_data,
-    #     expenses_data=expenses_data,
-    #     emis_data=emis_data,
-    #     budget_data=budget_data,
-    #     chart_labels=chart_labels,
-    #     chart_budgeted_values=chart_budgeted_values,
-    #     chart_spent_values=chart_spent_values
-    # )
+    output.seek(0)
 
-    # # Define a print-specific CSS
-    # print_css = """
-    # body { font-family: sans-serif; font-size: 10pt; }
-    # h1, h2, h3 { color: #333; }
-    # table { border-collapse: collapse; width: 100%; margin-bottom: 15px; }
-    # th, td { border: 1px solid #ccc; padding: 4px; text-align: left; }
-    # th { background-color: #f2f2f2; }
-    # .section { margin-bottom: 20px; }
-    # .no-data { font-style: italic; color: #777; }
-    # .footer { text-align: center; margin-top: 20px; font-size: 0.9em; color: #777; }
-    # .chart-section { display: none !important; }
-    # """
+    return send_file(
+        output,
+        mimetype="text/csv",
+        as_attachment=True,
+        download_name=f"budget_report_{active_month}.csv"
+    )
 
-    # # Generate PDF
-    # try:
-    #     pdf = HTML(string=html_out).write_pdf(stylesheets=[CSS(string=print_css)])
-    # except Exception as e:
-    #     app.logger.error(f"Error generating PDF: {e}")
-    #     return "Error generating PDF. Please check the logs.", 500
-    
-    # # Return the generated PDF
-    # return send_file(
-    #     io.BytesIO(pdf),
-    #     mimetype='application/pdf',
-    #     as_attachment=True,
-    #     download_name=f'budget_report_{active_month}.pdf'
-    # )
+# --- Error Handlers ---
+@app.errorhandler(404)
+def not_found_error(error):
+    # For API requests, return JSON
+    if request.path.startswith('/api/'):
+        return jsonify(error='Not found'), 404
+    # For web pages, render a 404 template
+    return render_template('404.html'), 404
 
+@app.errorhandler(500)
+def internal_error(error):
+    # For API requests, return JSON
+    if request.path.startswith('/api/'):
+        return jsonify(error='Internal server error'), 500
+    # For web pages, render a 500 template
+    return render_template('500.html'), 500
+
+# --- Main App Runner ---
 if __name__ == '__main__':
-    # Note: This block is for local development only.
-    # In production, a WSGI server like Gunicorn will run the app.
-    init_db() # Initialize DB for local development
-    app.run(debug=True, port=8080)
+    # The init_db() function can be called here to ensure the database
+    # is created before the app starts. This is useful for local development.
+    # In a production environment, you might run this from a separate build script.
+    with app.app_context():
+        init_db()
+    
+    # The host='0.0.0.0' makes the server accessible from other devices on the network.
+    # The debug=True flag enables the interactive debugger and reloads the server on code changes.
+    # IMPORTANT: Do NOT use debug=True in a production environment.
+    app.run(host='0.0.0.0', port=5001, debug=True)

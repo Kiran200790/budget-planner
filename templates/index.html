@@ -3,422 +3,335 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Budget Planner - {{ active_month }}</title> <!-- Dynamic title -->
-    <link rel="stylesheet" href="/static/style.css">
-    <link rel="manifest" href="/static/manifest.json">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <!-- Added Chart.js CDN -->
-    
-    <!-- PWA manifest and meta tags -->
-    <meta name="theme-color" content="#2a69a5">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="Budget Planner">
-    <link rel="apple-touch-icon" href="/static/icon-192x192.png">
-    
-    <!-- Mobile optimization -->
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="format-detection" content="telephone=no">
+    <title>Budget Planner</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 </head>
 <body>
-    <div class="container">
-        <h1 class="desktop-only-block">Budget Planner</h1>
+    <div id="app-container">
+        <div id="desktop-view">
+            <h1>Budget Planner</h1>
+            <div class="container">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                  {% if messages %}
+                    <div class="flash-messages">
+                      {% for category, message in messages %}
+                        <div class="flash {{ category }}">{{ message }}</div>
+                      {% endfor %}
+                    </div>
+                  {% endif %}
+                {% endwith %}
 
-        {% with messages = get_flashed_messages(with_categories=true) %}
-          {% if messages %}
-            <div class="flash-messages">
-              {% for category, message in messages %}
-                <div class="flash {{ category }}">{{ message }}</div>
-              {% endfor %}
-            </div>
-          {% endif %}
-        {% endwith %}
+                <div class="month-selector card-style">
+                    <div class="month-selector-inline">
+                        <label for="month_select_desktop">Month (YYYY-MM):</label>
+                        <input type="month" id="month_select_desktop" name="month_select" value="{{ active_month }}">
+                        <button type="button" id="changeMonthBtnDesktop">Change Month</button>
+                        <span class="current-view-month">Currently viewing: <strong id="desktop-active-month-display">{{ active_month }}</strong></span>
+                    </div>
+                </div>
 
-        <div class="add-form desktop-only-block">
-            <div class="header-controls">
-                
+                <div class="dashboard-grid">
+                    <!-- Summary Block -->
+                    <div class="dashboard-block">
+                        <h3 id="summary-title-desktop">Summary</h3>
+                        <div id="summaryContentDesktop">
+                            <!-- Summary content will be injected here by script.js -->
+                            <p>Total Income: <span class="totalIncome"></span></p>
+                            <p>Total Expenses: <span class="totalExpenses"></span></p>
+                            <p>Total EMI: <span class="totalEMI"></span></p>
+                            <p>Remaining Budget: <span class="remainingBudget"></span></p>
+                            <p>Net Savings (Income VS Exp+EMI): <span class="netSavings"></span></p>
+                        </div>
+                    </div>
+
+                    <!-- Graph Block -->
+                    <div class="dashboard-block">
+                        <h3 id="chart-title-desktop">Budget vs. Spending</h3>
+                        <div class="chart-container">
+                            <canvas class="categoryBarChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Report Table Block -->
+                    <div class="dashboard-block">
+                        <h3 id="report-title-desktop">Budget Report</h3>
+                        <div class="table-container">
+                            <table class="budgetReportTable">
+                                <thead>
+                                    <tr>
+                                        <th>Category</th>
+                                        <th>Budgeted</th>
+                                        <th>Spent</th>
+                                        <th>Difference</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                                <tfoot></tfoot>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="tabs">
-                <!-- Month Selector was here, moved out of top-row-container -->
-                <div class="month-selector card-style"> <!-- Added card-style for consistency if needed -->
-                    <div class="month-selector-inline"> <!-- Added wrapper for inline layout -->
-                        
-                        <label for="month_select">Month (YYYY-MM):</label>
-                        <input type="month" id="month_select" name="month_select" value="{{ active_month }}">
-                        <button type="button" onclick="var monthValue = document.getElementById('month_select').value; if (monthValue) { window.location.href = '/?month_select=' + monthValue; } else { alert('Please select a valid month.'); }">Change Month</button>
-                        <p class="current-view-month">Currently viewing: <strong>{{ active_month }}</strong></p> <!-- Added class -->
-                        <p class="available-months-dropdown">Available: <!-- Changed text for brevity -->
-                            <select onchange="if(this.value) { document.getElementById('month_select').value = this.value; window.location.href = '/?month_select=' + this.value; }" name="quick_month_select">
-                                <option value="">Quick select...</option>
-                                {% for month in available_months %}
-                                <option value="{{ month }}" {% if month == active_month %}selected{% endif %}>{{ month }}</option>
-                                {% endfor %}
+            <div class="tab-controls card-style">
+                <button class="tab-button" data-target="#incomeSectionContentDesktop">Add/View Income</button>
+                <button class="tab-button" data-target="#budgetSectionContentDesktop">Set/Update Budget</button>
+                <button class="tab-button" data-target="#emiSectionContentDesktop">Add/View Loan EMI</button>
+                <button class="tab-button active" data-target="#expenseSectionContentDesktop">Record/View Expenses</button>
+            </div>
+
+            <div id="expenseSectionContentDesktop" class="main-pane tab-pane active card-style">
+                <form action="/add_expense" method="post" class="expense-form-compact" id="addExpenseFormDesktop">
+                    <input type="hidden" name="month_select" value="{{ active_month }}">
+                    <div class="expense-fields-inline">
+                        <div class="form-field"><label for="expense_date_desktop">Date:</label><input type="date" id="expense_date_desktop" name="date" value="{{ current_date }}" required></div>
+                        <div class="form-field category-field">
+                            <label for="expense_category_desktop">Category:</label>
+                            <select id="expense_category_desktop" name="category">
+                                <option value="Food">Food</option>
+                                <option value="Cloth">Cloth</option>
+                                <option value="Online">Online</option>
+                                <option value="Miscellaneous">Miscellaneous</option>
+                                <option value="Other">Other</option>
                             </select>
-                        </p>
-                    </div>
-                </div>
-
-
-
-
-                <!-- Summary and Report Container was here, moved out of top-row-container -->
-                <div class="summary-and-report-container"> <!-- This is the flex container -->
-                    <!-- Display Summary -->
-                    <div class="summary-section card"> <!-- Changed class to summary-section and card -->
-                        <h2>Summary for {{ active_month }}</h2>
-                        <p>Total Income: <span id="totalIncome">0.00</span></p>
-                        <p>Total Expenses: <span id="totalExpenses">0.00</span></p>
-                        <p>Total EMI: <span id="totalEMI">0.00</span></p>
-                        <p>Remaining Budget: <span id="remainingBudget">0.00</span></p>
-                        <p>Net Savings(Income VS Exp+EMI): <span id="netSavings">0.00</span></p> <!-- New Line -->
-                    </div>
-
-                    <div class="chart-section card"> 
-                        <h2>Budget vs. Spending ({{ active_month }})</h2> <!-- Changed title -->
-                        <canvas id="categoryBarChart"></canvas> <!-- Changed canvas ID -->
-                    </div>
-
-                    <!-- Budget Report Section -->
-                    <div class="budget-report-section card"> <!-- Added card class -->
-                        <h2>Budget vs. Spending for {{ active_month }}</h2>
-                        <table id="budgetReportTable">
-                            <thead>
-                                <tr>
-                                    <th>Category</th>
-                                    <th>Budgeted</th>
-                                    <th>Spent</th>
-                                    <th>Difference</th>
-                                    <!-- Removed Status Column -->
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- Rows will be dynamically inserted here by JavaScript -->
-                            </tbody>
-                            <tfoot>
-                                <!-- Overall summary row will be inserted here by JavaScript -->
-                            </tfoot>
-                        </table>
-                    </div>
-                </div>
-                <!-- Removed .top-row-container wrapper -->
-
-                <!-- Tab Controls -->
-                <div class="tab-controls card-style">
-                    <button class="tab-button" data-target="#incomeSectionContent">Add/View Income</button>
-                    <button class="tab-button" data-target="#budgetSectionContent">Set/Update Budget</button>
-                    <button class="tab-button" data-target="#emiSectionContent">Add/View Loan EMI</button>
-                    <button class="tab-button active" data-target="#expenseSectionContent">Record/View Expenses</button>
-                </div>
-
-                <!-- == MOBILE-FIRST DASHBOARD SECTION == -->
-                <div id="dashboardSectionContent" class="tab-pane card-style">
-                    <!-- This section is specifically for the mobile dashboard view -->
-                    <div class="mobile-header">
-                        <h2>Dashboard</h2>
-                        <p>Summary for {{ active_month }}</p>
-                    </div>
-
-                    <!-- Mobile Summary Cards -->
-                    <div class="mobile-summary-grid">
-                        <div class="summary-card">
-                            <span class="summary-label">Net Savings</span>
-                            <span id="mobile-netSavings" class="summary-value">0.00</span>
                         </div>
-                        <div class="summary-card">
-                            <span class="summary-label">Total Income</span>
-                            <span id="mobile-totalIncome" class="summary-value">0.00</span>
-                        </div>
-                        <div class="summary-card">
-                            <span class="summary-label">Total Expenses</span>
-                            <span id="mobile-totalExpenses" class="summary-value">0.00</span>
-                        </div>
-                         <div class="summary-card">
-                            <span class="summary-label">Total EMI</span>
-                            <span id="mobile-totalEMI" class="summary-value">0.00</span>
-                        </div>
-                    </div>
-
-                    <!-- Mobile Chart Section -->
-                    <div class="mobile-chart-container card">
-                        <h3>Budget vs. Spending</h3>
-                        <canvas id="mobileCategoryBarChart"></canvas>
-                    </div>
-
-                    <!-- Mobile Budget Report Table -->
-                    <div class="mobile-report-container card">
-                        <h3>Breakdown</h3>
-                        <div id="mobile-budget-report-table-container"></div>
-                    </div>
-                </div>
-                <!-- == END MOBILE-FIRST DASHBOARD == -->
-
-                <!-- Tab Content Panes -->
-                <!-- Expense Section Content -->
-                <div id="expenseSectionContent" class="tab-pane card-style">
-                    <!-- Original content of "Record/View Expenses" collapsible -->
-                    <form action="/add_expense" method="post" class="expense-form-compact">
-                        <div class="expense-fields-inline">
-                            <div class="form-field">
-                                <label for="expense_date">Date:</label>
-                                <input type="date" id="expense_date" name="date" value="{{ current_date }}" required>
-                            </div>
-                            <div class="form-field category-field">
-                                <label for="expense_category">Category:</label>
-                                <select id="expense_category" name="category">
-                                    <option value="Food">Food</option>
-                                    <option value="Cloth">Cloth</option>
-                                    <option value="Online">Online</option>
-                                    <option value="Miscellaneous">Miscellaneous</option>
-                                    <option value="Other">Other</option>
-                                </select>
-                            </div>
-                            <div class="form-field description-field">
-                                <label for="expense_description_display">Description:</label>
-                                <input type="text" id="expense_description_display" name="description_display"  required style="display: inline-block; width: auto; vertical-align: middle;">
-                                <input type="hidden" id="expense_description" name="description"> <!-- Hidden field for combined description -->
-                            </div>
-                            <div class="form-field amount-field">
-                                <label for="expense_amount">Amount:</label>
-                                <input type="number" step="0.01" id="expense_amount" name="amount" required>
-                            </div>
-                            <div class="form-field payment-field" style="display: flex; align-items: center;"> <!-- Added display:flex and align-items:center -->
-                                
-                                <div class="payment-radios" style="display: inline-block;">
-                                    <input type="radio" id="expense_pay_amex" name="payment_type" value="Amex" style="vertical-align: middle; margin-left: 0px;">
-                                    <label for="expense_pay_amex" style="margin-right: 5px; font-weight: normal; vertical-align: middle;">Amex</label>
-                                    <input type="radio" id="expense_pay_rbl" name="payment_type" value="RBL" style="vertical-align: middle; margin-left: 5px;">
-                                    <label for="expense_pay_rbl" style="margin-right: 5px; font-weight: normal; vertical-align: middle;">RBL</label>
-                                    <input type="radio" id="expense_pay_cash" name="payment_type" value="CASH" style="vertical-align: middle; margin-left: 5px;">
-                                    <label for="expense_pay_cash" style="font-weight: normal; vertical-align: middle;">Cash</label>
-                                    <button type="submit" style="height: 46px; width: 100%; min-width: 0;">Add Expense</button>
-                                </div>
-                            </div>
-                            
-                        </div> <!-- This closes expense-fields-inline -->
-                    </form>
-                    <h3 style="display: flex; align-items: center; gap: 15px;">
-                        Expense Records for {{ active_month }}:
-                        <div class="search-box-container" style="position: relative; flex: 1; max-width: 300px;">
-                            <input type="text" id="expenseSearchBox" placeholder="Search expenses..." style="width: 100%; padding-right: 32px;">
-                            <button type="button" id="clearExpenseSearch" title="Clear search" style="position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; height: 24px;">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" fill="none" style="display: block;">
-                                    <!-- Paint brush handle -->
-                                    <rect x="13.5" y="2.5" width="2" height="9" rx="1" fill="#b48a78"/>
-                                    <!-- Paint brush ferrule -->
-                                    <rect x="13" y="11" width="3" height="2" rx="1" fill="#d1bfa3"/>
-                                    <!-- Paint brush bristles -->
-                                    <path d="M14.5 13 Q15 17 10 17 Q7 17 7 15 Q7 13 14.5 13 Z" fill="#f4e2c2" stroke="#b48a78" stroke-width="0.7"/>
-                                    <!-- Paint tip -->
-                                    <ellipse cx="10" cy="17" rx="2.2" ry="0.7" fill="#7ecbe7"/>
-                                </svg>
-                            </button>
-                        </div>
-                        <span id="searchTotal" style="margin-left: 15px; font-size: 1em; color: #2a69a5;"></span>
-                    </h3>
-                    <ul id="expenseList">
-                        {% for record in expenses %}
-                            <li>
-                                <span>{{ record.date }} - {{ record.category }} - {{ record.description }}: {{ "%.2f"|format(record.amount) }}</span>
-                                <div class="item-actions">
-                                    <a href="/edit_expense/{{ record.id }}" class="edit-btn"><i class="fas fa-edit"></i></a>
-                                    <form action="/delete_expense/{{ record.id }}" method="post" style="display: inline;">
-                                        <button type="submit" class="delete-btn" onclick="return confirm('Are you sure you want to delete this expense item?');"><i class="fas fa-trash"></i></button>
-                                    </form>
-                                </div>
-                            </li>
-                        {% else %}
-                            <li>No expense records for this month.</li>
-                        {% endfor %}
-                    </ul>
-                </div>
-
-                <!-- Budget Section Content -->
-                <div id="budgetSectionContent" class="tab-pane card-style" style="display: none;">
-                    <!-- Original content of "Set/Update Budget" collapsible -->
-                    <form action="/set_budget" method="post" class="expense-form-compact">
-                        <div class="expense-fields-inline">
-                            <div class="form-field amount-field">
-                                <label for="budget_food">Food:</label>
-                                <input type="number" step="0.01" id="budget_food" name="budget_food" value="{{ budget.get('Food', '') }}">
-                            </div>
-                            <div class="form-field amount-field">
-                                <label for="budget_cloth">Cloth:</label>
-                                <input type="number" step="0.01" id="budget_cloth" name="budget_cloth" value="{{ budget.get('Cloth', '') }}">
-                            </div>
-                            <div class="form-field amount-field">
-                                <label for="budget_online">Online:</label>
-                                <input type="number" step="0.01" id="budget_online" name="budget_online" value="{{ budget.get('Online', '') }}">
-                            </div>
-                            <div class="form-field amount-field">
-                                <label for="budget_miscellaneous">Miscellaneous:</label>
-                                <input type="number" step="0.01" id="budget_miscellaneous" name="budget_miscellaneous" value="{{ budget.get('Miscellaneous', '') }}">
-                            </div>
-                            <div class="form-field amount-field">
-                                <label for="budget_other">Other:</label>
-                                <input type="number" step="0.01" id="budget_other" name="budget_other" value="{{ budget.get('Other', '') }}">
+                        <div class="form-field description-field"><label for="expense_description_desktop">Description:</label><input type="text" id="expense_description_desktop" name="description" required></div>
+                        <div class="form-field amount-field"><label for="expense_amount_desktop">Amount:</label><input type="number" step="0.01" id="expense_amount_desktop" name="amount" required></div>
+                        <div class="form-field payment-field">
+                            <div class="payment-radios">
+                                <label><input type="radio" name="payment_type" value="Amex"> Amex</label>
+                                <label><input type="radio" name="payment_type" value="RBL"> RBL</label>
+                                <label><input type="radio" name="payment_type" value="CASH"> Cash</label>
                             </div>
                         </div>
-                        <button type="submit">Set Budget</button>
-                    </form>
-                </div>
-
-                <!-- Income Section Content -->
-                <div id="incomeSectionContent" class="tab-pane card-style" style="display: none;">
-                    <!-- Original content of "Add/View Income" collapsible -->
-                    <form action="/add_income" method="post" class="expense-form-compact">
-                        <div class="expense-fields-inline">
-                            <div class="form-field description-field">
-                                <label for="income_description">Description:</label>
-                                <input type="text" id="income_description" name="description" required>
-                            </div>
-                            <div class="form-field amount-field">
-                                <label for="income_amount">Amount:</label>
-                                <input type="number" step="0.01" id="income_amount" name="amount" required>
-                            </div>
-                        </div>
-                        <button type="submit">Add Income</button>
-                    </form>
-                    <h3>Income Records for {{ active_month }}:</h3>
-                    <ul>
-                        {% for record in income %}
-                            <li>
-                                <span>{{ record.description }}: {{ "%.2f"|format(record.amount) }}</span>
-                                <div class="item-actions">
-                                    <a href="/edit_income/{{ record.id }}" class="edit-btn"><i class="fas fa-edit"></i></a>
-                                    <form action="/delete_income/{{ record.id }}" method="post" style="display: inline;">
-                                        <button type="submit" class="delete-btn" onclick="return confirm('Are you sure you want to delete this income item?');"><i class="fas fa-trash"></i></button>
-                                    </form>
-                                </div>
-                            </li>
-                        {% else %}
-                            <li>No income records for this month.</li>
-                        {% endfor %}
-                    </ul>
-                </div>
-
-                <!-- EMI Section Content -->
-                <div id="emiSectionContent" class="tab-pane card-style" style="display: none;">
-                    <!-- Original content of "Add/View Loan EMI" collapsible -->
-                    <form action="/add_emi" method="post" class="expense-form-compact">
-                        <div class="expense-fields-inline">
-                            <div class="form-field description-field">
-                                <label for="loan_name">Loan Name/Description:</label>
-                                <input type="text" id="loan_name" name="loan_name" required>
-                            </div>
-                            <div class="form-field amount-field">
-                                <label for="emi_amount">EMI Amount:</label>
-                                <input type="number" step="0.01" id="emi_amount" name="emi_amount" required>
-                            </div>
-                        </div>
-                        <button type="submit">Add EMI</button>
-                    </form>
-                    <h3>Loan EMI Records for {{ active_month }}:</h3>
-                    <ul>
-                        {% for emi in emis %}
-                            <li>
-                                <span>{{ emi.loan_name }}: {{ "%.2f"|format(emi.emi_amount) }}</span>
-                                <div class="item-actions">
-                                    <a href="/edit_emi/{{ emi.id }}" class="edit-btn"><i class="fas fa-edit"></i></a>
-                                    <form action="/delete_emi/{{ emi.id }}" method="post" style="display: inline;">
-                                        <button type="submit" class="delete-btn" onclick="return confirm('Are you sure you want to delete this EMI item?');"><i class="fas fa-trash"></i></button>
-                                    </form>
-                                </div>
-                            </li>
-                        {% else %}
-                            <li>No EMI records for this month.</li>
-                        {% endfor %}
-                    </ul>
-                </div>
-                <!-- Removed old collapsible sections for Expense, Budget, Income, EMI -->
-
-                <!-- Payment Type Totals Block -->
-                <div class="card" id="payment-type-totals" style="margin-top: 30px;">
-                    <h2>Expense Totals by Payment Type</h2>
-                    <div style="display: flex; gap: 30px; justify-content: space-around;">
-                        <div><strong>Amex:</strong> <span id="totalAmex">0.00</span></div>
-                        <div><strong>RBL:</strong> <span id="totalRbl">0.00</span></div>
-                        <div><strong>Cash:</strong> <span id="totalCash">0.00</span></div>
+                        <div class="form-field"><button type="submit">Add Expense</button></div>
                     </div>
-                </div>
-            </div> <!-- Close main container -->
-
-            <!-- == MOBILE UI ELEMENTS START == -->
-
-            <!-- Floating Action Button for adding expenses -->
-            <button class="fab" id="fab-add-expense" aria-label="Add Expense">+</button>
-
-            <!-- Modal for Adding Expense -->
-            <div id="add-expense-modal" class="modal">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h2>Add New Expense</h2>
-                        <button class="close-button" id="close-modal-button">&times;</button>
+                </form>
+                <h3 style="display: flex; align-items: center; gap: 15px;">
+                    Expense Records for {{ active_month }}:
+                    <div class="search-box-container" style="position: relative; flex: 1; max-width: 300px;">
+                        <input type="text" class="expenseSearchBox" placeholder="Search expenses..." style="width: 100%;">
+                        <button type="button" class="clearExpenseSearch" title="Clear search" style="position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; height: 24px;">
+                            <!-- Modern, single, stylish clear (X) icon -->
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2"/><path d="M7 7l6 6M13 7l-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+                        </button>
                     </div>
-                    <!-- The expense form is moved inside here from its original location -->
-                </div>
+                    <span class="searchTotal" style="margin-left: 15px; font-size: 1em; color: #2a69a5;"></span>
+                </h3>
+                <ul class="expenseList"></ul>
             </div>
 
-            <!-- Bottom Navigation Bar -->
-            <nav class="bottom-nav">
-                <a href="#" class="nav-item active" data-target="#dashboardSectionContent" aria-label="Dashboard">
-                    <span class="nav-icon">📊</span>
-                    <span class="nav-text">Dashboard</span>
-                </a>
-                <a href="#" class="nav-item" data-target="#expenseSectionContent" aria-label="Expenses">
-                    <span class="nav-icon">💸</span>
-                    <span class="nav-text">Expenses</span>
-                </a>
-                <a href="#" class="nav-item" data-target="#incomeSectionContent" aria-label="Income">
-                    <span class="nav-icon">💰</span>
-                    <span class="nav-text">Income</span>
-                </a>
-                <a href="#" class="nav-item" data-target="#budgetSectionContent" aria-label="Budget">
-                    <span class="nav-icon">🎯</span>
-                    <span class="nav-text">Budget</span>
-                </a>
+            <div id="budgetSectionContentDesktop" class="main-pane tab-pane card-style">
+                <form action="/set_budget" method="post" class="expense-form-compact" id="setBudgetForm">
+                    <input type="hidden" name="month_select" value="{{ active_month }}">
+                    <div class="expense-fields-inline">
+                        <div class="form-field amount-field"><label for="budget_food">Food:</label><input type="number" step="0.01" id="budget_food" name="Food" value="{{ budget.get('Food', '') }}"></div>
+                        <div class="form-field amount-field"><label for="budget_cloth">Cloth:</label><input type="number" step="0.01" id="budget_cloth" name="Cloth" value="{{ budget.get('Cloth', '') }}"></div>
+                        <div class="form-field amount-field"><label for="budget_online">Online:</label><input type="number" step="0.01" id="budget_online" name="Online" value="{{ budget.get('Online', '') }}"></div>
+                        <div class="form-field amount-field"><label for="budget_miscellaneous">Miscellaneous:</label><input type="number" step="0.01" id="budget_miscellaneous" name="Miscellaneous" value="{{ budget.get('Miscellaneous', '') }}"></div>
+                        <div class="form-field amount-field"><label for="budget_other">Other:</label><input type="number" step="0.01" id="budget_other" name="Other" value="{{ budget.get('Other', '') }}"></div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit">Set Budget</button>
+                        <label class="propagate-label">
+                            <input type="checkbox" name="propagate" value="true"> Propagate for next 12 months
+                        </label>
+                    </div>
+                </form>
+            </div>
+
+            <div id="incomeSectionContentDesktop" class="main-pane tab-pane card-style">
+                <form action="/add_income" method="post" class="expense-form-compact" id="addIncomeFormDesktop">
+                    <input type="hidden" name="month_select" value="{{ active_month }}">
+                    <div class="expense-fields-inline">
+                        <div class="form-field description-field"><label for="income_description_desktop">Description:</label><input type="text" id="income_description_desktop" name="description" required></div>
+                        <div class="form-field amount-field"><label for="income_amount_desktop">Amount:</label><input type="number" step="0.01" id="income_amount_desktop" name="amount" required></div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit">Add Income</button>
+                        <label class="propagate-label">
+                            <input type="checkbox" name="propagate" value="true"> Add for next 12 months
+                        </label>
+                    </div>
+                </form>
+                <h3>Income Records for {{ active_month }}:</h3>
+                <ul class="incomeList"></ul>
+            </div>
+
+            <div id="emiSectionContentDesktop" class="main-pane tab-pane card-style">
+                <form action="/add_emi" method="post" class="expense-form-compact" id="addEmiFormDesktop">
+                    <input type="hidden" name="month_select" value="{{ active_month }}">
+                    <div class="expense-fields-inline">
+                        <div class="form-field description-field"><label for="loan_name_desktop">Loan Name/Description:</label><input type="text" id="loan_name_desktop" name="loan_name" required></div>
+                        <div class="form-field amount-field"><label for="emi_amount_desktop">EMI Amount:</label><input type="number" step="0.01" id="emi_amount_desktop" name="emi_amount" required></div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit">Add EMI</button>
+                        <label class="propagate-label">
+                            <input type="checkbox" name="propagate" value="true"> Add for next 12 months
+                        </label>
+                    </div>
+                </form>
+                <h3>Loan EMI Records for {{ active_month }}:</h3>
+                <ul class="emiList"></ul>
+            </div>
+
+            <div class="card" id="payment-type-totals" style="margin-top: 30px;">
+                <h2>Expense Totals by Payment Type</h2>
+                <div style="display: flex; gap: 30px; justify-content: space-around;">
+                    <div><strong>Amex:</strong> <span id="totalAmex">0.00</span></div>
+                    <div><strong>RBL:</strong> <span id="totalRbl">0.00</span></div>
+                    <div><strong>Cash:</strong> <span id="totalCash">0.00</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="mobile-view">
+            <header class="mobile-header">
+                <h1>Budget Planner</h1>
+                <div class="month-selector-mobile">
+                    <input type="month" id="month_select_mobile" name="month_select" value="{{ active_month }}">
+                    <button type="button" id="changeMonthBtnMobile">Change</button>
+                </div>
+            </header>
+
+            <main class="mobile-main-content">
+                <div id="dashboard-content-mobile" class="main-pane tab-pane active">
+                    <div class="dashboard-block">
+                        <h3 id="summary-title-mobile">Summary</h3>
+                        <div id="summaryContentMobile">
+                            <p>Total Income: <span class="totalIncome"></span></p>
+                            <p>Total Expenses: <span class="totalExpenses"></span></p>
+                            <p>Total EMI: <span class="totalEMIMobile"></span></p>
+                            <p>Remaining Budget: <span class="remainingBudgetMobile"></span></p>
+                            <p>Net Savings: <span class="netSavingsMobile"></span></p>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-block">
+                        <h3 id="chart-title-mobile">Budget vs. Spending</h3>
+                        <div class="chart-container">
+                            <canvas class="categoryBarChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-block">
+                        <h3 id="report-title-mobile">Budget Report</h3>
+                        <div class="table-container">
+                            <table class="budgetReportTable">
+                                <thead>
+                                    <tr>
+                                        <th>Category</th>
+                                        <th>Budgeted</th>
+                                        <th>Spent</th>
+                                        <th>Difference</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                                <tfoot></tfoot>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Expense Totals by Payment Type for Mobile -->
+                    <div class="dashboard-block" id="payment-type-totals-mobile" style="margin-top: 30px;">
+                        <h3>Expense Totals by Payment Type</h3>
+                        <div style="display: flex; gap: 20px; justify-content: space-around;">
+                            <div><strong>Amex:</strong> <span id="totalAmex">0.00</span></div>
+                            <div><strong>RBL:</strong> <span id="totalRbl">0.00</span></div>
+                            <div><strong>Cash:</strong> <span id="totalCash">0.00</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="expense-content-mobile" class="main-pane tab-pane mobile-pane">
+                    <h2>Record/View Expenses</h2>
+                    <form id="addExpenseFormMobile" class="mobile-form">
+                        <input type="date" name="date" value="{{ current_date }}" required>
+                        <select name="category">
+                            <option value="Food">Food</option>
+                            <option value="Cloth">Cloth</option>
+                            <option value="Online">Online</option>
+                            <option value="Miscellaneous">Miscellaneous</option>
+                            <option value="Other">Other</option>
+                        </select>
+                        <input type="text" name="description" placeholder="Description" required>
+                        <input type="number" step="0.01" name="amount" placeholder="Amount" required>
+                        <div class="mobile-radios">
+                            <label><input type="radio" name="payment_type" value="Amex"> Amex</label>
+                            <label><input type="radio" name="payment_type" value="RBL"> RBL</label>
+                            <label><input type="radio" name="payment_type" value="CASH"> Cash</label>
+                        </div>
+                        <button type="submit">Add Expense</button>
+                    </form>
+                    <h3>Expense Records</h3>
+                    <ul class="expenseList mobile-item-list"></ul>
+                </div>
+
+                <div id="income-content-mobile" class="main-pane tab-pane mobile-pane">
+                    <h2>Add/View Income</h2>
+                    <form id="addIncomeFormMobile" class="mobile-form">
+                        <input type="hidden" name="month_select" value="{{ active_month }}">
+                        <input type="text" name="description" placeholder="Description" required>
+                        <input type="number" step="0.01" name="amount" placeholder="Amount" required>
+                        <div class="form-actions-mobile">
+                            <button type="submit">Add Income</button>
+                            <label class="propagate-label" style="display:inline-flex;align-items:center;gap:4px;margin-left:0;white-space:nowrap;">
+                                <input type="checkbox" name="propagate" value="true" style="margin:0 6px 0 0;"> <span style="white-space:nowrap;">Add for 12 months</span>
+                            </label>
+                        </div>
+                    </form>
+                    <h3>Income Records</h3>
+                    <ul class="incomeList mobile-item-list"></ul>
+                </div>
+
+                <div id="emi-content-mobile" class="main-pane tab-pane mobile-pane">
+                    <h2>Add/View Loan EMI</h2>
+                    <form id="addEmiFormMobile" class="mobile-form">
+                        <input type="text" name="loan_name" placeholder="Loan Name/Description" required>
+                        <input type="number" step="0.01" name="emi_amount" placeholder="EMI Amount" required>
+                        <div class="form-actions-mobile">
+                            <button type="submit">Add EMI</button>
+                            <label class="propagate-label" style="display:inline-flex;align-items:center;gap:4px;margin-left:0;white-space:nowrap;">
+                                <input type="checkbox" name="propagate" value="true" style="margin:0 6px 0 0;"> <span style="white-space:nowrap;">Add for 12 months</span>
+                            </label>
+                        </div>
+                    </form>
+                    <h3>Loan EMI Records</h3>
+                    <ul class="emiList mobile-item-list"></ul>
+                </div>
+
+                <div id="budget-content-mobile" class="main-pane tab-pane mobile-pane">
+                    <h2>Set/Update Budget</h2>
+                    <form id="setBudgetFormMobile" class="mobile-form">
+                        <label>Food: <input type="number" step="0.01" name="Food" value="{{ budget.get('Food', '') }}"></label>
+                        <label>Cloth: <input type="number" step="0.01" name="Cloth" value="{{ budget.get('Cloth', '') }}"></label>
+                        <label>Online: <input type="number" step="0.01" name="Online" value="{{ budget.get('Online', '') }}"></label>
+                        <label>Miscellaneous: <input type="number" step="0.01" name="Miscellaneous" value="{{ budget.get('Miscellaneous', '') }}"></label>
+                        <label>Other: <input type="number" step="0.01" name="Other" value="{{ budget.get('Other', '') }}"></label>
+                        <div class="form-actions-mobile">
+                            <button type="submit">Set Budget</button>
+                            <label class="propagate-label" style="display:inline-flex;align-items:center;gap:4px;margin-left:0;white-space:nowrap;">
+                                <input type="checkbox" name="propagate" value="true" style="margin:0 6px 0 0;"> <span style="white-space:nowrap;">Propagate for 12 months</span>
+                            </label>
+                        </div>
+                    </form>
+                </div>
+            </main>
+
+            <nav class="mobile-nav">
+                <button class="nav-item active" data-target="#dashboard-content-mobile"><i class="fas fa-chart-pie"></i><span>Dashboard</span></button>
+                <button class="nav-item" data-target="#expense-content-mobile"><i class="fas fa-money-bill-wave"></i><span>Expenses</span></button>
+                <button class="nav-item" data-target="#income-content-mobile"><i class="fas fa-piggy-bank"></i><span>Income</span></button>
+                <button class="nav-item" data-target="#emi-content-mobile"><i class="fas fa-receipt"></i><span>EMI</span></button>
+                <button class="nav-item" data-target="#budget-content-mobile"><i class="fas fa-bullseye"></i><span>Budget</span></button>
             </nav>
+        </div>
+    </div>
 
-            <!-- == MOBILE UI ELEMENTS END == -->
-            
-            <!-- PWA Service Worker Registration -->
-            <script>
-                if ('serviceWorker' in navigator) {
-                    window.addEventListener('load', function() {
-                        navigator.serviceWorker.register('/static/service-worker.js')
-                        .then(function(registration) {
-                            console.log('ServiceWorker registration successful');
-                        }, function(err) {
-                            console.log('ServiceWorker registration failed: ', err);
-                        });
-                    }
-                }
-            </script>
-            
-            <script id="flaskData" type="application/json">
-                {
-                    "income": {{ income|tojson|safe }},
-                    "expenses": {{ expenses|tojson|safe }},
-                    "emis": {{ emis|tojson|safe }},
-                    "budget": {{ budget|tojson|safe }},
-                    "active_month_total_budget": {{ active_month_total_budget|tojson|safe }},
-                    "active_month_total_spent": {{ active_month_total_spent|tojson|safe }},
-                    "doughnut_chart_labels": {{ doughnut_chart_labels|tojson|safe }},
-                    "doughnut_chart_values": {{ doughnut_chart_values|tojson|safe }},
-                    "chart_spent_values": {{ chart_spent_values|tojson|safe }} {# Added for the new bar chart #}
-                }
-            </script>
-            <script src="/static/script.js"></script>
-
-            <script>
-            // Mobile-specific UI logic
-            document.addEventListener('DOMContentLoaded', function () {
-                const isMobile = window.innerWidth <= 768;
-                if (isMobile) {
-                    initializeMobileView();
-                }
-            });
-            </script>
-
-    </div> <!-- Close container -->
+    <script id="flask-data" data-json="{{ js_data|tojson|safe }}"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>

@@ -16,51 +16,16 @@
     <link rel="apple-touch-icon" href="/static/icon-192x192.png">
 </head>
 <body>
-    <div class="container card"> <!-- Added card class -->
+    {% if item_type != 'expense' %}
+    <div class="container card"> <!-- Desktop card -->
         <a href="/" class="back-link"><i class="fas fa-arrow-left"></i> Back</a>
         <h1>Edit {{ item_type|capitalize }}</h1>
-
         <div class="edit-form-container">
             <form method="post" id="editExpenseFormHtml">
                 {% if item_type == 'income' %}
                     <div class="form-group">
                         <label for="description">Description:</label>
                         <input type="text" id="description" name="description" value="{{ item.description }}" placeholder="e.g., Monthly Salary" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="amount">Amount:</label>
-                        <input type="number" step="0.01" id="amount" name="amount" value="{{ item.amount }}" required>
-                    </div>
-                {% elif item_type == 'expense' %}
-                    <div class="form-group">
-                        <label for="date">Date:</label>
-                        <input type="date" id="date" name="date" value="{{ item.date }}" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="category">Category:</label>
-                        <select id="expense_category" name="category">
-                            <option value="Food" {% if item.category == 'Food' %}selected{% endif %}>Food</option>
-                            <option value="Cloth" {% if item.category == 'Cloth' %}selected{% endif %}>Cloth</option>
-                            <option value="Online" {% if item.category == 'Online' %}selected{% endif %}>Online</option>
-                            <option value="Miscellaneous" {% if item.category == 'Miscellaneous' %}selected{% endif %}>Miscellaneous</option>
-                            <option value="Other" {% if item.category == 'Other' %}selected{% endif %}>Other</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Payment Method:</label>
-                        <div class="payment-options">
-                            <input type="radio" id="edit_pay_amex" name="payment_type" value="Amex" {% if item.payment_type == 'Amex' %}checked{% endif %}>
-                            <label for="edit_pay_amex">Amex</label>
-                            <input type="radio" id="edit_pay_rbl" name="payment_type" value="RBL" {% if item.payment_type == 'RBL' %}checked{% endif %}>
-                            <label for="edit_pay_rbl">RBL</label>
-                            <input type="radio" id="edit_pay_cash" name="payment_type" value="CASH" {% if item.payment_type == 'CASH' %}checked{% endif %}>
-                            <label for="edit_pay_cash">Cash</label>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="expense_description_display_edit">Description:</label>
-                        <input type="text" id="expense_description_display_edit" name="description_display_edit" placeholder="e.g., Coffee" value="{{ item.description }}" required>
-                        <input type="hidden" id="expense_description_edit" name="description" value="{{ item.description }}">
                     </div>
                     <div class="form-group">
                         <label for="amount">Amount:</label>
@@ -83,6 +48,96 @@
             </form>
         </div>
     </div>
+    {% endif %}
+
+    {% if item_type == 'expense' %}
+    <input type="hidden" id="month_select_desktop" value="{{ active_month }}">
+    {% endif %}
+
+    {% if item_type == 'expense' %}
+    <div id="desktop-view">
+        <h1>Edit Expense</h1>
+        <div class="container">
+            <div class="card-style" style="max-width: 600px; margin: auto;">
+                <form id="editExpenseForm" method="post" data-expense-id="{{ item.id }}">
+                    <input type="hidden" name="month" value="{{ active_month }}">
+                    <input type="hidden" name="month_select" value="{{ active_month }}">
+                    <div class="form-field">
+                        <label for="date">Date:</label>
+                        <input type="date" id="date" name="date" value="{{ item.date }}" required>
+                    </div>
+                    <div class="form-field">
+                        <label for="category">Category:</label>
+                        <select id="category" name="category" required>
+                            <option value="Food" {% if item.category == 'Food' %}selected{% endif %}>Food</option>
+                            <option value="Cloth" {% if item.category == 'Cloth' %}selected{% endif %}>Cloth</option>
+                            <option value="Online" {% if item.category == 'Online' %}selected{% endif %}>Online</option>
+                            <option value="Miscellaneous" {% if item.category == 'Miscellaneous' %}selected{% endif %}>Miscellaneous</option>
+                            <option value="Other" {% if item.category == 'Other' %}selected{% endif %}>Other</option>
+                        </select>
+                    </div>
+                    <div class="form-field">
+                        <label for="description">Description:</label>
+                        <input type="text" id="description" name="description" value="{{ item.description }}" required>
+                    </div>
+                    <div class="form-field">
+                        <label for="amount">Amount:</label>
+                        <input type="number" step="0.01" id="amount" name="amount" value="{{ item.amount }}" required>
+                    </div>
+                    <div class="form-field">
+                        <label>Payment Type:</label>
+                        <div style="display:flex;gap:18px;align-items:center;">
+                            <label style="display:flex;align-items:center;gap:4px;font-size:1em;">
+                                <input type="radio" name="payment_type" value="Amex" {% if item.payment_type == 'Amex' %}checked{% endif %} required> Amex
+                            </label>
+                            <label style="display:flex;align-items:center;gap:4px;font-size:1em;">
+                                <input type="radio" name="payment_type" value="RBL" {% if item.payment_type == 'RBL' %}checked{% endif %}> RBL
+                            </label>
+                            <label style="display:flex;align-items:center;gap:4px;font-size:1em;">
+                                <input type="radio" name="payment_type" value="CASH" {% if item.payment_type == 'CASH' %}checked{% endif %}> Cash
+                            </label>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-primary">Save Changes</button>
+                    <a href="/" class="btn-secondary">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div id="mobile-view">
+        <div class="mobile-form-card" style="max-width: 420px; margin: 32px auto 0 auto; background: #fff; border-radius: 18px; box-shadow: 0 2px 16px 0 rgba(0,0,0,0.10); padding: 22px 18px 18px 18px;">
+            <a href="/" class="back-link" style="display:inline-block;margin-bottom:18px;font-size:1.1em;color:#2a69a5;"><i class="fas fa-arrow-left"></i> Back</a>
+            <h2 style="margin-bottom:18px; font-size:1.35em; text-align:center; color:#2a69a5; font-weight:600;">Edit Expense</h2>
+            <form id="editExpenseFormMobile" method="post" style="display:flex;flex-direction:column;gap:18px;">
+                <input type="hidden" name="month" value="{{ active_month }}">
+                <input type="hidden" name="month_select" value="{{ active_month }}">
+                <input type="date" name="date" value="{{ item.date }}" required style="padding:10px 12px;border-radius:8px;border:1px solid #d1d5db;font-size:1em;">
+                <select name="category" required style="padding:10px 12px;border-radius:8px;border:1px solid #d1d5db;font-size:1em;">
+                    <option value="Food" {% if item.category == 'Food' %}selected{% endif %}>Food</option>
+                    <option value="Cloth" {% if item.category == 'Cloth' %}selected{% endif %}>Cloth</option>
+                    <option value="Online" {% if item.category == 'Online' %}selected{% endif %}>Online</option>
+                    <option value="Miscellaneous" {% if item.category == 'Miscellaneous' %}selected{% endif %}>Miscellaneous</option>
+                    <option value="Other" {% if item.category == 'Other' %}selected{% endif %}>Other</option>
+                </select>
+                <input type="text" name="description" placeholder="Description" value="{{ item.description }}" required style="padding:10px 12px;border-radius:8px;border:1px solid #d1d5db;font-size:1em;">
+                <input type="number" step="0.01" name="amount" placeholder="Amount" value="{{ item.amount }}" required style="padding:10px 12px;border-radius:8px;border:1px solid #d1d5db;font-size:1em;">
+                <div class="mobile-radios" style="display:flex;gap:12px;justify-content:space-between;align-items:center;">
+                    <label style="display:flex;align-items:center;gap:4px;font-size:1em;">
+                        <input type="radio" name="payment_type" value="Amex" {% if item.payment_type == 'Amex' %}checked{% endif %} required> Amex
+                    </label>
+                    <label style="display:flex;align-items:center;gap:4px;font-size:1em;">
+                        <input type="radio" name="payment_type" value="RBL" {% if item.payment_type == 'RBL' %}checked{% endif %}> RBL
+                    </label>
+                    <label style="display:flex;align-items:center;gap:4px;font-size:1em;">
+                        <input type="radio" name="payment_type" value="CASH" {% if item.payment_type == 'CASH' %}checked{% endif %}> Cash
+                    </label>
+                </div>
+                <button type="submit" class="btn-primary" style="margin-top:8px;padding:12px 0;font-size:1.08em;border-radius:8px;background:#2a69a5;color:#fff;font-weight:600;">Save Changes</button>
+                <a href="/" class="btn-secondary" style="text-align:center;display:block;margin-top:2px;padding:10px 0;font-size:1.05em;border-radius:8px;background:#f3f4f6;color:#2a69a5;font-weight:500;text-decoration:none;">Cancel</a>
+            </form>
+        </div>
+    </div>
+    {% endif %}
     <script src="/static/script.js"></script>
 </body>
 </html>

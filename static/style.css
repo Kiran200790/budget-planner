@@ -1,757 +1,405 @@
+/* --- EXPENSE & EMI LIST STYLING --- */
+/* Improved Expense & EMI List Styling */
+.expenseList li, .emiList li, .incomeList li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 22px;
+    margin-bottom: 14px;
+    background: #f0f4fa; /* Mid-tone blue-gray between old and new */
+    border-radius: 12px;
+    font-size: 1em;
+    gap: 10px;
+    box-shadow: 0 2px 8px rgba(66,153,225,0.07);
+    border: none;
+    transition: box-shadow 0.2s;
+}
+.expenseList li:last-child, .emiList li:last-child {
+    margin-bottom: 0;
+}
+
+.expenseList .item-actions, .emiList .item-actions {
+    display: flex;
+    gap: 10px;
+    margin-left: auto;
+}
+
+.expenseList .edit-btn, .expenseList .delete-btn,
+.emiList .edit-btn, .emiList .delete-btn {
+    padding: 6px 16px;
+    font-size: 0.95em;
+    border-radius: 6px;
+    color: white;
+    text-decoration: none;
+    background-color: #6b7280;
+    border: none;
+    transition: background 0.2s;
+    margin-left: 2px;
+}
+.expenseList .edit-btn:hover, .emiList .edit-btn:hover {
+    background-color: #4299e1;
+}
+.expenseList .delete-btn, .emiList .delete-btn {
+    background-color: #ef4444;
+}
+.expenseList .delete-btn:hover, .emiList .delete-btn:hover {
+    background-color: #dc2626;
+}
+/* Ensure text does not touch the edges */
+.expenseList span, .emiList span {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding-left: 2px;
+}
+/* --- INCOME LIST STYLING --- */
+
+
+
+.incomeList li:last-child {
+    margin-bottom: 0;
+}
+
+.incomeList .item-actions {
+    display: flex;
+    gap: 10px;
+    margin-left: auto;
+}
+
+.incomeList .edit-btn, .incomeList .delete-btn {
+    padding: 6px 16px;
+    font-size: 0.95em;
+    border-radius: 6px;
+    color: white;
+    text-decoration: none;
+    background-color: #6b7280;
+    border: none;
+    transition: background 0.2s;
+    margin-left: 2px;
+}
+.incomeList .edit-btn:hover {
+    background-color: #4299e1;
+}
+.incomeList .delete-btn {
+    background-color: #ef4444;
+}
+.incomeList .delete-btn:hover {
+    background-color: #dc2626;
+}
+
+.incomeList span {
+    flex: 1 1 0%;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding-left: 2px;
+    text-align: left !important;
+    justify-content: flex-start !important;
+    align-items: flex-start !important;
+}
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
 
+/* General Body and Container */
 body {
-    font-family: 'Montserrat', sans-serif; /* Changed to Montserrat */
+    font-family: 'Montserrat', sans-serif;
     margin: 0;
-    background-color: #f0f2f5; /* Lighter, modern background */
+    background-color: #f0f2f5;
     color: #333;
     line-height: 1.6;
+    padding-bottom: 80px; /* Add padding to the bottom to avoid content being hidden by the mobile nav */
 }
 
-h1, h2 {
-    color: #1a202c; /* Darker, more modern heading color */
-    text-align: center;
-    font-weight: 500;
-}
-
-h1 { /* Banner Style */
-    font-size: 2.8em; /* Slightly reduced font size for a more professional feel */
-    margin-bottom: 30px; /* Adjusted space below the banner */
-    padding: 25px 20px; /* Adjusted padding */
-    color: #ffffff;
-    background: #2a69a5; /* Darker solid blue, derived from button color #4299e1 */
-    border-radius: 8px; /* Less rounded corners for a sharper look */
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15); /* Refined shadow */
-    text-transform: none; /* Changed from uppercase for a more standard professional look */
-    letter-spacing: 0.5px; /* Reduced letter spacing */
-    font-weight: 600; /* Adjusted font weight */
-    text-align: center;
-    border-bottom: 3px solid #1A4E8A; /* Darker border for depth, matches darker blue */
-}
-
-h2 {
-    font-size: 1.8em;
-    margin-bottom: 20px;
-    border-bottom: 2px solid #e2e8f0; /* Subtle separator for section titles */
-    padding-bottom: 10px;
-    text-align: left; /* Align section titles to the left */
-}
-
-.container { /* A main container for centering content */
+.container {
     max-width: 1200px;
     margin: 0 auto;
     padding: 20px;
 }
 
-.card { /* New common card style */
+/* Hide desktop-only elements on mobile and vice-versa */
+.desktop-only {
+    display: none; /* Hidden by default, shown on larger screens */
+}
+
+.mobile-only {
+    display: block; /* Shown by default, hidden on larger screens */
+}
+
+/* --- VIEW SWITCHING LOGIC --- */
+
+/* Default (mobile-first): show mobile-only, hide desktop-only */
+.desktop-only {
+    display: none;
+}
+.mobile-only {
+    display: block;
+}
+
+/* Main view containers */
+#desktop-view {
+    display: none;
+}
+#mobile-view {
+    display: block;
+}
+
+/* Tablet and larger screens */
+@media (min-width: 769px) {
+    #desktop-view {
+        display: block;
+    }
+    #mobile-view {
+        display: none;
+    }
+    .desktop-only {
+        display: flex; /* Or block, grid, etc., as needed */
+    }
+    .mobile-nav {
+        display: none !important; /* Ensure mobile nav is hidden */
+    }
+}
+
+/* --- END VIEW SWITCHING LOGIC --- */
+
+/* Typography */
+h1, h2 {
+    color: #1a202c;
+    text-align: center;
+    font-weight: 500;
+}
+
+h1 {
+    font-size: 2.5em;
+    padding: 20px;
+    color: #ffffff;
+    background: #2a69a5;
+    border-radius: 8px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+    font-weight: 600;
+    width: 90%;
+    margin: 20px auto;
+}
+
+h2 {
+    font-size: 1.6em;
+    margin-bottom: 15px;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 8px;
+    text-align: left;
+}
+
+/* Card and Pane Styling */
+.card, .card-style {
     background-color: #ffffff;
     margin-bottom: 25px;
     padding: 25px;
-    border-radius: 16px; /* Increased for a rounder look */
-    box-shadow: 0 8px 16px rgba(0,0,0,0.07), 0 3px 6px rgba(0,0,0,0.05); /* More layered shadow */
+    border-radius: 16px;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.07), 0 3px 6px rgba(0,0,0,0.05);
     border: 1px solid #e2e8f0;
-    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out; /* For hover effects */
+    width: 100%; /* Set width to 100% to fill container */
+    margin-left: auto; /* Center the element */
+    margin-right: auto; /* Center the element */
+    box-sizing: border-box; /* Include padding in width calculation */
 }
 
-.card:hover {
-    transform: translateY(-4px); /* Lift card on hover */
-    box-shadow: 0 12px 24px rgba(0,0,0,0.1), 0 5px 10px rgba(0,0,0,0.07); /* Enhanced shadow on hover */
+#payment-type-totals {
+    width: 90%;
+    font-size: 0.9em; /* Reduced font size */
 }
 
-/* Consistent styling for H2 within cards */
-.card h2 {
-    font-size: 1.6em; /* Adjusted base size for card titles */
-    color: #334155; /* Softer dark color for titles */
-    margin-top: 0; /* Remove top margin for h2 inside card */
-    margin-bottom: 20px;
+.main-pane {
+    background-color: #ffffff;
+    margin-bottom: 25px;
+    padding: 25px;
+    border-radius: 16px;
+    width: 90%; /* Set width to 90% */
+    margin-left: auto; /* Center the element */
+    margin-right: auto; /* Center the element */
+}
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr); /* Changed to a fixed 3-column layout */
+    gap: 20px;
+    width: 100%; /* Changed from 90% to 100% */
+    padding: 10px;
+    align-items: stretch; /* Ensures all blocks stretch to the same height */
+    margin: 20px auto; /* Center the grid and add margin */
+    box-sizing: border-box; /* Include padding in width calculation */
+}
+
+.dashboard-block {
+    background-color: #fff;
+    border-radius: 16px;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.07), 0 3px 6px rgba(0,0,0,0.05);
+    border: 1px solid #e2e8f0;
+    padding: 25px;
+    display: flex;
+    flex-direction: column;
+    height: 100%; /* Allow block to grow */
+    max-height: 300px; /* Reduced max-height to constrain the block */
+    transition: transform 0.18s cubic-bezier(.4,1.8,.6,1), box-shadow 0.18s;
+    will-change: transform;
+}
+
+.dashboard-block:hover {
+    transform: translateY(-10px) scale(1.04);
+    box-shadow: 0 16px 32px rgba(66,153,225,0.13), 0 3px 12px rgba(0,0,0,0.08);
+    cursor: pointer;
+}
+
+.dashboard-block h3 {
+    font-size: 1.0em;
+    color: #333;
+    font-weight: bold; /* Explicitly set to bold */
+    border-bottom: 1px solid #eee;
     padding-bottom: 10px;
-    border-bottom: 1px solid #e9ecef; /* Lighter border */
+    margin-bottom: 15px;
     text-align: left;
 }
 
-/* New styles for the top row layout */
-.top-row-container {
+.dashboard-content {
+    flex-grow: 1;
+    overflow-y: auto; /* Make content scrollable if it overflows */
     display: flex;
-    flex-wrap: wrap; /* Allow wrapping on smaller screens */
-    gap: 25px; /* Space between month selector and summary/report block */
-    align-items: flex-start; /* Align items to the top */
-    margin-bottom: 25px; /* Add margin to separate from sections below */
+    flex-direction: column;
 }
 
-.top-row-container > .month-selector { /* .month-selector should have .card class */
-    flex: 1; 
-    min-width: 300px; 
+/* Summary Content Styling */
+#summaryContentDesktop,
+#summaryContentMobile {
+    flex-grow: 1;
+    overflow-y: auto; /* Make content scrollable */
 }
 
-.top-row-container > .summary-and-report-container {
-    flex: 2; 
-    display: flex; 
-    gap: 25px; /* This will space out summary-section and budget-report-section */
-    /* The .summary-and-report-container itself is no longer a card */
-    background-color: transparent;
-    box-shadow: none;
-    border: none;
-    padding: 0;
-    margin-bottom: 0; /* Margin is handled by top-row-container or individual cards */
+#summaryContentDesktop p,
+#summaryContentMobile p {
+    font-size: 0.9em; /* Slightly smaller font */
+    margin: 8px 0; /* Adjust spacing */
 }
 
-/* Adjustments for summary and report sections (which should have .card class) */
-.summary-and-report-container > div { /* Targets .summary-section and .budget-report-section, both should have .card */
-    flex: 1; 
-    min-width: 280px; 
-    /* Card properties (padding, margin-bottom etc.) are handled by .card class */
-    /* We only define specific overrides or additional styles here if needed */
-    max-height: 25vh; /* Adjusted height for these specific cards */
-    overflow-y: auto; 
-    font-size: 0.9em; 
-    padding: 15px; /* Override .card padding for more compact content if needed */
+/* Highlight remaining budget and net saving in summary */
+.summary-remaining-positive {
+    color: #10b981;
+    font-weight: 600;
+}
+.summary-remaining-negative {
+    color: #ef4444;
+    font-weight: 600;
 }
 
-/* Ensure .summary-and-report-container is a flex container */
-.summary-and-report-container {
-    display: flex;
-    flex-wrap: wrap; /* Allow wrapping on smaller screens */
-    gap: 25px; /* Space between summary and report cards */
-    /* Remove card styling from the container itself */
-    background-color: transparent;
-    box-shadow: none;
-    border: none;
-    padding: 0; /* Remove padding if children are cards */
-    margin-bottom: 25px; /* Keep margin for spacing below */
-}
-
-/* Style for the individual summary and report cards */
-.summary-section,
-.budget-report-section,
-.chart-section { /* Added .chart-section here */
-    flex: 1; /* Each takes equal space */
-    min-width: 300px; /* Minimum width before wrapping */
-    /* Card styling is now applied by the .card class in HTML */
-    /* Specific overrides for these sections if needed */
-    max-height: 40vh; /* Increased max-height slightly */
-    overflow-y: auto;
-}
-
-.chart-section h3 {
-    text-align: center;
-    font-size: 1.1em;
-    margin-bottom: 10px;
-    color: #334155;
-}
-
-#activeMonthDoughnutChart {
-    max-width: 200px; /* Adjust for "small" doughnut */
-    max-height: 200px; /* Adjust for "small" doughnut */
-    margin: 0 auto; /* Center the canvas */
-    display: block; /* Ensure margin auto works */
-}
-
-/* Styles for the category bar chart */
-#categoryBarChart {
-    width: 100% !important; /* Ensure it uses full width of its container */
-    max-height: 200px; /* Adjust as needed, trying to make it compact, was 280px */
-    /* height: auto !important; /* Let chart.js determine height based on aspect ratio if possible */
-    /* aspect-ratio: 16 / 9; /* Or your preferred aspect ratio, might conflict with max-height */
-}
-
-.summary-and-report-container > div { /* Targets .summary-section and .budget-report-section */
-    /* flex: 1;  Already handled by .summary-section, .budget-report-section */
-    /* min-width: 320px; Already handled */
-    margin-bottom: 0; /* Children cards don't need bottom margin if parent has it */
-    padding: 15px; /* Compact padding for these cards */
-    /* max-height: 10%; /* Replaced with max-height in .summary-section, .budget-report-section */
-    overflow-y: auto; 
-    font-size: 0.9em; 
-}
-
-.summary-and-report-container h2 {
-    margin-top: 0; 
-    font-size: 1.3em; /* Further reduced font size for section titles */
-    padding-bottom: 8px; /* Reduced padding */
-    margin-bottom: 10px; /* Reduced margin */
-    color: #334155; /* Consistent color */
-    border-bottom: 1px solid #e9ecef; /* Consistent border */
-}
-
-.budget-report-section table {
+.chart-container {
+    position: relative;
     width: 100%;
-    border-collapse: collapse; /* Crucial for borders to look right */
-    margin-top: 10px; /* Reduced margin-top */
-    font-size: 0.8em; /* Further reduced font size for compactness */
+    height: 220px; /* Set a fixed initial height, can be adjusted */
+    flex-shrink: 0; /* Prevent the container from shrinking */
 }
 
-.budget-report-section th,
-.budget-report-section td {
-    border: 1px solid #cce0f5; /* Even lighter blue border */
-    padding: 5px 7px; /* Reduced padding for cell content */
+.table-container {
+    width: 100%;
+    overflow-y: auto;
+    max-height: 400px; /* Or a height that fits your design */
+}
+
+/* Table Styling */
+.budgetReportTable {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    font-size: 0.85em; /* Decreased font size */
+}
+
+.budgetReportTable th,
+.budgetReportTable td {
+    border: 1px solid #e2e8f0; /* Grid lines */
+    padding: 8px 10px; /* Decreased padding */
     text-align: left;
-    vertical-align: middle; /* Align text vertically in the middle */
-    white-space: nowrap; /* Prevent text wrapping */
-    overflow: hidden; /* Hide overflow */
-    text-overflow: ellipsis; /* Add ellipsis for overflowed text */
 }
 
-.budget-report-section th {
-    background-color: #eaf4fd; 
-    color: #495057; /* Darker text for contrast */
-    font-weight: 600; /* Slightly bolder */
-    padding: 8px 10px; /* Reduced padding */
-    border-bottom: 2px solid #dee2e6; /* Subtle bottom border */
-    white-space: nowrap; /* Prevent text wrapping */
-    overflow: hidden; /* Hide overflow */
-    text-overflow: ellipsis; /* Add ellipsis for overflow */
-    font-size: 0.8rem; /* Increased from 0.9rem */
+.budgetReportTable thead th {
+    background-color: #f8fafc;
+    font-weight: 600;
+    color: #4a5568;
+    position: sticky;
+    top: 0; /* Make header sticky within the container */
 }
 
-.budget-report-section tbody tr:nth-child(even) {
-    background-color: #f0f8ff; /* Alice blue for even rows (very light blue) */
+.budgetReportTable tbody tr:nth-child(even) {
+    background-color: #f9faf9;
 }
 
-.budget-report-section tbody tr:hover {
-    background-color: #d4eaff; /* Slightly darker blue on hover */
+.budgetReportTable tbody tr:hover {
+    background-color: #f1f5f9;
 }
 
-.budget-report-section tfoot td {
+.budgetReportTable tfoot tr {
+    background-color: #f8fafc;
     font-weight: bold;
-    background-color: #e3f2fd; /* Similar to header for footer */
-    color: #0d47a1; /* Dark blue for footer text */
-    border-color: #bbdefb; /* Ensure footer border matches other cells if it was different */
 }
 
+.budgetReportTable td.negative {
+    color: #ef4444;
+    font-weight: 500;
+}
+
+.budgetReportTable td.positive {
+    color: #10b981;
+    font-weight: 500;
+}
+
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    width: 100%;
+}
+
+/* Forms */
 form {
     display: flex;
     flex-direction: column;
-    gap: 15px; /* Increased gap */
+    gap: 15px;
 }
 
-label {
-    font-weight: 500; /* Medium weight for labels */
-    color: #4a5568; /* Softer label color */
-    font-size: 0.95em;
-}
-
-input[type="text"], 
-input[type="number"], 
-input[type="date"], 
-select {
-    padding: 12px 15px; /* Increased padding */
-    border: 1px solid #cbd5e0; /* Lighter border */
-    border-radius: 6px; /* Softer rounding */
-    box-sizing: border-box;
-    font-size: 1em;
-    transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-}
-
-input[type="text"]:focus, 
-input[type="number"]:focus, 
-input[type="date"]:focus, 
-select:focus {
-    border-color: #4299e1; /* Blue focus color */
-    box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.3); /* Subtle focus shadow */
-    outline: none;
-}
-
-button, .button-style { /* Added .button-style for consistent styling if needed on <a> tags */
-    background-color: #4299e1; /* Modern blue */
-    color: white;
-    padding: 12px 20px; /* Adjusted padding */
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 1em; /* Unified font size */
-    font-weight: 500;
-    transition: background-color 0.2s ease-in-out;
-    text-align: center;
-}
-
-button:hover, .button-style:hover {
-    background-color: #3182ce; /* Darker blue on hover */
-}
-
-/* Styles for list items (expenses, income, EMIs) */
-.expense-section ul li,
-.income-section ul li,
-.emi-section ul li {
+.payment-radios {
     display: flex;
-    justify-content: space-between;
+    gap: 15px;
     align-items: center;
-    padding: 10px 0;
-    border-bottom: 1px solid #eee;
-}
-
-.expense-section ul li span,
-.income-section ul li span,
-.emi-section ul li span {
-    flex-grow: 1; /* Allows the text span to take up available space */
-    margin-right: 15px; /* Adds some space between text and actions */
-}
-
-.item-actions {
-    display: flex;
-    align-items: center;
-    gap: 10px; /* Space between edit and delete buttons */
-    white-space: nowrap; /* Prevent buttons from wrapping */
-}
-
-.item-actions .edit-btn,
-.item-actions .delete-btn {
-    padding: 6px 12px; /* Smaller padding for buttons in lists */
-    font-size: 0.9em;
-}
-
-.item-actions .delete-btn {
-    background-color: #e53e3e; /* Red for delete */
-}
-
-.item-actions .delete-btn:hover {
-    background-color: #c53030; /* Darker red on hover */
-}
-
-.edit-btn,
-.delete-btn {
-    padding: 6px 12px; /* Adjusted padding */
-    text-decoration: none;
-    border-radius: 5px;
-    font-size: 0.85em;
-    margin-left: 8px;
-    vertical-align: middle;
-    border: none; /* Remove border, rely on background */
-}
-
-.edit-btn {
-    background-color: gray; /* Changed from #ecc94b */
-    color: #ffffff; /* Changed to white for better contrast with gray */
-    padding: 8px 15px; /* Adjusted padding */
-    border-radius: 6px; /* Softer rounding */
-    transition: background-color 0.2s ease-in-out;
-}
-
-.edit-btn:hover {
-    background-color: #d69e2e;
-}
-
-.delete-btn {
-    background-color: #f56565; /* Softer red */
-    color: white;
-}
-
-.delete-btn:hover {
-    background-color: #e53e3e;
-}
-
-ul {
-    list-style-type: none;
-    padding: 0;
-}
-
-li {
-    background-color: #edf2f7; /* Lighter list item background */
-    margin-top: 8px; /* Increased margin */
-    padding: 12px 15px; /* Increased padding */
-    border-radius: 6px;
-    border: 1px solid #e2e8f0; /* Subtle border for list items */
-    display: flex; /* For aligning items if needed */
-    justify-content: space-between; /* Space out text and buttons */
-    align-items: center;
-}
-
-.summary p {
-    font-size: 1em; /* Adjusted font size */
-    line-height: 1.6; /* Adjusted line height */
-    color: #4a5568; /* Softer text color */
-    margin: 5px 0; /* Reduced margin for p elements in summary */
-}
-
-.summary span {
-    font-weight: 700; /* Bolder span */
-    color: #2c3e50;
-}
-
-.collapsible {
-    background-color: #4a5568; /* Darker grey for collapsible */
-    color: white;
-    cursor: pointer;
-    padding: 12px 18px;
-    width: 100%; /* Make collapsible full width */
-    border: none;
-    text-align: left;
-    outline: none;
-    font-size: 1.1em; /* Larger font size */
-    margin-top: 15px;
-    margin-bottom: 0; /* Remove bottom margin, content will have it */
-    border-radius: 6px;
-    transition: background-color 0.2s ease-in-out;
-}
-
-.collapsible:hover {
-    background-color: #2d3748; /* Darker on hover */
-}
-
-.collapsible.active {
-    background-color: #4299e1; /* Blue when active */
-    border-bottom-left-radius: 0; /* Adjust radius when open */
-    border-bottom-right-radius: 0;
-}
-
-.collapsible-content {
-    padding: 20px; /* Increased padding */
-    display: none;
-    overflow: hidden;
-    background-color: #ffffff; /* White background for content */
-    border: 1px solid #e2e8f0; /* Border for content */
-    border-top: none; /* Remove top border as collapsible acts as header */
-    border-radius: 0 0 6px 6px; 
-    margin-bottom: 15px;
-}
-
-.expense-form-compact .form-row {
-    display: flex;
-    align-items: center; 
-    gap: 15px; 
-}
-
-.expense-form-compact .form-row label {
-    flex-basis: 120px; 
-    flex-shrink: 0;    
-}
-
-.expense-form-compact .form-row input,
-.expense-form-compact .form-row select {
-    flex-grow: 1; 
+    padding-top: 10px; /* Add some space above */
 }
 
 .expense-fields-inline {
     display: flex;
-    flex-wrap: wrap; /* Allow wrapping */
-    gap: 15px; 
-    align-items: flex-end; 
-    margin-bottom: 15px; 
+    flex-wrap: wrap;
+    gap: 15px;
+    align-items: flex-end;
 }
 
-.expense-fields-inline .form-field {
+.form-field {
     display: flex;
-    flex-direction: column; 
-    flex: 1 1 150px; /* Flex grow, shrink, basis */
-    min-width: 150px; /* Minimum width before wrapping */
+    flex-direction: column;
+    flex: 1 1 150px;
 }
 
-.expense-fields-inline .form-field label {
-    margin-bottom: 6px; 
-    font-size: 0.9em;
-}
-
-/* Remove specific basis for category, description, amount to allow better flex wrapping */
-/* .expense-fields-inline .form-field.category-field { ... } */
-/* .expense-fields-inline .form-field.description-field { ... } */
-/* .expense-fields-inline .form-field.amount-field { ... } */
-
-.expense-fields-inline .form-field input[type="date"] {
-    padding: 12px 15px;
-    border: 1px solid #cbd5e0;
-    border-radius: 6px;
-    box-sizing: border-box;
-    width: 100%; 
-}
-
-.expense-form-compact button[type="submit"] {
-    width: auto; 
-    align-self: flex-start; 
-    margin-top: 10px; /* Add some margin above button */
-}
-
-.month-selector {
-    background-color: transparent;
-    padding: 10px 0; /* Reduced vertical padding */
-    margin-bottom: 20px; /* Reduced space below */
-    box-shadow: none;
-    border: none;
-    text-align: left; /* Align content to the left */
-}
-
-.month-selector-inline {
-    display: flex;
-    flex-wrap: nowrap;
-    justify-content: flex-start; /* Align items to the start (left) */
-    align-items: center;
-    gap: 10px; /* Reduced gap for compactness */
-}
-
-.month-selector .month-form-inline {
-    display: flex;
-    align-items: center;
-    gap: 5px; /* Reduced gap within the form */
-    flex-wrap: nowrap;
-}
-
-.month-selector label {
-    margin-bottom: 0;
-    font-weight: 500;
-    margin-right: 5px;
-    font-size: 0.9em; /* Slightly smaller label */
-}
-
-.month-selector input[type="month"],
-.month-selector select {
-    padding: 6px 8px; /* Reduced padding */
-    font-size: 0.9em; /* Slightly smaller font */
-    border: 1px solid #cbd5e0;
-    border-radius: 4px; /* Smaller border-radius */
-    /* width: auto; /* Let browser/flexbox determine width */
-}
-
-.month-selector button {
-    padding: 6px 12px; /* Reduced padding */
-    font-size: 0.9em; /* Slightly smaller font */
-}
-
-.month-selector .current-view-month,
-.month-selector .available-months-dropdown {
-    font-size: 0.9em; /* Slightly smaller font */
-    color: #555;
-    margin: 0;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-}
-
-/* Tab Navigation Styles */
-.tabs-container {
-    display: flex;
-    flex-wrap: wrap; /* Allow tabs to wrap on smaller screens */
-    gap: 10px; /* Spacing between tab buttons */
-    margin-bottom: 20px; /* Space below the tabs */
-    /* If your cards have padding (e.g., 25px) and you want the tabs to align with the card content,
-       you might add a similar padding to the tabs-container or the element it's in.
-       Example: padding-left: 25px; if cards have padding-left: 25px and tabs are directly above. */
-}
-
-.tab-button { /* Styling for NON-ACTIVE tabs, similar to 'Change Month' button */
-    background-color: #4299e1; /* Modern blue from general button style */
-    color: white;
-    padding: 8px 15px; /* From .month-selector button */
-    font-size: 0.95em; /* From .month-selector button */
-    border: none; /* From general button style */
-    border-radius: 6px; /* From general button style */
-    cursor: pointer;
-    font-weight: 500; /* From general button style */
-    text-align: center; /* From general button style */
-    transition: background-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-}
-
-.tab-button:hover { /* Hover for NON-ACTIVE tabs */
-    background-color: #3182ce; /* Darker blue from general button:hover */
-    color: white; /* Ensure text color remains white */
-}
-
-.tab-button.active { /* Active tab needs to be distinct */
-    background-color: #3182ce; /* Darker blue, same as hover for emphasis */
-    color: white;
-    font-weight: bold; /* Make text bolder */
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2); /* Subtle inset shadow for "pressed" feel */
-    /* Ensure other properties like padding, font-size, border-radius are consistent */
-    padding: 8px 15px;
-    font-size: 0.95em;
-    border: none;
-    border-radius: 6px;
-    text-align: center;
-}
-
-/* Styles for Tab Panes (Content) */
-/* These styles ensure basic tab functionality.
-   If tab panes are styled as cards (i.e., have the .card class),
-   they will inherit card styling. */
-.tab-pane {
-    display: none; /* Hidden by default */
-    /* Add margin-top or padding here if needed, e.g., if panes are not cards */
-}
-
-.tab-pane.active {
-    display: block; /* Show active pane */
-}
-
-/* Tab Controls Styling */
-.tab-controls {
-    display: flex;
-    justify-content: space-around; /* Distribute space around items */
-    margin-bottom: 0; /* Remove bottom margin if panes have top margin/padding */
-    /* background-color: #fff; /* White background for the tab bar */
-    /* padding: 10px; /* Padding around the buttons */
-    /* border-radius: 8px; /* Rounded corners for the tab bar */
-    /* box-shadow: 0 2px 5px rgba(0,0,0,0.1); /* Subtle shadow */
-    /* The .card-style class now handles background, padding, margin, shadow, border */
-    border-bottom-left-radius: 0;
-    border-bottom-right-radius: 0;
-    border-bottom: none; /* Remove bottom border as it connects to the pane */
-}
-
-.tab-button {
-    flex-grow: 1; /* Make buttons share space equally */
-    padding: 15px 10px; /* Generous padding for larger clickable area */
-    font-size: 1.05em; /* Slightly larger font for tab buttons */
-    font-weight: 500;
-    color: #4a5568; /* Default tab text color - a muted gray */
-    background-color: transparent; /* Make default tabs transparent */
-    border: none; /* Remove default button border */
-    border-bottom: 3px solid transparent; /* Placeholder for active indicator */
-    cursor: pointer;
-    text-align: center;
-    transition: color 0.3s ease, border-bottom-color 0.3s ease, background-color 0.3s ease;
-}
-
-.tab-button:hover {
-    color: #2c5282; /* Darker blue on hover - for text */
-    background-color: #e2e8f0; /* Light background on hover for better feedback */
-}
-
-.tab-button.active {
-    color: #ffffff; /* White text for active tab */
-    background-color: #4299e1; /* Blue background, matching header */
-    border-bottom-color: #2b6cb0; /* Darker blue for the bottom border accent */
-    font-weight: 700;
-}
-
-/* Tab Content Pane Styling */
-.tab-pane {
-    /* background-color: #ffffff; /* White background for content */
-    /* padding: 25px; /* Padding inside the content pane */
-    /* border-radius: 8px; /* Rounded corners for the content pane */
-    /* box-shadow: 0 2px 5px rgba(0,0,0,0.1); /* Subtle shadow */
-    /* The .card-style class now handles background, padding, margin, shadow, border */
-    border-top-left-radius: 0;
-    border-top-right-radius: 0;
-    /* display: none; /* Handled by JS and .active class */
-}
-
-.tab-pane.active {
-    display: block;
-}
-
-/* Ensure card-style provides the necessary base for tabs and panes */
-.card-style {
-    background-color: #ffffff;
-    margin-bottom: 25px; /* Default margin, can be overridden */
-    padding: 25px;       /* Changed from 20px to 25px to match .card */
-    border-radius: 16px; /* Changed from 12px to 16px to match .card */
-    box-shadow: 0 8px 16px rgba(0,0,0,0.07), 0 3px 6px rgba(0,0,0,0.05); /* Match .card shadow */
-    border: 1px solid #e2e8f0;
-    /* Note: .card has a transition, .card-style does not. Add if needed. */
-    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-}
-
-/* Style for search box with clear icon inside */
-.search-box-container {
-    position: relative;
-    width: 100%;
-    max-width: 300px;
-}
-#expenseSearchBox {
-    width: 100%;
-    padding-right: 32px; /* Space for the clear icon */
-    box-sizing: border-box;
-}
-#clearExpenseSearch {
-    position: absolute;
-    right: 6px;
-    top: 50%;
-    transform: translateY(-50%);
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    height: 24px;
-    z-index: 2;
-}
-#clearExpenseSearch svg {
-    pointer-events: none;
-}
-
-/* Comment out old collapsible styles */
-/*
-.collapsible {
-    background-color: #4299e1; 
-    color: white;
-    cursor: pointer;
-    padding: 18px;
-    width: 100%;
-    border: none;
-    text-align: left;
-    outline: none;
-    font-size: 1.3em; 
-    border-radius: 8px; 
-    margin-top: 15px; 
-    font-weight: 500;
-    transition: background-color 0.3s ease;
-}
-
-.collapsible:hover {
-    background-color: #3182ce; 
-}
-
-.collapsible.active {
-    background-color: #2b6cb0; 
-    border-bottom-left-radius: 0;
-    border-bottom-right-radius: 0;
-}
-
-.collapsible-content {
-    padding: 20px;
-    display: none;
-    overflow: hidden;
-    background-color: #ffffff; 
-    border: 1px solid #e2e8f0; 
-    border-top: none; 
-    border-bottom-left-radius: 8px;
-    border-bottom-right-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.05); 
-}
-
-.collapsible-content.show {
-    display: block;
-}
-*/
-
-/* Edit Page Specific Styles */
-.edit-form-container {
-    padding-top: 20px;
-}
-
-.form-group {
-    margin-bottom: 20px;
-}
-
-.form-group label {
-    display: block;
-    margin-bottom: 8px;
+.form-field label {
+    margin-bottom: 6px;
     font-weight: 500;
     color: #4a5568;
 }
 
-.form-group input,
-.form-group select {
+input[type="text"], input[type="number"], input[type="date"], select {
+    padding: 12px 15px;
+    border: 1px solid #cbd5e0;
+    border-radius: 6px;
+    font-size: 1em;
     width: 100%;
+    box-sizing: border-box;
 }
 
-.payment-options {
-    display: flex;
-    gap: 15px;
-    align-items: center;
-}
-
-.payment-options input[type="radio"] {
-    width: auto;
-}
-
-.form-actions {
-    display: flex;
-    gap: 10px;
-    margin-top: 20px;
-    justify-content: flex-end;
-}
-
-.btn-primary {
+button, .button-style {
     background-color: #4299e1;
     color: white;
     padding: 12px 20px;
@@ -763,734 +411,520 @@ li {
     transition: background-color 0.2s ease-in-out;
 }
 
-.btn-primary:hover {
+button:hover, .button-style:hover {
     background-color: #3182ce;
 }
 
-.btn-secondary {
-    background-color: #e2e8f0;
-    color: #2d3748;
-    padding: 12px 20px;
+/* Lists (Expenses, Income, EMI) */
+.item-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.edit-btn, .delete-btn {
+    padding: 6px 12px;
+    font-size: 0.9em;
+    border-radius: 5px;
+    color: white;
+    text-decoration: none;
+}
+
+.edit-btn { background-color: #6b7280; }
+.edit-btn:hover { background-color: #4b5563; }
+.delete-btn { background-color: #ef4444; }
+.delete-btn:hover { background-color: #dc2626; }
+
+/* Desktop Tab Controls */
+.tab-controls {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 0;
+    margin-top: -20px; /* Pushed up further to close the gap */
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    border-bottom: none;
+    padding: 10px;
+    background: #f8fafc;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    position: relative;
+    z-index: 10;
+    width: 90%; /* Set width to 90% */
+    margin-left: auto; /* Center the element */
+    margin-right: auto; /* Center the element */
+}
+
+.tab-button {
+    flex-grow: 1;
+    padding: 15px 10px;
+    font-size: 1.05em;
+    font-weight: 500;
+    color: #4a5568;
+    background-color: transparent;
     border: none;
-    border-radius: 6px;
+    border-bottom: 3px solid transparent;
     cursor: pointer;
-    font-size: 1em;
-    font-weight: 500;
-    text-decoration: none;
-    transition: background-color 0.2s ease-in-out;
+    transition: all 0.3s ease;
+    z-index: 11;
 }
 
-.btn-secondary:hover {
-    background-color: #cbd5e0;
+.tab-button:hover {
+    background-color: #e2e8f0;
 }
 
-.back-link {
-    display: inline-block;
-    margin-bottom: 20px;
-    color: #4299e1;
-    text-decoration: none;
-    font-weight: 500;
+.tab-button.active {
+    color: #ffffff;
+    background-color: #4299e1;
+    border-bottom-color: #2b6cb0;
+    font-weight: 700;
+    z-index: 12;
 }
 
-.back-link i {
-    margin-right: 8px;
+/* Tab Pane Visibility */
+.tab-pane {
+    display: none;
 }
 
-@media (max-width: 768px) {
-    .edit-form-container {
-        padding-top: 10px;
-    }
+.tab-pane.active {
+    display: block;
+}
 
-    .form-actions {
+@media (max-width: 900px) {
+    .tab-controls {
         flex-direction: column;
+        gap: 8px;
+        position: static;
+        box-shadow: none;
     }
-
-    .btn-primary,
-    .btn-secondary {
-        width: 100%;
-        text-align: center;
+    .tab-button {
+        padding: 12px 8px;
+        font-size: 1em;
     }
 }
 
-/* Responsive adjustments */
+/* Mobile Navigation */
+.mobile-nav {
+    display: none; /* Hidden on desktop */
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: #ffffff;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+    z-index: 1000;
+    border-top: 1px solid #e2e8f0;
+}
+
+.mobile-nav .nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 0;
+    color: #4a5568;
+    background-color: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 0.75em;
+}
+
+.mobile-nav .nav-item i {
+    font-size: 1.5em;
+    margin-bottom: 4px;
+}
+
+.mobile-nav .nav-item.active {
+    color: #2a69a5;
+}
+
+/* Month Selector Styles */
+.month-selector-inline {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.month-selector-inline label {
+    font-weight: 500;
+}
+
+.month-selector-inline input[type="month"] {
+    width: 160px; /* Adjusted width */
+    padding: 6px 10px;
+}
+
+.month-selector-inline button {
+    padding: 6px 12px;
+    font-size: 0.9em;
+}
+
+.month-selector-inline .current-view-month {
+    margin-left: 0; /* Use gap for consistent spacing */
+    font-size: 0.95em;
+    color: #4a5568;
+}
+
+/* Responsive Breakpoints */
+
+/* Tablet and Desktop */
+@media (min-width: 769px) {
+    #desktop-view {
+        display: block;
+    }
+    #mobile-view {
+        display: none;
+    }
+    .desktop-only {
+        display: flex; /* Or block, grid, etc., as needed */
+    }
+    .mobile-nav {
+        display: none !important; /* Ensure mobile nav is hidden */
+    }
+}
+
+/* Mobile Devices */
 @media (max-width: 768px) {
+    #desktop-view {
+        display: none;
+    }
+    #mobile-view {
+        display: block;
+    }
+    body {
+        padding-bottom: 70px; /* Space for the mobile nav */
+    }
+
     .container {
         padding: 10px;
     }
-    
+
     h1 {
-        font-size: 2em;
-        padding: 15px 10px;
-        margin-bottom: 20px;
+        font-size: 1.8em;
+        padding: 15px;
+        margin-bottom: 15px;
     }
-    
-    h2 {
-        font-size: 1.4em;
+
+    .desktop-only, .tab-controls {
+        display: none; /* Hide desktop tabs on mobile */
     }
-    
+
+    .mobile-nav {
+        display: flex; /* Show mobile nav */
+    }
+
     .summary-and-report-container {
         flex-direction: column;
         gap: 15px;
     }
-    
+
     .expense-fields-inline {
         flex-direction: column;
         align-items: stretch;
+        gap: 10px;
     }
-    
-    .expense-fields-inline .form-field {
+
+    .form-field {
         flex-basis: auto;
         width: 100%;
-        margin-bottom: 10px;
     }
-    
+
     .month-selector-inline {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    ul li {
         flex-direction: column;
         align-items: flex-start;
         gap: 10px;
     }
-    
-    .payment-radios {
-        flex-direction: column;
-        gap: 8px;
-    }
-    
-    li {
-        flex-direction: column;
-        align-items: flex-start;
-        padding: 10px;
-    }
-    
-    li form {
-        margin-top: 8px;
-    }
-    
+
     .item-actions {
-        margin-top: 10px;
         width: 100%;
         justify-content: flex-start;
     }
-    
-    /* Tab buttons for mobile */
-    .tab-button {
-        font-size: 0.9em;
-        padding: 12px 8px;
-    }
-    
-    /* Search box mobile optimization */
-    .search-box-container {
-        max-width: 100%;
-    }
-    
-    /* Chart responsiveness */
-    .chart-section {
-        min-width: 100%;
-    }
-    
-    /* Payment type totals mobile view */
-    #payment-type-totals div {
-        flex-direction: column;
-        text-align: center;
-        gap: 15px;
-    }
-    
-    #incomeSectionContent li,
-    #expenseSectionContent li,
-    #emiSectionContent li {
-        background: #fff;
-        border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.07);
-        margin-bottom: 16px;
-        padding: 16px 14px 10px 14px;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        border: 1px solid #e2e8f0;
-        position: relative;
-    }
-    #incomeSectionContent li span,
-    #expenseSectionContent li span,
-    #emiSectionContent li span {
-        font-size: 1.1em;
-        font-weight: 500;
-        color: #2d3748;
-        margin-bottom: 4px;
-        display: block;
-    }
-    #incomeSectionContent li span {
-        color: #38a169; /* green for income */
-    }
-    #expenseSectionContent li span {
-        color: #e53e3e; /* red for expenses */
-    }
-    #emiSectionContent li span {
-        color: #ed8936; /* orange for EMI */
-    }
-    .item-actions {
-        display: flex;
-        gap: 18px;
-        justify-content: flex-end;
-        margin-top: 6px;
-    }
-    .edit-btn, .delete-btn {
-        background: none;
-        border: none;
-        font-size: 1.3em;
-        color: #718096;
-        padding: 8px 10px;
-        border-radius: 8px;
-        transition: background 0.2s, color 0.2s;
-    }
-    .edit-btn:hover {
-        background: #e6f7ff;
-        color: #3182ce;
-    }
-    .delete-btn:hover {
-        background: #ffe6e6;
-        color: #e53e3e;
-    }
-    /* Hide desktop-only blocks on mobile */
-    .desktop-only-block {
-        display: none !important;
-    }
-    /* Hide search and extra headers on mobile for clean look */
-    #expenseSectionContent h3,
-    #incomeSectionContent h3,
-    #emiSectionContent h3,
-    .search-box-container {
-        display: none !important;
-    }
 }
 
-/* Touch-friendly buttons and inputs */
-@media (pointer: coarse) {
-    button, .button-style, .edit-btn, .delete-btn {
-        min-height: 44px;
-        padding: 12px 16px;
-        font-size: 1em;
-    }
-    
-    input[type="text"], 
-    input[type="number"], 
-    input[type="date"], 
-    select {
-        min-height: 44px;
-        padding: 12px 15px;
-        font-size: 16px; /* Prevents zoom on iOS */
-    }
-    
-    .tab-button {
-        min-height: 44px;
-        padding: 12px 16px;
-    }
+/* --- VIEW SWITCHING FIX -- */
+/* This section is now redundant and can be removed or commented out.
+   The logic has been integrated into the main responsive breakpoints above. */
+/*
+#desktop-view {
+    display: block;
 }
-
-/* Prevent horizontal scrolling on mobile */
-* {
-    max-width: 100%;
-    box-sizing: border-box;
-}
-
-/* Additional mobile optimizations for data updates and forms */
-@media (max-width: 768px) {
-    /* Ensure forms don't break layout on mobile */
-    form {
-        width: 100%;
-        max-width: 100%;
-    }
-    
-    /* Mobile-specific input optimizations */
-    input[type="text"], 
-    input[type="number"], 
-    input[type="date"], 
-    select {
-        width: 100%;
-        max-width: 100%;
-        -webkit-appearance: none; /* Remove iOS styling */
-        -moz-appearance: none; /* Remove Firefox styling */
-        appearance: none;
-    }
-    
-    /* Prevent zoom on input focus for iOS */
-    input[type="text"]:focus,
-    input[type="number"]:focus,
-    input[type="date"]:focus,
-    select:focus {
-        font-size: 16px; /* Prevents zoom on iOS */
-    }
-    
-    /* Optimize payment type totals for mobile */
-    #payment-type-totals > div:first-child {
-        flex-direction: column;
-        text-align: center;
-    }
-    
-    /* Make search functionality more touch-friendly */
-    #expenseSearchBox {
-        font-size: 16px; /* Prevents zoom on iOS */
-        min-height: 44px; /* Touch-friendly height */
-    }
-    
-    /* Ensure edit/delete buttons are touch-friendly */
-    .edit-btn, .delete-btn {
-        min-width: 44px;
-        min-height: 44px;
-        margin: 2px;
-    }
-}
-
-/* Specific optimizations for mobile data operations */
-@media (max-width: 480px) {
-    /* Very small screens - optimize further */
-    .container {
-        padding: 5px;
-    }
-    
-    /* Stack payment radio buttons vertically on very small screens */
-    .payment-radios {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 10px;
-    }
-    
-    /* Ensure submit buttons are prominent on small screens */
-    button[type="submit"] {
-        width: 100%;
-        min-height: 48px;
-        font-size: 1.1em;
-        margin-top: 15px;
-    }
-    
-    /* Optimize list items for very small screens */
-    li {
-        padding: 8px;
-        font-size: 0.9em;
-    }
-    
-    /* Make amount fields more prominent */
-    input[type="number"] {
-        font-size: 1.1em;
-        font-weight: 500;
-    }
-}
-
-/* == MOBILE-FIRST REDESIGN STYLES == */
-
-/* Hide mobile-specific elements on desktop by default */
-.bottom-nav, .fab, .modal {
+#mobile-view {
     display: none;
 }
 
 @media (max-width: 768px) {
-    /* Hide desktop elements on mobile */
-    .header-controls, .tabs, .summary-and-report-container, .tab-controls, #payment-type-totals {
-        display: none;
-    }
-
-    /* Show mobile elements */
-    .bottom-nav, .fab {
-        display: flex; /* or block for fab */
-    }
-
-    /* Make tab panes full screen pages */
-    .tab-pane {
-        display: none; /* Hide all by default */
-        padding-bottom: 80px; /* Add padding to prevent content from being hidden by the bottom nav */
-    }
-
-    .tab-pane.active {
-        display: block; /* Show only the active one */
-    }
-
-    /* Bottom Navigation Bar */
-    .bottom-nav {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        height: 65px;
-        background-color: #ffffff;
-        box-shadow: 0 -2px 10px rgba(0,0,0,0.15);
-        justify-content: space-around;
-        align-items: center;
-        z-index: 1000;
-        border-top: 1px solid #e2e8f0;
-    }
-
-    .nav-item {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        text-decoration: none;
-        color: #718096; /* Muted gray */
-        flex-grow: 1;
-        padding: 5px 0;
-        transition: color 0.2s ease-in-out;
-    }
-
-    .nav-item.active {
-        color: #4299e1; /* Active blue color */
-    }
-
-    .nav-icon {
-        font-size: 24px;
-    }
-
-    .nav-text {
-        font-size: 12px;
-        margin-top: 2px;
-    }
-
-    /* Floating Action Button (FAB) */
-    .fab {
-        position: fixed;
-        bottom: 80px;
-        right: 20px;
-        width: 60px;
-        height: 60px;
-        border-radius: 50%;
-        background-color: #3498db;
-        color: white;
-        border: none;
-        font-size: 24px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        z-index: 1001;
-    }
-
-    /* Modal */
-    .modal {
-        display: none; /* Hidden by default */
-        position: fixed;
-        z-index: 1002;
-        left: 0;
-        top: 0;
-        width: 100%;
-        height: 100%;
-        overflow: auto;
-        background-color: rgba(0,0,0,0.4);
-        justify-content: center;
-        align-items: center;
-    }
-
-    .modal-content {
-        background-color: #fefefe;
-        margin: auto;
-        padding: 20px;
-        border-radius: 10px;
-        width: 90%;
-        max-width: 500px;
-        position: relative;
-    }
-
-    .close-btn {
-        color: #aaa;
-        position: absolute;
-        top: 10px;
-        right: 20px;
-        font-size: 28px;
-        font-weight: bold;
-    }
-
-    .close-btn:hover,
-    .close-btn:focus {
-        color: black;
-        text-decoration: none;
-        cursor: pointer;
-    }
-
-    /* Mobile Dashboard Specific Styles */
-    .mobile-header {
-        text-align: center;
-        padding: 10px 0 20px 0;
-    }
-    .mobile-header h2 {
-        font-size: 1.8em;
-        margin-bottom: 5px;
-        text-align: center;
-        border: none;
-    }
-    .mobile-header p {
-        font-size: 1em;
-        color: #718096;
-        margin: 0;
-    }
-
-    .mobile-summary-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 15px;
-        margin-bottom: 25px;
-    }
-
-    .summary-card {
-        background-color: #f7fafc;
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        padding: 15px;
-        text-align: center;
-        display: flex;
-        flex-direction: column;
-    }
-
-    .summary-label {
-        font-size: 0.9em;
-        color: #4a5568;
-        margin-bottom: 8px;
-    }
-
-    .summary-value {
-        font-size: 1.4em;
-        font-weight: 700;
-        color: #2d3748;
-    }
-
-    .mobile-chart-container,
-    .mobile-report-container {
-        margin-top: 20px;
-        padding: 15px;
-    }
-
-    .mobile-chart-container h3,
-    .mobile-report-container h3 {
-        font-size: 1.2em;
-        text-align: left;
-        margin-top: 0;
-        margin-bottom: 15px;
-        padding-bottom: 10px;
-        border-bottom: 1px solid #e9ecef;
-    }
-
-    /* Mobile Lists (Income, Expenses, EMIs) */
-    #incomeSectionContent ul,
-    #expenseSectionContent ul,
-    #emiSectionContent ul {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-    }
-
-    #incomeSectionContent li,
-    #expenseSectionContent li,
-    #emiSectionContent li {
-        background: #fff;
-        border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.07);
-        margin-bottom: 16px;
-        padding: 16px 14px 10px 14px;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        border: 1px solid #e2e8f0;
-        position: relative;
-    }
-    #incomeSectionContent li span,
-    #expenseSectionContent li span,
-    #emiSectionContent li span {
-        font-size: 1.1em;
-        font-weight: 500;
-        color: #2d3748;
-        margin-bottom: 4px;
-        display: block;
-    }
-    #incomeSectionContent li span {
-        color: #38a169; /* green for income */
-    }
-    #expenseSectionContent li span {
-        color: #e53e3e; /* red for expenses */
-    }
-    #emiSectionContent li span {
-        color: #ed8936; /* orange for EMI */
-    }
-    .item-actions {
-        display: flex;
-        gap: 18px;
-        justify-content: flex-end;
-        margin-top: 6px;
-    }
-    .edit-btn, .delete-btn {
-        background: none;
-        border: none;
-        font-size: 1.3em;
-        color: #718096;
-        padding: 8px 10px;
-        border-radius: 8px;
-        transition: background 0.2s, color 0.2s;
-    }
-    .edit-btn:hover {
-        background: #e6f7ff;
-        color: #3182ce;
-    }
-    .delete-btn:hover {
-        background: #ffe6e6;
-        color: #e53e3e;
-    }
-    /* Hide desktop-only blocks on mobile */
-    .desktop-only-block {
+    #desktop-view {
         display: none !important;
     }
-    /* Hide search and extra headers on mobile for clean look */
-    #expenseSectionContent h3,
-    #incomeSectionContent h3,
-    #emiSectionContent h3,
-    .search-box-container {
-        display: none !important;
+    #mobile-view {
+        display: block !important;
     }
 }
+*/
+/* --- MOBILE VIEW STYLES --- */
 
-/* Flash Messages */
-.flash-messages {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    z-index: 1050;
-    width: 300px;
-}
-
-.flash {
+/* --- MOBILE HEADER --- */
+.mobile-header {
     padding: 15px;
-    margin-bottom: 15px;
-    border-radius: 8px;
+    background-color: #4299e1;
+    color: white;
+    text-align: center;
+    position: sticky; /* Make header sticky */
+    top: 0;
+    z-index: 999; /* Ensure it stays on top */
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.mobile-header h1 {
+    font-size: 1.5em;
+    margin: 0 0 10px 0;
+    color: white;
+}
+
+.month-selector-mobile {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.month-selector-mobile input {
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    padding: 5px;
+}
+
+
+.month-selector-mobile button {
+    background-color: #2a69a5; /* Match banner blue */
     color: #fff;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-    opacity: 0.95;
-    font-size: 1em;
+    border: none;
+    border-radius: 6px;
+    padding: 5px 10px;
+    cursor: pointer;
     font-weight: 500;
+    transition: background-color 0.2s;
+}
+.month-selector-mobile button:hover {
+    background-color: #3182ce; /* Slightly lighter blue on hover */
 }
 
-.flash.error {
-    background-color: #e53e3e; /* Red for errors */
+/* --- MOBILE MAIN CONTENT --- */
+.mobile-main-content {
+    padding: 15px;
+    /* Add padding to the bottom to avoid content being hidden by the fixed nav bar */
+    padding-bottom: 80px; 
 }
 
-.flash.success {
-    background-color: #48bb78; /* Green for success */
+.mobile-radios {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 10px 0;
+    background-color: #f8fafc;
+    border-radius: 6px;
+    margin: 5px 0;
 }
 
-.budget-table td .btn-edit,
-    .budget-table td .btn-delete {
-        display: inline-block;
-        padding: 8px 12px;
-        margin: 0 5px;
-        border-radius: 5px;
-        color: #fff;
-        text-decoration: none;
-        font-size: 1.2rem; /* Larger icons */
-        transition: background-color 0.3s ease;
-    }
+/* --- MOBILE NAVIGATION --- */
+.mobile-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    background-color: #ffffff;
+    display: flex;
+    justify-content: space-around;
+    padding: 5px 0;
+    box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
+    z-index: 1000;
+}
 
-    .budget-table td .btn-edit {
-        background-color: #3498db;
-    }
+.mobile-nav .nav-item {
+    background: none;
+    border: none;
+    color: #4a5568; /* Muted text color */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75em;
+    cursor: pointer;
+    transition: color 0.2s ease-in-out;
+    padding: 5px;
+    flex: 1;
+    text-align: center;
+}
 
-    .budget-table td .btn-delete {
-        background-color: #e74c3c;
-    }
+.mobile-nav .nav-item i {
+    font-size: 1.5em; /* Icon size */
+    margin-bottom: 4px;
+}
 
-    .budget-table td .btn-edit:hover {
-        background-color: #2980b9;
-    }
+.mobile-nav .nav-item.active {
+    color: #4299e1; /* Active color - blue */
+}
 
-    .budget-table td .btn-delete:hover {
-        background-color: #c0392b;
-    }
+.mobile-nav .nav-item:hover {
+    color: #3182ce; /* Darker blue on hover */
+}
 
-    /* Hide table headers on mobile */
-    .desktop-only {
-        display: none;
-    }
+/* --- MOBILE FORMS --- */
+.mobile-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+}
 
-    /* Mobile Navigation */
-    .mobile-nav {
-        display: flex;
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        background-color: #ffffff;
-        box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
-        z-index: 1000;
-    }
+.mobile-form input,
+.mobile-form select,
+.mobile-form button {
+    width: 100%;
+    padding: 12px;
+    font-size: 1em;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+}
 
-    .nav-btn {
-        flex: 1;
-        padding: 10px 0;
-        border: none;
-        background: none;
-        color: #7f8c8d;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        font-size: 12px;
-    }
+.mobile-form button {
+    background-color: #4299e1;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
 
-    .nav-btn i {
-        font-size: 20px;
-        margin-bottom: 4px;
-    }
+.mobile-radios {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 10px 0;
+    background-color: #f8fafc;
+    border-radius: 6px;
+    margin: 5px 0;
+}
 
-    .nav-btn.active {
-        color: #3498db;
-    }
+/* --- MOBILE ITEM LISTS --- */
+.mobile-item-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
 
-    /* Floating Action Button (FAB) */
-    .fab {
-        position: fixed;
-        bottom: 80px;
-        right: 20px;
-        width: 60px;
-        height: 60px;
-        border-radius: 50%;
-        background-color: #3498db;
-        color: white;
-        border: none;
-        font-size: 24px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        z-index: 1001;
-    }
+.mobile-item-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 5px;
+    border-bottom: 1px solid #eee;
+    background-color: #fff; 
+    margin-bottom: 0; 
+    flex-direction: row; 
+    flex-wrap: nowrap; /* Prevent wrapping */
+}
 
-    /* Modal */
-    .modal {
-        display: none; /* Hidden by default */
-        position: fixed;
-        z-index: 1002;
-        left: 0;
-        top: 0;
-        width: 100%;
-        height: 100%;
-        overflow: auto;
-        background-color: rgba(0,0,0,0.4);
-        justify-content: center;
-        align-items: center;
-    }
+.mobile-item-list .item-details {
+    display: flex;
+    flex-grow: 1;
+    align-items: center; /* Align items horizontally */
+    gap: 8px; /* Space between details */
+    font-size: 0.85em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 
-    .modal-content {
-        background-color: #fefefe;
-        margin: auto;
-        padding: 20px;
-        border-radius: 10px;
-        width: 90%;
-        max-width: 500px;
-        position: relative;
-    }
+.item-details .item-description {
+    font-weight: bold;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: left !important;
+    justify-content: flex-start !important;
+    align-items: flex-start !important;
+    display: flex;
+    padding-left: 0 !important;
+}
 
-    .close-btn {
-        color: #aaa;
-        position: absolute;
-        top: 10px;
-        right: 20px;
-        font-size: 28px;
-        font-weight: bold;
-    }
+.item-details .item-category {
+    font-style: italic;
+    color: #555;
+    flex-shrink: 0; /* Prevent shrinking */
+}
 
-    .close-btn:hover,
-    .close-btn:focus {
-        color: black;
-        text-decoration: none;
-        cursor: pointer;
-    }
+.item-details .item-date {
+    font-size: 0.9em;
+    color: #777;
+    flex-shrink: 0;
+}
+
+.item-details .item-amount {
+    font-weight: bold;
+    margin-left: auto; /* Push amount to the right */
+    padding-left: 10px;
+}
+
+.mobile-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 5px; /* Reduced gap */
+}
+
+.mobile-item-actions .edit-btn,
+.mobile-item-actions .delete-btn {
+    padding: 6px 8px; /* Smaller buttons */
+    font-size: 0.9em;
+    line-height: 1; 
+}
+
+.mobile-item-actions form {
+    margin: 0;
+}
+
+/* Show/hide clear (X) button in expense search box */
+.clearExpenseSearch {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+.search-box-container.has-text .clearExpenseSearch {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.search-box-container {
+  position: relative;
+}
+.expenseSearchBox {
+  padding-right: 32px !important; /* Space for clear icon */
+}
+.clearExpenseSearch {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  height: 24px;
+  z-index: 2;
+}
+.clearExpenseSearch svg {
+  color: #888 !important;
+  fill: none !important;
+  stroke: #888 !important;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+

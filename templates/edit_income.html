@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Income</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div id="desktop-view">
+        <h1>Edit Income</h1>
+        <div class="container">
+            <div class="card-style" style="max-width: 600px; margin: auto;">
+                <form id="editIncomeForm" action="{{ url_for('api_edit_income', income_id=income.id) }}" method="post" data-income-id="{{ income.id }}">
+                    <input type="hidden" name="month" value="{{ active_month }}">
+                    <div class="form-field">
+                        <label for="description">Description:</label>
+                        <input type="text" id="description" name="description" value="{{ income.description }}" required>
+                    </div>
+                    <div class="form-field">
+                        <label for="amount">Amount:</label>
+                        <input type="number" step="0.01" id="amount" name="amount" value="{{ income.amount }}" required>
+                    </div>
+                    <div class="form-field">
+                        <label class="propagate-label">
+                            <input type="checkbox" name="propagate" value="true">
+                            Update all future entries for this income item
+                        </label>
+                    </div>
+                    <button type="submit">Update Income</button>
+                    <a href="{{ url_for('index', month_select=active_month) }}" class="cancel-btn">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="mobile-view">
+        <div class="mobile-form-card" style="max-width: 420px; margin: 32px auto 0 auto; background: #fff; border-radius: 18px; box-shadow: 0 2px 16px 0 rgba(0,0,0,0.10); padding: 22px 18px 18px 18px;">
+            <a href="{{ url_for('index', month_select=active_month) }}" class="back-link" style="display:inline-block;margin-bottom:18px;font-size:1.1em;color:#2a69a5;"><i class="fas fa-arrow-left"></i> Back</a>
+            <h2 style="margin-bottom:18px; font-size:1.35em; text-align:center; color:#2a69a5; font-weight:600;">Edit Income</h2>
+            <form id="editIncomeFormMobile" action="{{ url_for('api_edit_income', income_id=income.id) }}" method="post" data-income-id="{{ income.id }}" style="display:flex;flex-direction:column;gap:18px;">
+                <input type="hidden" name="month" value="{{ active_month }}">
+                <div style="display:flex;flex-direction:column;gap:6px;">
+                    <label for="description" style="font-size:1em;font-weight:500;color:#333;">Description</label>
+                    <input type="text" id="description" name="description" placeholder="Description" value="{{ income.description }}" required style="padding:10px 12px;border-radius:8px;border:1px solid #d1d5db;font-size:1em;">
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px;">
+                    <label for="amount" style="font-size:1em;font-weight:500;color:#333;">Amount</label>
+                    <input type="number" step="0.01" id="amount" name="amount" placeholder="Amount" value="{{ income.amount }}" required style="padding:10px 12px;border-radius:8px;border:1px solid #d1d5db;font-size:1em;">
+                </div>
+                <label class="propagate-label" style="display:inline-flex;align-items:center;gap:8px;font-size:0.98em;color:#444;margin-top:2px;">
+                    <input type="checkbox" name="propagate" value="true" style="margin:0;">
+                    <span>Update all future entries for this income item</span>
+                </label>
+                <button type="submit" class="btn-primary" style="margin-top:8px;padding:12px 0;font-size:1.08em;border-radius:8px;background:#2a69a5;color:#fff;font-weight:600;">Update Income</button>
+                <a href="{{ url_for('index', month_select=active_month) }}" class="btn-secondary" style="text-align:center;display:block;margin-top:2px;padding:10px 0;font-size:1.05em;border-radius:8px;background:#f3f4f6;color:#2a69a5;font-weight:500;text-decoration:none;">Cancel</a>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Desktop form submit
+        const desktopForm = document.getElementById('editIncomeForm');
+        if (desktopForm) {
+            desktopForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const form = e.target;
+                const formData = new FormData(form);
+                const incomeId = form.dataset.incomeId;
+                const url = `/api/edit_income/${incomeId}`;
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const result = await response.json();
+                    if (result.status === 'success') {
+                        const monthInput = form.querySelector('input[name="month"]');
+                        const activeMonth = monthInput ? monthInput.value : new URLSearchParams(window.location.search).get('month_select');
+                        window.location.href = `/?month_select=${activeMonth}&flash_success=Income updated successfully!`;
+                    } else {
+                        alert(`Error: ${result.message || 'An unknown error occurred.'}`);
+                    }
+                } catch (error) {
+                    console.error('Error submitting form:', error);
+                    alert('An error occurred while updating the income record.');
+                }
+            });
+        }
+        // Mobile form submit
+        const mobileForm = document.getElementById('editIncomeFormMobile');
+        if (mobileForm) {
+            mobileForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const form = e.target;
+                const formData = new FormData(form);
+                const incomeId = form.dataset.incomeId;
+                const url = `/api/edit_income/${incomeId}`;
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const result = await response.json();
+                    if (result.status === 'success') {
+                        const monthInput = form.querySelector('input[name="month"]');
+                        const activeMonth = monthInput ? monthInput.value : new URLSearchParams(window.location.search).get('month_select');
+                        window.location.href = `/?month_select=${activeMonth}&flash_success=Income updated successfully!`;
+                    } else {
+                        alert(`Error: ${result.message || 'An unknown error occurred.'}`);
+                    }
+                } catch (error) {
+                    console.error('Error submitting form:', error);
+                    alert('An error occurred while updating the income record.');
+                }
+            });
+        }
+    </script>
+</body>
+</html>
