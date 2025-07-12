@@ -565,10 +565,25 @@ document.addEventListener('DOMContentLoaded', function () {
                            (exp.description || '').toLowerCase().includes(searchTerm) ||
                            (exp.category || '').toLowerCase().includes(searchTerm);
                 });
-                // Find the list within the same view (desktop or mobile) as the search box
+
+                // Calculate the total of filtered expenses
+                const filteredTotal = filteredExpenses.reduce((total, exp) => total + parseFloat(exp.amount), 0);
+
+                // Find the list and total span within the same view (desktop or mobile) as the search box
                 const viewContainer = e.target.closest('#desktop-view, #mobile-view');
                 const expenseList = viewContainer.querySelector('.expenseList');
+                const searchTotalEl = viewContainer.querySelector('.searchTotal');
+
                 renderList(expenseList, filteredExpenses, 'expense', 'No matching expense records.', r => `${r.date} - ${r.category} - ${r.description}: <b>₹${parseFloat(r.amount).toFixed(2)}</b>`);
+                
+                if (searchTotalEl) {
+                    if (searchTerm) {
+                        searchTotalEl.textContent = `Total: ₹${filteredTotal.toFixed(2)}`;
+                    } else {
+                        searchTotalEl.textContent = '';
+                    }
+                }
+                
                 toggleClearBtn();
             });
             // Initial state
@@ -579,9 +594,11 @@ document.addEventListener('DOMContentLoaded', function () {
             clearButton.addEventListener('click', (e) => {
                 const viewContainer = e.target.closest('#desktop-view, #mobile-view');
                 const searchBox = viewContainer.querySelector('.expenseSearchBox');
-                if(searchBox) searchBox.value = '';
-                const expenseList = viewContainer.querySelector('.expenseList');
-                renderList(expenseList, expenses, 'expense', 'No expense records for this month.', r => `${r.date} - ${r.category} - ${r.description}: <b>₹${parseFloat(r.amount).toFixed(2)}</b>`);
+                if(searchBox) {
+                    searchBox.value = '';
+                    // Manually trigger input event to re-filter, re-render, and update totals
+                    searchBox.dispatchEvent(new Event('input', { bubbles: true }));
+                }
             });
         });
 

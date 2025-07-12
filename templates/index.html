@@ -266,7 +266,16 @@
                         </div>
                         <button type="submit">Add Expense</button>
                     </form>
-                    <h3>Expense Records</h3>
+                    <h3 style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>Expense Records</span>
+                        <span class="searchTotal" style="font-size: 0.8em; color: #2a69a5;"></span>
+                    </h3>
+                    <div class="search-box-container" style="position: relative; margin-bottom: 10px;">
+                        <input type="text" class="expenseSearchBox" placeholder="Search expenses..." style="width: 100%;">
+                        <button type="button" class="clearExpenseSearch" title="Clear search" style="position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; height: 24px;">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2"></circle><path d="M7 7l6 6M13 7l-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"></path></svg>
+                        </button>
+                    </div>
                     <ul class="expenseList mobile-item-list"></ul>
                 </div>
 
