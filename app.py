@@ -417,15 +417,13 @@ def api_add_income():
     description = request.form.get('description')
     amount = request.form.get('amount')
     month = request.form.get('month_select')
-    propagate = request.form.get('propagate', 'false').lower() == 'true'
-
 
     if not all([description, amount, month]):
         return jsonify({'status': 'error', 'message': 'All fields are required!'}), 400
 
     try:
         db = get_db()
-        num_months = 12 if propagate else 1
+        num_months = 3  # Default to adding income for the next 3 months
         start_month = datetime.strptime(month, '%Y-%m')
         
         queries = []
@@ -438,7 +436,7 @@ def api_add_income():
             )
         
         db.execute_batch(queries)
-        message = f'Income added for {num_months} month(s) successfully!'
+        message = f'Income added for {num_months} months successfully!'
         return jsonify({'status': 'success', 'message': message})
     except ValueError:
         return jsonify({'status': 'error', 'message': 'Invalid amount. Please use numbers only.'}), 400
@@ -451,14 +449,13 @@ def api_add_emi():
     loan_name = request.form.get('loan_name')
     emi_amount = request.form.get('emi_amount')
     month = request.form.get('month_select')
-    propagate = request.form.get('propagate', 'false').lower() == 'true'
 
     if not all([loan_name, emi_amount, month]):
         return jsonify({'status': 'error', 'message': 'All fields are required!'}), 400
     
     try:
         db = get_db()
-        num_months = 12 if propagate else 1
+        num_months = 3  # Default to adding EMI for the next 3 months
         start_month = datetime.strptime(month, '%Y-%m')
 
         queries = []
@@ -471,7 +468,7 @@ def api_add_emi():
             )
 
         db.execute_batch(queries)
-        message = f'EMI added for {num_months} month(s) successfully!'
+        message = f'EMI added for {num_months} months successfully!'
         return jsonify({'status': 'success', 'message': message})
     except ValueError:
         return jsonify({'status': 'error', 'message': 'Invalid amount. Please use numbers only.'}), 400
@@ -536,14 +533,13 @@ def api_set_budget():
 @app.route('/api/set_budgets', methods=['POST'])
 def api_set_budgets():
     active_month = request.form.get('month_select')
-    propagate = request.form.get('propagate', 'false').lower() == 'true'
 
     if not active_month:
         return jsonify({'status': 'error', 'message': 'Month is required!'}), 400
 
     try:
         db = get_db()
-        num_months = 12 if propagate else 1
+        num_months = 3  # Default to propagating the budget for the next 3 months
         start_month = datetime.strptime(active_month, '%Y-%m')
         
         queries = []
@@ -560,7 +556,7 @@ def api_set_budgets():
                 )
 
         db.execute_batch(queries)
-        message = f'Budget updated for {num_months} month(s) successfully!'
+        message = f'Budget updated for {num_months} months successfully!'
         return jsonify({'status': 'success', 'message': message})
     except ValueError as e:
         app.logger.error(f"Error setting budgets via API: Invalid amount - {e}")

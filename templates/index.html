@@ -138,9 +138,6 @@
                     </div>
                     <div class="form-actions">
                         <button type="submit">Set Budget</button>
-                        <label class="propagate-label">
-                            <input type="checkbox" name="propagate" value="true"> Propagate for next 12 months
-                        </label>
                     </div>
                 </form>
             </div>
@@ -154,9 +151,6 @@
                     </div>
                     <div class="form-actions">
                         <button type="submit">Add Income</button>
-                        <label class="propagate-label">
-                            <input type="checkbox" name="propagate" value="true"> Add for next 12 months
-                        </label>
                     </div>
                 </form>
                 <h3>Income Records for {{ active_month }}:</h3>
@@ -172,9 +166,6 @@
                     </div>
                     <div class="form-actions">
                         <button type="submit">Add EMI</button>
-                        <label class="propagate-label">
-                            <input type="checkbox" name="propagate" value="true"> Add for next 12 months
-                        </label>
                     </div>
                 </form>
                 <h3>Loan EMI Records for {{ active_month }}:</h3>
@@ -290,9 +281,6 @@
                         <input type="number" step="0.01" name="amount" placeholder="Amount" required>
                         <div class="form-actions-mobile">
                             <button type="submit">Add Income</button>
-                            <label class="propagate-label" style="display:inline-flex;align-items:center;gap:4px;margin-left:0;white-space:nowrap;">
-                                <input type="checkbox" name="propagate" value="true" style="margin:0 6px 0 0;"> <span style="white-space:nowrap;">Add for 12 months</span>
-                            </label>
                         </div>
                     </form>
                     <h3>Income Records</h3>
@@ -306,9 +294,6 @@
                         <input type="number" step="0.01" name="emi_amount" placeholder="EMI Amount" required>
                         <div class="form-actions-mobile">
                             <button type="submit">Add EMI</button>
-                            <label class="propagate-label" style="display:inline-flex;align-items:center;gap:4px;margin-left:0;white-space:nowrap;">
-                                <input type="checkbox" name="propagate" value="true" style="margin:0 6px 0 0;"> <span style="white-space:nowrap;">Add for 12 months</span>
-                            </label>
                         </div>
                     </form>
                     <h3>Loan EMI Records</h3>
@@ -325,9 +310,6 @@
                         <label>Other: <input type="number" step="0.01" name="Other" value="{{ budget.get('Other', '') }}"></label>
                         <div class="form-actions-mobile">
                             <button type="submit">Set Budget</button>
-                            <label class="propagate-label" style="display:inline-flex;align-items:center;gap:4px;margin-left:0;white-space:nowrap;">
-                                <input type="checkbox" name="propagate" value="true" style="margin:0 6px 0 0;"> <span style="white-space:nowrap;">Propagate for 12 months</span>
-                            </label>
                         </div>
                     </form>
                 </div>
