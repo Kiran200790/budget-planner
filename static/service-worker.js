@@ -1,4 +1,4 @@
-const CACHE_NAME = 'budget-planner-v1';
+const CACHE_NAME = 'budget-planner-cache-v1.2'; // Incremented version
 const urlsToCache = [
   '/',
   '/static/style.css',
@@ -8,19 +8,37 @@ const urlsToCache = [
   '/static/icon-512x512.png'
 ];
 
-self.addEventListener('install', function(event) {
+self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(function(cache) {
-        return cache.addAll(urlsToCache);
+      .then(cache => {
+        console.log('Opened cache');
+        // Add a cache-busting query parameter to the CSS file
+        return cache.addAll(urlsToCache.map(url => new Request(url, {cache: 'reload'})));
       })
   );
 });
 
-self.addEventListener('fetch', function(event) {
+self.addEventListener('activate', event => {
+  const cacheWhitelist = [CACHE_NAME];
+  event.waitUntil(
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames.map(cacheName => {
+          if (cacheWhitelist.indexOf(cacheName) === -1) {
+            console.log('Deleting old cache:', cacheName);
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    })
+  );
+});
+
+self.addEventListener('fetch', event => {
   event.respondWith(
     caches.match(event.request)
-      .then(function(response) {
+      .then(response => {
         // Return cached version or fetch from network
         return response || fetch(event.request);
       })

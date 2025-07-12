@@ -13,6 +13,15 @@ app = Flask(__name__)
 # Use an environment variable for the secret key in production, with a fallback for local dev
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'a_default_fallback_key_for_development')
 
+# --- DEVELOPMENT SETTINGS TO PREVENT CACHING ---
+# These settings ensure that changes to templates and static files are
+# reflected immediately without needing a manual server restart or hard refresh.
+# Do not use these settings in a production environment.
+if app.config['DEBUG']:
+    app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
+    app.config['TEMPLATES_AUTO_RELOAD'] = True
+
+
 # Configure logging to see output in the terminal
 logging.basicConfig(level=logging.INFO)
 # --- ADD /api/edit_income/<int:income_id> API ENDPOINT ---
@@ -214,7 +223,7 @@ def get_budget_data(active_month):
     db = get_db()
 
     # Fetch all data for the active month
-    expenses_rs = db.execute('SELECT * FROM expenses WHERE strftime("%Y-%m", date) = ? ORDER BY date DESC', (active_month,))
+    expenses_rs = db.execute('SELECT * FROM expenses WHERE month = ? ORDER BY date DESC', (active_month,))
     expenses = db.fetchall(expenses_rs)
     app.logger.info(f"Found {len(expenses)} expenses.")
 
@@ -261,7 +270,7 @@ def get_budget_data(active_month):
     recent_trans_rs = db.execute("""
         SELECT date, category, description, amount, 'expense' as type
         FROM expenses
-        WHERE strftime('%Y-%m', date) = ?
+        WHERE month = ?
         UNION ALL
         SELECT month || '-01' as date, 'Income' as category, description, amount, 'income' as type
         FROM income
@@ -354,8 +363,8 @@ def add_expense():
         return redirect(url_for('index', month_select=active_month))
 
     try:
-        # The month for the expense record should match the month context
-        month_for_db = datetime.strptime(date, '%Y-%m-%d').strftime('%Y-%m')
+        # The month for the expense record should match the active month context
+        month_for_db = active_month
 
         db = get_db()
         db.execute(
@@ -387,7 +396,7 @@ def api_add_expense():
         return jsonify({'status': 'error', 'message': 'All fields are required!'}), 400
 
     try:
-        month_for_db = datetime.strptime(date, '%Y-%m-%d').strftime('%Y-%m')
+        month_for_db = active_month
         db = get_db()
         db.execute(
             '''INSERT INTO expenses (month, date, category, description, amount, payment_type)
@@ -635,7 +644,8 @@ def edit_expense(expense_id):
         description = request.form['description']
         amount = request.form['amount']
         payment_type = request.form['payment_type']
-        month_for_db = datetime.strptime(date, '%Y-%m-%d').strftime('%Y-%m')
+        # Use the active_month from the form, not the expense's date
+        month_for_db = request.form.get('month_select', active_month)
 
         db.execute('''UPDATE expenses 
                    SET month = ?, date = ?, category = ?, description = ?, amount = ?, payment_type = ?
@@ -643,7 +653,7 @@ def edit_expense(expense_id):
                    (month_for_db, date, category, description, float(amount), payment_type, expense_id))
         db.commit()
         flash('Expense updated successfully!', 'success')
-        return redirect(url_for('index', month_select=active_month))
+        return redirect(url_for('index', month_select=month_for_db))
 
     # For GET request
     expense_rs = db.execute('SELECT * FROM expenses WHERE id = ?', (expense_id,))
@@ -707,12 +717,15 @@ def api_edit_item(item_id):
     description = request.form.get('description')
     amount = request.form.get('amount')
     payment_type = request.form.get('payment_type')
+    # Use the active_month from the form, not the expense's date
+    active_month = request.form.get('month_select')
 
-    if not all([date, category, description, amount, payment_type]):
+
+    if not all([date, category, description, amount, payment_type, active_month]):
         return jsonify({'status': 'error', 'message': 'All fields are required!'}), 400
 
     try:
-        month_for_db = datetime.strptime(date, '%Y-%m-%d').strftime('%Y-%m')
+        month_for_db = active_month
         db = get_db()
         db.execute(
             """UPDATE expenses 
