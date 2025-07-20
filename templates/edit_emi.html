@@ -21,12 +21,6 @@
                         <label for="emi_amount">Amount:</label>
                         <input type="number" step="0.01" id="emi_amount" name="emi_amount" value="{{ emi.emi_amount }}" required>
                     </div>
-                    <div class="form-field">
-                        <label class="propagate-label">
-                            <input type="checkbox" name="propagate" value="true">
-                            Update all future entries for this EMI item
-                        </label>
-                    </div>
                     <button type="submit">Update EMI</button>
                     <a href="{{ url_for('index', month_select=active_month) }}" class="cancel-btn">Cancel</a>
                 </form>
@@ -48,10 +42,6 @@
                     <label for="emi_amount_mobile" style="font-size:1em;font-weight:500;color:#333;">Amount</label>
                     <input type="number" step="0.01" id="emi_amount_mobile" name="emi_amount" placeholder="EMI Amount" value="{{ emi.emi_amount }}" required style="padding:10px 12px;border-radius:8px;border:1px solid #d1d5db;font-size:1em;">
                 </div>
-                <label class="propagate-label" style="display:inline-flex;align-items:center;gap:8px;font-size:0.98em;color:#444;margin-top:2px;">
-                    <input type="checkbox" name="propagate" value="true" style="margin:0;">
-                    <span>Update all future entries for this EMI item</span>
-                </label>
                 <button type="submit" class="btn-primary" style="margin-top:8px;padding:12px 0;font-size:1.08em;border-radius:8px;background:#2a69a5;color:#fff;font-weight:600;">Update EMI</button>
                 <a href="{{ url_for('index', month_select=active_month) }}" class="btn-secondary" style="text-align:center;display:block;margin-top:2px;padding:10px 0;font-size:1.05em;border-radius:8px;background:#f3f4f6;color:#2a69a5;font-weight:500;text-decoration:none;">Cancel</a>
             </form>

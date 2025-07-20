@@ -563,7 +563,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 const filteredExpenses = expenses.filter(exp => {
                     return searchTerm === '' ||
                            (exp.description || '').toLowerCase().includes(searchTerm) ||
-                           (exp.category || '').toLowerCase().includes(searchTerm);
+                           (exp.category || '').toLowerCase().includes(searchTerm) ||
+                           (exp.payment_type || '').toLowerCase().includes(searchTerm);
                 });
 
                 // Calculate the total of filtered expenses
@@ -574,7 +575,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 const expenseList = viewContainer.querySelector('.expenseList');
                 const searchTotalEl = viewContainer.querySelector('.searchTotal');
 
-                renderList(expenseList, filteredExpenses, 'expense', 'No matching expense records.', r => `${r.date} - ${r.category} - ${r.description}: <b>₹${parseFloat(r.amount).toFixed(2)}</b>`);
+                // Use the same format as normal expense display (with payment type)
+                const expenseSearchContent = r => {
+                    const paymentType = r.payment_type ? `<span class=\"item-payment-type\" style=\"margin-left:8px;\">[${r.payment_type}]</span>` : '';
+                    return `${r.date} - ${r.category} - ${r.description}${paymentType}: <b>₹${parseFloat(r.amount).toFixed(2)}</b>`;
+                };
+                renderList(expenseList, filteredExpenses, 'expense', 'No matching expense records.', expenseSearchContent);
                 
                 if (searchTotalEl) {
                     if (searchTerm) {
@@ -746,7 +752,148 @@ document.addEventListener('DOMContentLoaded', function () {
                 const mobileInitialButton = document.querySelector('#mobile-view .nav-item.active');
                 const mobileInitialTarget = mobileInitialButton ? mobileInitialButton.dataset.target : '#dashboard-content-mobile';
                 switchPane(mobileInitialTarget, 'mobile');
+                
+                // Setup copy functionality
+                setupCopyFunctionality();
             });
+
+    // --- COPY FROM PREVIOUS MONTH FUNCTIONALITY ---
+    function setupCopyFunctionality() {
+        // Desktop Copy Income Button
+        const copyIncomeBtn = document.getElementById('copyIncomeBtn');
+        if (copyIncomeBtn) {
+            copyIncomeBtn.addEventListener('click', async () => {
+                await copyFromPreviousMonth('income', '/api/copy_income_from_previous');
+            });
+        }
+
+        // Mobile Copy Income Button
+        const copyIncomeBtnMobile = document.getElementById('copyIncomeBtnMobile');
+        if (copyIncomeBtnMobile) {
+            copyIncomeBtnMobile.addEventListener('click', async () => {
+                await copyFromPreviousMonth('income', '/api/copy_income_from_previous');
+            });
+        }
+
+        // Desktop Copy Budget Button
+        const copyBudgetBtn = document.getElementById('copyBudgetBtn');
+        if (copyBudgetBtn) {
+            copyBudgetBtn.addEventListener('click', async () => {
+                await copyFromPreviousMonth('budget', '/api/copy_budget_from_previous');
+            });
+        }
+
+        // Mobile Copy Budget Button
+        const copyBudgetBtnMobile = document.getElementById('copyBudgetBtnMobile');
+        if (copyBudgetBtnMobile) {
+            copyBudgetBtnMobile.addEventListener('click', async () => {
+                await copyFromPreviousMonth('budget', '/api/copy_budget_from_previous');
+            });
+        }
+
+        // Desktop Copy EMI Button
+        const copyEmiBtn = document.getElementById('copyEmiBtn');
+        if (copyEmiBtn) {
+            copyEmiBtn.addEventListener('click', async () => {
+                await copyFromPreviousMonth('emi', '/api/copy_emi_from_previous');
+            });
+        }
+
+        // Mobile Copy EMI Button
+        const copyEmiBtnMobile = document.getElementById('copyEmiBtnMobile');
+        if (copyEmiBtnMobile) {
+            copyEmiBtnMobile.addEventListener('click', async () => {
+                await copyFromPreviousMonth('emi', '/api/copy_emi_from_previous');
+            });
+        }
+    }
+
+    async function copyFromPreviousMonth(dataType, apiEndpoint) {
+        // Get current month from month selector inputs (more reliable)
+        const desktopMonthSelect = document.getElementById('month_select_desktop');
+        const mobileMonthSelect = document.getElementById('month_select_mobile');
+        const activeMonthDisplay = document.getElementById('desktop-active-month-display');
+        
+        // Try multiple sources to get the current month
+        let currentMonth = null;
+        if (desktopMonthSelect && desktopMonthSelect.value) {
+            currentMonth = desktopMonthSelect.value;
+        } else if (mobileMonthSelect && mobileMonthSelect.value) {
+            currentMonth = mobileMonthSelect.value;
+        } else if (activeMonthDisplay && activeMonthDisplay.textContent) {
+            currentMonth = activeMonthDisplay.textContent;
+        }
+        
+        if (!currentMonth) {
+            alert('Unable to determine current month');
+            return;
+        }
+
+        console.log(`Copy ${dataType}: Current month detected as ${currentMonth}`);
+
+        // Calculate previous month for display
+        const currentDate = new Date(currentMonth + '-01');
+        const previousDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1);
+        const previousMonth = previousDate.toISOString().slice(0, 7);
+
+        console.log(`Copy ${dataType}: Will attempt to copy from ${previousMonth} to ${currentMonth}`);
+
+        // Confirm action with more details
+        const confirmMessage = `This will copy all ${dataType} records from ${previousMonth} to ${currentMonth} and replace any existing ${dataType} data for ${currentMonth}.\n\nNote: If ${previousMonth} has no ${dataType} data, the operation will fail.\n\nAre you sure you want to continue?`;
+        if (!confirm(confirmMessage)) {
+            return;
+        }
+
+        // Find both desktop and mobile buttons for this data type
+        const desktopButton = document.querySelector(`#copy${dataType.charAt(0).toUpperCase() + dataType.slice(1)}Btn`);
+        const mobileButton = document.querySelector(`#copy${dataType.charAt(0).toUpperCase() + dataType.slice(1)}BtnMobile`);
+        
+        // Disable both buttons during operation
+        if (desktopButton) {
+            desktopButton.disabled = true;
+            desktopButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Copying...';
+        }
+        if (mobileButton) {
+            mobileButton.disabled = true;
+            mobileButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Copying...';
+        }
+
+        try {
+            const response = await fetch(apiEndpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    current_month: currentMonth
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.status === 'success') {
+                alert(result.message);
+                // Refresh the dashboard to show copied data
+                await refreshDashboardData(currentMonth);
+            } else {
+                // Show more detailed error message
+                alert(`Copy Failed\n\n${result.message}\n\nTip: You can manually add ${dataType} records for the current month or copy from a month that has data.`);
+            }
+        } catch (error) {
+            console.error(`Error copying ${dataType}:`, error);
+            alert(`An error occurred while copying ${dataType} records. Please try again or add records manually.`);
+        } finally {
+            // Re-enable both buttons
+            if (desktopButton) {
+                desktopButton.disabled = false;
+                desktopButton.innerHTML = `<i class="fas fa-copy"></i> Copy from Previous Month`;
+            }
+            if (mobileButton) {
+                mobileButton.disabled = false;
+                mobileButton.innerHTML = `<i class="fas fa-copy"></i> Copy`;
+            }
+        }
+    }
         }
     }
 

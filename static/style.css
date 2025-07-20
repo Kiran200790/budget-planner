@@ -413,6 +413,98 @@ button:hover, .button-style:hover {
     background-color: #3182ce;
 }
 
+/* Section Header with Copy Button */
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.section-header h3 {
+    margin: 0;
+    font-size: 1.3em;
+    font-weight: 600;
+    color: #2d3748;
+}
+
+.copy-btn {
+    background-color: #38a169;
+    color: white;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9em;
+    font-weight: 500;
+    transition: all 0.2s ease-in-out;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.copy-btn:hover {
+    background-color: #2f855a;
+    transform: translateY(-1px);
+}
+
+.copy-btn:disabled {
+    background-color: #a0aec0;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.copy-btn i {
+    font-size: 0.8em;
+}
+
+/* Mobile Section Headers and Copy Buttons */
+.mobile-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.mobile-section-header h2 {
+    margin: 0;
+    font-size: 1.3em;
+    color: #2d3748;
+}
+
+.copy-btn-mobile {
+    background-color: #38a169;
+    color: white;
+    padding: 6px 12px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8em;
+    font-weight: 500;
+    transition: all 0.2s ease-in-out;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: auto;
+}
+
+.copy-btn-mobile:hover {
+    background-color: #2f855a;
+    transform: translateY(-1px);
+}
+
+.copy-btn-mobile:disabled {
+    background-color: #a0aec0;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.copy-btn-mobile i {
+    font-size: 0.75em;
+}
+
 /* Lists (Expenses, Income, EMI) */
 .item-actions {
     display: flex;

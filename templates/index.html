@@ -127,6 +127,12 @@
             </div>
 
             <div id="budgetSectionContentDesktop" class="main-pane tab-pane card-style">
+                <div class="section-header">
+                    <h3>Set/Update Budget</h3>
+                    <button type="button" class="copy-btn" id="copyBudgetBtn" title="Copy budget from previous month">
+                        <i class="fas fa-copy"></i> Copy from Previous Month
+                    </button>
+                </div>
                 <form action="/set_budget" method="post" class="expense-form-compact" id="setBudgetForm">
                     <input type="hidden" name="month_select" value="{{ active_month }}">
                     <div class="expense-fields-inline">
@@ -143,6 +149,12 @@
             </div>
 
             <div id="incomeSectionContentDesktop" class="main-pane tab-pane card-style">
+                <div class="section-header">
+                    <h3>Add Income</h3>
+                    <button type="button" class="copy-btn" id="copyIncomeBtn" title="Copy income from previous month">
+                        <i class="fas fa-copy"></i> Copy from Previous Month
+                    </button>
+                </div>
                 <form action="/add_income" method="post" class="expense-form-compact" id="addIncomeFormDesktop">
                     <input type="hidden" name="month_select" value="{{ active_month }}">
                     <div class="expense-fields-inline">
@@ -158,6 +170,12 @@
             </div>
 
             <div id="emiSectionContentDesktop" class="main-pane tab-pane card-style">
+                <div class="section-header">
+                    <h3>Add Loan EMI</h3>
+                    <button type="button" class="copy-btn" id="copyEmiBtn" title="Copy EMI from previous month">
+                        <i class="fas fa-copy"></i> Copy from Previous Month
+                    </button>
+                </div>
                 <form action="/add_emi" method="post" class="expense-form-compact" id="addEmiFormDesktop">
                     <input type="hidden" name="month_select" value="{{ active_month }}">
                     <div class="expense-fields-inline">
@@ -274,7 +292,12 @@
                 </div>
 
                 <div id="income-content-mobile" class="main-pane tab-pane mobile-pane">
-                    <h2>Add/View Income</h2>
+                    <div class="mobile-section-header">
+                        <h2>Add/View Income</h2>
+                        <button type="button" class="copy-btn-mobile" id="copyIncomeBtnMobile" title="Copy income from previous month">
+                            <i class="fas fa-copy"></i> Copy
+                        </button>
+                    </div>
                     <form id="addIncomeFormMobile" class="mobile-form">
                         <input type="hidden" name="month_select" value="{{ active_month }}">
                         <input type="text" name="description" placeholder="Description" required>
@@ -288,7 +311,12 @@
                 </div>
 
                 <div id="emi-content-mobile" class="main-pane tab-pane mobile-pane">
-                    <h2>Add/View Loan EMI</h2>
+                    <div class="mobile-section-header">
+                        <h2>Add/View Loan EMI</h2>
+                        <button type="button" class="copy-btn-mobile" id="copyEmiBtnMobile" title="Copy EMI from previous month">
+                            <i class="fas fa-copy"></i> Copy
+                        </button>
+                    </div>
                     <form id="addEmiFormMobile" class="mobile-form">
                         <input type="text" name="loan_name" placeholder="Loan Name/Description" required>
                         <input type="number" step="0.01" name="emi_amount" placeholder="EMI Amount" required>
@@ -301,7 +329,12 @@
                 </div>
 
                 <div id="budget-content-mobile" class="main-pane tab-pane mobile-pane">
-                    <h2>Set/Update Budget</h2>
+                    <div class="mobile-section-header">
+                        <h2>Set/Update Budget</h2>
+                        <button type="button" class="copy-btn-mobile" id="copyBudgetBtnMobile" title="Copy budget from previous month">
+                            <i class="fas fa-copy"></i> Copy
+                        </button>
+                    </div>
                     <form id="setBudgetFormMobile" class="mobile-form">
                         <label>Food: <input type="number" step="0.01" name="Food" value="{{ budget.get('Food', '') }}"></label>
                         <label>Cloth: <input type="number" step="0.01" name="Cloth" value="{{ budget.get('Cloth', '') }}"></label>

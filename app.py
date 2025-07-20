@@ -33,39 +33,18 @@ def api_edit_income(income_id):
     description = request.form.get('description')
     amount = request.form.get('amount')
     month = request.form.get('month') or request.form.get('month_select')
-    propagate = request.form.get('propagate', 'false').lower() == 'true'
 
     if not all([description, amount, month]):
         return jsonify({'status': 'error', 'message': 'All fields are required!'}), 400
 
     try:
         db = get_db()
-        # Get the original description to identify records to propagate
-        original_income_cursor = db.execute('SELECT description FROM income WHERE id = ?', (income_id,))
-        original_income = db.fetchone(original_income_cursor)
-        if not original_income:
-            return jsonify({'status': 'error', 'message': 'Original income record not found.'}), 404
-        original_description = original_income['description']
-
-        if propagate:
-            start_month = datetime.strptime(month, '%Y-%m')
-            queries = []
-            for i in range(12):
-                current_month_dt = start_month + relativedelta(months=i)
-                current_month_str = current_month_dt.strftime('%Y-%m')
-                queries.append(
-                    ("UPDATE income SET description = ?, amount = ? WHERE description = ? AND month = ?",
-                    (description, float(amount), original_description, current_month_str))
-                )
-            db.execute_batch(queries)
-            message = 'Income updated for all future entries successfully!'
-        else:
-            db.execute(
-                'UPDATE income SET description = ?, amount = ?, month = ? WHERE id = ?',
-                (description, float(amount), month, income_id)
-            )
-            db.commit()
-            message = 'Income updated successfully!'
+        db.execute(
+            'UPDATE income SET description = ?, amount = ?, month = ? WHERE id = ?',
+            (description, float(amount), month, income_id)
+        )
+        db.commit()
+        message = 'Income updated successfully!'
 
         return jsonify({'status': 'success', 'message': message})
     except ValueError:
@@ -745,40 +724,18 @@ def api_edit_emi(emi_id):
     loan_name = request.form.get('loan_name')
     emi_amount = request.form.get('emi_amount')
     month = request.form.get('month')
-    propagate = request.form.get('propagate', 'false').lower() == 'true'
 
     if not all([loan_name, emi_amount, month]):
         return jsonify({'status': 'error', 'message': 'All fields are required!'}), 400
 
     try:
         db = get_db()
-
-        # Get the original loan name to identify records to propagate
-        original_emi_cursor = db.execute('SELECT loan_name FROM emis WHERE id = ?', (emi_id,))
-        original_emi = db.fetchone(original_emi_cursor)
-        if not original_emi:
-            return jsonify({'status': 'error', 'message': 'Original EMI record not found.'}), 404
-        original_loan_name = original_emi['loan_name']
-
-        if propagate:
-            start_month = datetime.strptime(month, '%Y-%m')
-            queries = []
-            for i in range(12):
-                current_month_dt = start_month + relativedelta(months=i)
-                current_month_str = current_month_dt.strftime('%Y-%m')
-                queries.append(
-                    ("UPDATE emis SET loan_name = ?, emi_amount = ? WHERE loan_name = ? AND month = ?",
-                    (loan_name, float(emi_amount), original_loan_name, current_month_str))
-                )
-            db.execute_batch(queries)
-            message = 'EMI updated for all future entries successfully!'
-        else:
-            db.execute(
-                'UPDATE emis SET loan_name = ?, emi_amount = ? WHERE id = ?',
-                (loan_name, float(emi_amount), emi_id)
-            )
-            db.commit()
-            message = 'EMI updated successfully!'
+        db.execute(
+            'UPDATE emis SET loan_name = ?, emi_amount = ? WHERE id = ?',
+            (loan_name, float(emi_amount), emi_id)
+        )
+        db.commit()
+        message = 'EMI updated successfully!'
 
         return jsonify({'status': 'success', 'message': message})
     except ValueError:
@@ -871,6 +828,187 @@ def generate_report():
         as_attachment=True,
         download_name=f"budget_report_{active_month}.csv"
     )
+
+# --- COPY FROM PREVIOUS MONTH ENDPOINTS ---
+
+@app.route('/api/copy_income_from_previous', methods=['POST'])
+def copy_income_from_previous():
+    """Copy income records from the previous month to the current month."""
+    try:
+        app.logger.info(f"Copy income request received. Request data: {request.json}")
+        current_month = request.json.get('current_month')
+        app.logger.info(f"Current month from request: {current_month}")
+        
+        if not current_month:
+            return jsonify({'status': 'error', 'message': 'Current month is required'}), 400
+        
+        # Calculate previous month
+        current_date = datetime.strptime(current_month, '%Y-%m')
+        previous_date = current_date - relativedelta(months=1)
+        previous_month = previous_date.strftime('%Y-%m')
+        
+        db = get_db()
+        
+        # Get income records from previous month
+        previous_income_rs = db.execute('SELECT description, amount FROM income WHERE month = ?', (previous_month,))
+        previous_income = db.fetchall(previous_income_rs)
+        
+        if not previous_income:
+            # Check what months have income data to provide helpful suggestions
+            available_months_rs = db.execute('SELECT DISTINCT month FROM income ORDER BY month DESC LIMIT 5')
+            available_months = [row['month'] for row in db.fetchall(available_months_rs)]
+            
+            if available_months:
+                months_text = ', '.join(available_months)
+                return jsonify({
+                    'status': 'error', 
+                    'message': f'No income records found for {previous_month}. Available months with income data: {months_text}'
+                }), 404
+            else:
+                return jsonify({
+                    'status': 'error', 
+                    'message': f'No income records found for {previous_month}. No income data exists in the database yet.'
+                }), 404
+        
+        # Delete existing income for current month
+        db.execute('DELETE FROM income WHERE month = ?', (current_month,))
+        
+        # Copy income records to current month
+        copied_count = 0
+        for record in previous_income:
+            db.execute('INSERT INTO income (month, description, amount) VALUES (?, ?, ?)',
+                      (current_month, record['description'], record['amount']))
+            copied_count += 1
+        
+        db.commit()
+        
+        return jsonify({
+            'status': 'success', 
+            'message': f'Copied {copied_count} income records from {previous_month}',
+            'copied_count': copied_count
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error copying income from previous month: {e}")
+        return jsonify({'status': 'error', 'message': 'An error occurred while copying income records'}), 500
+
+
+@app.route('/api/copy_budget_from_previous', methods=['POST'])
+def copy_budget_from_previous():
+    """Copy budget settings from the previous month to the current month."""
+    try:
+        current_month = request.json.get('current_month')
+        if not current_month:
+            return jsonify({'status': 'error', 'message': 'Current month is required'}), 400
+        
+        # Calculate previous month
+        current_date = datetime.strptime(current_month, '%Y-%m')
+        previous_date = current_date - relativedelta(months=1)
+        previous_month = previous_date.strftime('%Y-%m')
+        
+        db = get_db()
+        
+        # Get budget records from previous month
+        previous_budget_rs = db.execute('SELECT category, amount FROM budgets WHERE month = ?', (previous_month,))
+        previous_budget = db.fetchall(previous_budget_rs)
+        
+        if not previous_budget:
+            # Check what months have budget data to provide helpful suggestions
+            available_months_rs = db.execute('SELECT DISTINCT month FROM budgets ORDER BY month DESC LIMIT 5')
+            available_months = [row['month'] for row in db.fetchall(available_months_rs)]
+            
+            if available_months:
+                months_text = ', '.join(available_months)
+                return jsonify({
+                    'status': 'error', 
+                    'message': f'No budget records found for {previous_month}. Available months with budget data: {months_text}'
+                }), 404
+            else:
+                return jsonify({
+                    'status': 'error', 
+                    'message': f'No budget records found for {previous_month}. No budget data exists in the database yet.'
+                }), 404
+        
+        # Delete existing budget for current month
+        db.execute('DELETE FROM budgets WHERE month = ?', (current_month,))
+        
+        # Copy budget records to current month
+        copied_count = 0
+        for record in previous_budget:
+            db.execute('INSERT INTO budgets (month, category, amount) VALUES (?, ?, ?)',
+                      (current_month, record['category'], record['amount']))
+            copied_count += 1
+        
+        db.commit()
+        
+        return jsonify({
+            'status': 'success', 
+            'message': f'Copied {copied_count} budget categories from {previous_month}',
+            'copied_count': copied_count
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error copying budget from previous month: {e}")
+        return jsonify({'status': 'error', 'message': 'An error occurred while copying budget settings'}), 500
+
+
+@app.route('/api/copy_emi_from_previous', methods=['POST'])
+def copy_emi_from_previous():
+    """Copy EMI records from the previous month to the current month."""
+    try:
+        current_month = request.json.get('current_month')
+        if not current_month:
+            return jsonify({'status': 'error', 'message': 'Current month is required'}), 400
+        
+        # Calculate previous month
+        current_date = datetime.strptime(current_month, '%Y-%m')
+        previous_date = current_date - relativedelta(months=1)
+        previous_month = previous_date.strftime('%Y-%m')
+        
+        db = get_db()
+        
+        # Get EMI records from previous month
+        previous_emi_rs = db.execute('SELECT loan_name, emi_amount FROM emis WHERE month = ?', (previous_month,))
+        previous_emi = db.fetchall(previous_emi_rs)
+        
+        if not previous_emi:
+            # Check what months have EMI data to provide helpful suggestions
+            available_months_rs = db.execute('SELECT DISTINCT month FROM emis ORDER BY month DESC LIMIT 5')
+            available_months = [row['month'] for row in db.fetchall(available_months_rs)]
+            
+            if available_months:
+                months_text = ', '.join(available_months)
+                return jsonify({
+                    'status': 'error', 
+                    'message': f'No EMI records found for {previous_month}. Available months with EMI data: {months_text}'
+                }), 404
+            else:
+                return jsonify({
+                    'status': 'error', 
+                    'message': f'No EMI records found for {previous_month}. No EMI data exists in the database yet.'
+                }), 404
+        
+        # Delete existing EMI for current month
+        db.execute('DELETE FROM emis WHERE month = ?', (current_month,))
+        
+        # Copy EMI records to current month
+        copied_count = 0
+        for record in previous_emi:
+            db.execute('INSERT INTO emis (month, loan_name, emi_amount) VALUES (?, ?, ?)',
+                      (current_month, record['loan_name'], record['emi_amount']))
+            copied_count += 1
+        
+        db.commit()
+        
+        return jsonify({
+            'status': 'success', 
+            'message': f'Copied {copied_count} EMI records from {previous_month}',
+            'copied_count': copied_count
+        })
+        
+    except Exception as e:
+        app.logger.error(f"Error copying EMI from previous month: {e}")
+        return jsonify({'status': 'error', 'message': 'An error occurred while copying EMI records'}), 500
 
 # --- Error Handlers ---
 @app.errorhandler(404)
