@@ -413,6 +413,171 @@ button:hover, .button-style:hover {
     background-color: #3182ce;
 }
 
+/* Desktop Edit Income Form - Button Styling */
+#desktop-view #editIncomeForm {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+#desktop-view #editIncomeForm .button-container {
+    display: flex;
+    gap: 15px;
+    width: 100%;
+    margin-top: 10px;
+}
+
+#desktop-view #editIncomeForm button[type="submit"] {
+    background-color: #4299e1;
+    color: white;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 1em;
+    font-weight: 500;
+    transition: background-color 0.2s ease-in-out;
+    flex: 1;
+    text-align: center;
+}
+
+#desktop-view #editIncomeForm button[type="submit"]:hover {
+    background-color: #3182ce;
+}
+
+#desktop-view #editIncomeForm .cancel-btn {
+    background-color: #f3f4f6;
+    color: #2a69a5;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 1em;
+    font-weight: 500;
+    transition: all 0.2s ease-in-out;
+    flex: 1;
+    text-align: center;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#desktop-view #editIncomeForm .cancel-btn:hover {
+    background-color: #e5e7eb;
+    color: #1f2937;
+}
+
+/* Desktop Edit EMI Form - Button Styling */
+#desktop-view #editEmiForm {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+#desktop-view #editEmiForm .button-container {
+    display: flex;
+    gap: 15px;
+    width: 100%;
+    margin-top: 10px;
+}
+
+#desktop-view #editEmiForm button[type="submit"] {
+    background-color: #4299e1;
+    color: white;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 1em;
+    font-weight: 500;
+    transition: background-color 0.2s ease-in-out;
+    flex: 1;
+    text-align: center;
+}
+
+#desktop-view #editEmiForm button[type="submit"]:hover {
+    background-color: #3182ce;
+}
+
+#desktop-view #editEmiForm .cancel-btn {
+    background-color: #f3f4f6;
+    color: #2a69a5;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 1em;
+    font-weight: 500;
+    transition: all 0.2s ease-in-out;
+    flex: 1;
+    text-align: center;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#desktop-view #editEmiForm .cancel-btn:hover {
+    background-color: #e5e7eb;
+    color: #1f2937;
+}
+
+/* Desktop Edit Expense Form - Button Styling */
+#desktop-view .card-style form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+#desktop-view .card-style form .button-container {
+    display: flex;
+    gap: 15px;
+    width: 100%;
+    margin-top: 10px;
+}
+
+#desktop-view .card-style form button[type="submit"] {
+    background-color: #4299e1;
+    color: white;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 1em;
+    font-weight: 500;
+    transition: background-color 0.2s ease-in-out;
+    flex: 1;
+    text-align: center;
+}
+
+#desktop-view .card-style form button[type="submit"]:hover {
+    background-color: #3182ce;
+}
+
+#desktop-view .card-style form .btn-secondary {
+    background-color: #f3f4f6;
+    color: #2a69a5;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 1em;
+    font-weight: 500;
+    transition: all 0.2s ease-in-out;
+    flex: 1;
+    text-align: center;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#desktop-view .card-style form .btn-secondary:hover {
+    background-color: #e5e7eb;
+    color: #1f2937;
+}
+
 /* Section Header with Copy Button */
 .section-header {
     display: flex;
