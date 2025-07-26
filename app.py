@@ -148,6 +148,58 @@ def close_connection(exception):
     if db is not None:
         db.close()
 
+def get_smart_default_month():
+    """
+    Determines the smart default month based on recent expense entries.
+    If user has started entering expenses for next month, switch to that month.
+    """
+    try:
+        db = get_db()
+        
+        # Get the most recent expense entries (last 10 entries)
+        recent_expenses = db.execute('''
+            SELECT date, strftime("%Y-%m", date) as expense_month 
+            FROM expenses 
+            ORDER BY date DESC, id DESC 
+            LIMIT 10
+        ''')
+        
+        recent_entries = [row for row in db.fetchall(recent_expenses)]
+        
+        if not recent_entries:
+            # No expenses yet, return current calendar month
+            return datetime.now().strftime('%Y-%m')
+        
+        # Count entries by month in recent entries
+        month_counts = {}
+        for entry in recent_entries:
+            month = entry['expense_month']
+            month_counts[month] = month_counts.get(month, 0) + 1
+        
+        # Get the month with most recent entries
+        most_active_month = max(month_counts.keys())
+        
+        # If the most active month is future compared to current calendar month,
+        # it means user has started working on next month
+        current_calendar_month = datetime.now().strftime('%Y-%m')
+        
+        if most_active_month > current_calendar_month:
+            return most_active_month
+        else:
+            # Check if majority of recent entries are for a future month
+            future_month_entries = sum(1 for entry in recent_entries 
+                                     if entry['expense_month'] > current_calendar_month)
+            
+            if future_month_entries >= len(recent_entries) // 2:  # 50% or more
+                return most_active_month
+            else:
+                return current_calendar_month
+                
+    except Exception as e:
+        app.logger.error(f"Error determining smart default month: {e}")
+        # Fallback to current calendar month
+        return datetime.now().strftime('%Y-%m')
+
 def init_db():
     with app.app_context():
         db = get_db()
@@ -297,7 +349,10 @@ def api_report_data():
 
 @app.route('/', methods=['GET'])
 def index():
-    active_month = request.args.get('month_select', default=datetime.now().strftime('%Y-%m'))
+    # Use smart default month detection, but allow manual override via URL parameter
+    smart_default = get_smart_default_month()
+    active_month = request.args.get('month_select', default=smart_default)
+    
     # Check for a success message passed in the URL, used for redirects from edit pages
     flash_success = request.args.get('flash_success')
     if flash_success:
@@ -595,7 +650,8 @@ def api_delete_expense(expense_id):
 def delete_expense(expense_id):
     """Route to delete a single expense item."""
     # The month is needed to redirect back correctly
-    active_month = request.args.get('month_select', default=datetime.now().strftime('%Y-%m'))
+    smart_default = get_smart_default_month()
+    active_month = request.args.get('month_select', default=smart_default)
     try:
         db = get_db()
         db.execute('DELETE FROM expenses WHERE id = ?', (expense_id,))
@@ -611,7 +667,8 @@ def delete_expense(expense_id):
 @app.route('/edit_expense/<int:expense_id>', methods=['GET', 'POST'])
 def edit_expense(expense_id):
     db = get_db()
-    active_month = request.args.get('month_select', default=datetime.now().strftime('%Y-%m'))
+    smart_default = get_smart_default_month()
+    active_month = request.args.get('month_select', default=smart_default)
 
     if request.method == 'POST':
         date = request.form['date']
@@ -645,7 +702,8 @@ def edit_expense(expense_id):
 def edit_item(item_id):
     """Serves the page to edit an existing expense."""
     db = get_db()
-    active_month = request.args.get('month_select', datetime.now().strftime('%Y-%m'))
+    smart_default = get_smart_default_month()
+    active_month = request.args.get('month_select', smart_default)
     
     item_cursor = db.execute('SELECT * FROM expenses WHERE id = ?', (item_id,))
     item = db.fetchone(item_cursor)
@@ -659,7 +717,8 @@ def edit_item(item_id):
 def edit_income(income_id):
     """Serves the page to edit an existing income record."""
     db = get_db()
-    active_month = request.args.get('month_select', datetime.now().strftime('%Y-%m'))
+    smart_default = get_smart_default_month()
+    active_month = request.args.get('month_select', smart_default)
 
     income_cursor = db.execute('SELECT * FROM income WHERE id = ?', (income_id,))
     income = db.fetchone(income_cursor)
@@ -673,7 +732,8 @@ def edit_income(income_id):
 def edit_emi(emi_id):
     """Serves the page to edit an existing EMI record."""
     db = get_db()
-    active_month = request.args.get('month_select', datetime.now().strftime('%Y-%m'))
+    smart_default = get_smart_default_month()
+    active_month = request.args.get('month_select', smart_default)
 
     emi_cursor = db.execute('SELECT * FROM emis WHERE id = ?', (emi_id,))
     emi = db.fetchone(emi_cursor)
