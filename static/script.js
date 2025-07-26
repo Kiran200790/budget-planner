@@ -513,6 +513,10 @@ document.addEventListener('DOMContentLoaded', function () {
             if(desktopMonthInput) desktopMonthInput.value = flaskData.active_month;
             if(mobileMonthInput) mobileMonthInput.value = flaskData.active_month;
 
+            // Update the "Currently viewing:" display
+            const activeMonthDisplay = document.getElementById('desktop-active-month-display');
+            if(activeMonthDisplay) activeMonthDisplay.textContent = flaskData.active_month;
+
             // Update dashboard titles with the new month
             const formattedMonth = new Date(flaskData.active_month + '-02').toLocaleString('default', { month: 'long', year: 'numeric' });
             document.querySelectorAll('#summary-title-desktop, #summary-title-mobile').forEach(el => el.textContent = `Summary for ${formattedMonth}`);
