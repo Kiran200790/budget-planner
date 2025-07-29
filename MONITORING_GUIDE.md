@@ -33,7 +33,7 @@
 
 1. **Deploy the health endpoint** (already added to your app.py)
 2. **Choose a monitoring service** (UptimeRobot recommended)
-3. **Add your Render URL**: `https://your-app-name.onrender.com/health`
+3. **Add your Render URL**: `https://budget-planner-app-fj6j.onrender.com/health`
 4. **Set check interval**: 5-10 minutes (under 15 minutes to prevent sleep)
 5. **Configure alerts** (optional): Get notified if your app goes down
 

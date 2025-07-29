@@ -21,7 +21,7 @@ logging.basicConfig(
 )
 
 # Your Render app URL - REPLACE WITH YOUR ACTUAL URL
-APP_URL = "https://your-app-name.onrender.com/health"
+APP_URL = "https://budget-planner-app-fj6j.onrender.com/health"
 
 def ping_app():
     """Ping the app health endpoint to keep it alive"""

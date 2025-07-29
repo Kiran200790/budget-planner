@@ -15,8 +15,8 @@ jobs:
         run: |
           echo "🚀 Pinging Budget App to prevent cold start..."
           
-          # Replace with your actual Render URL
-          APP_URL="https://your-app-name.onrender.com/health"
+          # Your actual Render URL
+          APP_URL="https://budget-planner-app-fj6j.onrender.com/health"
           
           # Ping the health endpoint
           response=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 --retry 3 "$APP_URL")
