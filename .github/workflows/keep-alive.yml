@@ -1,0 +1,39 @@
+name: Keep Render App Alive
+
+on:
+  schedule:
+    # Ping every 10 minutes to prevent cold starts
+    # Format: minute hour day month day-of-week
+    - cron: '*/10 * * * *'
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Budget App
+        run: |
+          echo "🚀 Pinging Budget App to prevent cold start..."
+          
+          # Replace with your actual Render URL
+          APP_URL="https://your-app-name.onrender.com/health"
+          
+          # Ping the health endpoint
+          response=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 --retry 3 "$APP_URL")
+          
+          if [ "$response" -eq 200 ]; then
+            echo "✅ App is healthy (HTTP $response)"
+          else
+            echo "⚠️ App responded with HTTP $response"
+            exit 1
+          fi
+          
+          echo "📊 Keep-alive ping completed at $(date)"
+
+      - name: Log Status
+        run: |
+          echo "🎯 Budget App Keep-Alive Status:"
+          echo "   • Time: $(date)"
+          echo "   • Action: Prevent cold start"
+          echo "   • Frequency: Every 10 minutes"
+          echo "   • Cost: Free (GitHub Actions)"

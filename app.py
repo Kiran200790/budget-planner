@@ -347,6 +347,16 @@ def api_report_data():
         app.logger.error(f"Error fetching report data for month {active_month}: {e}")
         return jsonify({'status': 'error', 'message': 'An internal error occurred.'}), 500
 
+# Health check endpoint to prevent cold starts
+@app.route('/health', methods=['GET'])
+def health_check():
+    """Lightweight health check endpoint to keep the app alive and prevent cold starts"""
+    return jsonify({
+        'status': 'healthy',
+        'timestamp': datetime.now().isoformat(),
+        'message': 'Budget app is running'
+    }), 200
+
 @app.route('/', methods=['GET'])
 def index():
     # Use smart default month detection, but allow manual override via URL parameter
