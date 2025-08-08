@@ -14,26 +14,44 @@ jobs:
       - name: Ping Budget App
         run: |
           echo "🚀 Pinging Budget App to prevent cold start..."
+          echo "⏰ Current time: $(date -u)"
           
           # Your actual Render URL
           APP_URL="https://budget-planner-app-fj6j.onrender.com/health"
+          echo "🎯 Target URL: $APP_URL"
           
-          # Ping the health endpoint
-          response=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 --retry 3 "$APP_URL")
+          # Ping the health endpoint with detailed output
+          echo "📡 Making request..."
+          response=$(curl -s -w "HTTPSTATUS:%{http_code};TIME:%{time_total}" --max-time 60 --retry 2 --retry-delay 5 "$APP_URL")
           
-          if [ "$response" -eq 200 ]; then
-            echo "✅ App is healthy (HTTP $response)"
+          # Extract HTTP status and response time
+          http_status=$(echo "$response" | grep -o "HTTPSTATUS:[0-9]*" | cut -d: -f2)
+          time_total=$(echo "$response" | grep -o "TIME:[0-9.]*" | cut -d: -f2)
+          response_body=$(echo "$response" | sed 's/HTTPSTATUS:[0-9]*;TIME:[0-9.]*$//')
+          
+          echo "📊 Response details:"
+          echo "   • HTTP Status: $http_status"
+          echo "   • Response Time: ${time_total}s"
+          echo "   • Response Body: $response_body"
+          
+          if [ "$http_status" -eq 200 ]; then
+            echo "✅ App is healthy and responding"
           else
-            echo "⚠️ App responded with HTTP $response"
+            echo "❌ App health check failed with status: $http_status"
+            echo "🔍 Full curl output for debugging:"
+            curl -v --max-time 60 "$APP_URL" || true
             exit 1
           fi
           
-          echo "📊 Keep-alive ping completed at $(date)"
+          echo "📊 Keep-alive ping completed successfully"
 
       - name: Log Status
+        if: always()
         run: |
           echo "🎯 Budget App Keep-Alive Status:"
-          echo "   • Time: $(date)"
+          echo "   • Time: $(date -u) UTC"
           echo "   • Action: Prevent cold start"
           echo "   • Frequency: Every 10 minutes"
           echo "   • Cost: Free (GitHub Actions)"
+          echo "   • Workflow: ${{ github.workflow }}"
+          echo "   • Run ID: ${{ github.run_id }}"

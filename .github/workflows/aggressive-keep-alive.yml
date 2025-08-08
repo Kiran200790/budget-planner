@@ -1,0 +1,68 @@
+name: Aggressive Keep Alive
+
+on:
+  schedule:
+    # Ping every 5 minutes for more aggressive keep-alive
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  multi-ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Multi-Endpoint Ping
+        run: |
+          echo "🚀 Starting aggressive keep-alive sequence..."
+          echo "⏰ Current time: $(date -u) UTC"
+          
+          # Multiple endpoints to ping
+          HEALTH_URL="https://budget-planner-app-fj6j.onrender.com/health"
+          MAIN_URL="https://budget-planner-app-fj6j.onrender.com/"
+          
+          success_count=0
+          total_attempts=0
+          
+          # Ping health endpoint
+          echo "📡 Pinging health endpoint..."
+          total_attempts=$((total_attempts + 1))
+          if curl -s --max-time 45 "$HEALTH_URL" > /dev/null; then
+            echo "✅ Health endpoint: SUCCESS"
+            success_count=$((success_count + 1))
+          else
+            echo "❌ Health endpoint: FAILED"
+          fi
+          
+          # Wait a moment
+          sleep 2
+          
+          # Ping main page
+          echo "📡 Pinging main page..."
+          total_attempts=$((total_attempts + 1))
+          if curl -s --max-time 45 "$MAIN_URL" > /dev/null; then
+            echo "✅ Main page: SUCCESS"
+            success_count=$((success_count + 1))
+          else
+            echo "❌ Main page: FAILED"
+          fi
+          
+          # Report results
+          echo "📊 Results: $success_count/$total_attempts endpoints responded"
+          
+          if [ $success_count -gt 0 ]; then
+            echo "✅ At least one endpoint is healthy - app is alive"
+          else
+            echo "❌ All endpoints failed - this needs investigation"
+            exit 1
+          fi
+          
+          echo "🎯 Aggressive keep-alive completed successfully"
+
+      - name: Log Performance
+        if: always()
+        run: |
+          echo "🎯 Aggressive Keep-Alive Report:"
+          echo "   • Frequency: Every 5 minutes"
+          echo "   • Endpoints: 2 (health + main)"
+          echo "   • Strategy: Multi-ping redundancy"
+          echo "   • Run ID: ${{ github.run_id }}"
+          echo "   • Time: $(date -u) UTC"
