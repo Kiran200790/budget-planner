@@ -186,15 +186,109 @@ document.addEventListener('DOMContentLoaded', function () {
                 data: {
                     labels: data.doughnut_chart_labels,
                     datasets: [
-                        { label: 'Budgeted', data: data.budget_values, backgroundColor: 'rgba(54, 162, 235, 0.6)' },
-                        { label: 'Spent', data: data.spent_values, backgroundColor: 'rgba(255, 99, 132, 0.6)' }
+                        { 
+                            label: 'Budgeted', 
+                            data: data.budget_values, 
+                            backgroundColor: 'rgba(30, 64, 175, 0.8)',
+                            borderColor: 'rgba(30, 64, 175, 1)',
+                            borderWidth: 2,
+                            borderRadius: 8,
+                            borderSkipped: false,
+                            hoverBackgroundColor: 'rgba(59, 130, 246, 0.9)',
+                            hoverBorderColor: 'rgba(59, 130, 246, 1)',
+                            hoverBorderWidth: 3
+                        },
+                        { 
+                            label: 'Spent', 
+                            data: data.spent_values, 
+                            backgroundColor: 'rgba(96, 165, 250, 0.8)',
+                            borderColor: 'rgba(96, 165, 250, 1)',
+                            borderWidth: 2,
+                            borderRadius: 8,
+                            borderSkipped: false,
+                            hoverBackgroundColor: 'rgba(147, 197, 253, 0.9)',
+                            hoverBorderColor: 'rgba(147, 197, 253, 1)',
+                            hoverBorderWidth: 3
+                        }
                     ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    scales: { y: { beginAtZero: true, ticks: { stepSize: 4000 } } },
-                    plugins: { legend: { position: 'top' } }
+                    scales: { 
+                        y: { 
+                            beginAtZero: true, 
+                            ticks: { 
+                                stepSize: 4000,
+                                color: 'rgba(71, 85, 105, 0.8)',
+                                font: {
+                                    weight: 'normal'
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(71, 85, 105, 0.1)',
+                                lineWidth: 1
+                            },
+                            border: {
+                                color: 'rgba(30, 64, 175, 0.3)',
+                                width: 2
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                color: 'rgba(71, 85, 105, 0.8)',
+                                font: {
+                                    weight: 'normal'
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(71, 85, 105, 0.1)',
+                                lineWidth: 1
+                            },
+                            border: {
+                                color: 'rgba(30, 64, 175, 0.3)',
+                                width: 2
+                            }
+                        }
+                    },
+                    plugins: { 
+                        legend: { 
+                            position: 'top',
+                            labels: {
+                                color: 'rgba(71, 85, 105, 0.9)',
+                                font: {
+                                    size: 14,
+                                    weight: 'normal'
+                                },
+                                padding: 20,
+                                usePointStyle: true,
+                                pointStyle: 'rectRounded'
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(30, 64, 175, 0.95)',
+                            titleColor: 'rgba(255, 255, 255, 1)',
+                            bodyColor: 'rgba(255, 255, 255, 0.9)',
+                            borderColor: 'rgba(59, 130, 246, 1)',
+                            borderWidth: 2,
+                            cornerRadius: 12,
+                            displayColors: true,
+                            titleFont: {
+                                weight: 'normal'
+                            },
+                            bodyFont: {
+                                weight: 'normal'
+                            }
+                        }
+                    },
+                    animation: {
+                        duration: 1200,
+                        easing: 'easeOutCubic'
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    }
                 }
             });
         }
