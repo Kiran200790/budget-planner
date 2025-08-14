@@ -320,12 +320,13 @@ document.addEventListener('DOMContentLoaded', function () {
                     const result = await response.json();
                     if (result.status === 'success') {
                         await refreshDashboardData(flaskData.active_month);
+                        showToast('success', 'Deleted!', `${itemType.charAt(0).toUpperCase() + itemType.slice(1)} item has been deleted successfully.`);
                     } else {
-                        alert(`Error: ${result.message}`);
+                        showToast('error', 'Delete Failed', result.message || `Failed to delete ${itemType} item.`);
                     }
                 } catch (error) {
                     console.error(`Failed to delete ${itemType}:`, error);
-                    alert(`An error occurred while deleting the ${itemType}.`);
+                    showToast('error', 'Network Error', `An error occurred while deleting the ${itemType}. Please try again.`);
                 }
             }
         };
@@ -793,12 +794,15 @@ document.addEventListener('DOMContentLoaded', function () {
                         if (form.closest('#mobile-view')) {
                             switchPane('#dashboard-content-mobile', 'mobile');
                         }
+                        // Show success toast
+                        showToast('success', 'Success!', 'Your data has been saved successfully.');
                     } else {
-                        alert(`Error: ${result.message || 'Unknown error.'}`);
+                        // Show error toast
+                        showToast('error', 'Error', result.message || 'Unknown error occurred.');
                     }
                 } catch (error) {
                     console.error(`Form submission error for ${formId}:`, error);
-                    alert('An error occurred.');
+                    showToast('error', 'Network Error', 'Failed to submit form. Please check your connection and try again.');
                 }
             });
         });
@@ -996,4 +1000,198 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     initializeApp();
+
+    // --- FLOATING ACTION BUTTON & TOAST SYSTEM ---
+    
+    // Toast notification system
+    function showToast(type, title, message, duration = 4000) {
+        const toastContainer = document.getElementById('toastContainer');
+        if (!toastContainer) return;
+
+        // Create toast element
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        
+        // Create toast content
+        toast.innerHTML = `
+            <div class="toast-icon">
+                <i class="fas ${getToastIcon(type)}"></i>
+            </div>
+            <div class="toast-content">
+                <div class="toast-title">${title}</div>
+                <div class="toast-message">${message}</div>
+            </div>
+            <button class="toast-close">
+                <i class="fas fa-times"></i>
+            </button>
+            <div class="toast-progress"></div>
+        `;
+
+        // Add to container
+        toastContainer.appendChild(toast);
+
+        // Show toast with animation
+        setTimeout(() => {
+            toast.classList.add('show');
+        }, 100);
+
+        // Auto-hide toast
+        const autoHideTimeout = setTimeout(() => {
+            hideToast(toast);
+        }, duration);
+
+        // Handle close button
+        const closeBtn = toast.querySelector('.toast-close');
+        closeBtn.addEventListener('click', () => {
+            clearTimeout(autoHideTimeout);
+            hideToast(toast);
+        });
+
+        // Return toast element for manual control
+        return toast;
+    }
+
+    function hideToast(toast) {
+        toast.classList.add('hide');
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 400);
+    }
+
+    function getToastIcon(type) {
+        const icons = {
+            success: 'fa-check-circle',
+            error: 'fa-exclamation-circle',
+            warning: 'fa-exclamation-triangle',
+            info: 'fa-info-circle'
+        };
+        return icons[type] || 'fa-info-circle';
+    }
+
+    // FAB modal functionality
+    function setupFAB() {
+        const fabButton = document.getElementById('fabButton');
+        const fabModalOverlay = document.getElementById('fabModalOverlay');
+        const fabModalClose = document.getElementById('fabModalClose');
+        const fabCancelBtn = document.getElementById('fabCancelBtn');
+        const fabQuickForm = document.getElementById('fabQuickForm');
+        const fabDateInput = document.getElementById('fabDate');
+
+        if (!fabButton || !fabModalOverlay) return;
+
+        // Set default date to today
+        if (fabDateInput) {
+            const today = new Date().toISOString().split('T')[0];
+            fabDateInput.value = today;
+        }
+
+        // Open modal
+        fabButton.addEventListener('click', () => {
+            // Update month select to current active month
+            const fabMonthSelect = document.getElementById('fabMonthSelect');
+            const desktopMonthSelect = document.getElementById('month_select_desktop');
+            const mobileMonthSelect = document.getElementById('month_select_mobile');
+            
+            if (fabMonthSelect) {
+                const currentMonth = desktopMonthSelect?.value || mobileMonthSelect?.value || flaskData.active_month;
+                fabMonthSelect.value = currentMonth;
+            }
+
+            fabModalOverlay.classList.add('show');
+            document.body.style.overflow = 'hidden'; // Prevent background scrolling
+        });
+
+        // Close modal functions
+        function closeFABModal() {
+            fabModalOverlay.classList.remove('show');
+            document.body.style.overflow = ''; // Restore scrolling
+            fabQuickForm.reset();
+            
+            // Reset date to today
+            if (fabDateInput) {
+                const today = new Date().toISOString().split('T')[0];
+                fabDateInput.value = today;
+            }
+        }
+
+        // Close modal events
+        fabModalClose.addEventListener('click', closeFABModal);
+        fabCancelBtn.addEventListener('click', closeFABModal);
+
+        // Close on overlay click
+        fabModalOverlay.addEventListener('click', (e) => {
+            if (e.target === fabModalOverlay) {
+                closeFABModal();
+            }
+        });
+
+        // Close on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && fabModalOverlay.classList.contains('show')) {
+                closeFABModal();
+            }
+        });
+
+        // Handle form submission
+        fabQuickForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const submitBtn = fabQuickForm.querySelector('.fab-submit-btn');
+            const originalText = submitBtn.innerHTML;
+            
+            // Show loading state
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
+            submitBtn.disabled = true;
+
+            try {
+                const formData = new FormData(fabQuickForm);
+                const response = await fetch('/api/add_expense', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    // Show success toast
+                    showToast('success', 'Expense Added!', 'Your expense has been successfully added to the budget.');
+                    
+                    // Close modal
+                    closeFABModal();
+                    
+                    // Refresh dashboard data
+                    const currentMonth = formData.get('month_select');
+                    await refreshDashboardData(currentMonth);
+                    
+                } else {
+                    // Show error toast
+                    showToast('error', 'Error Adding Expense', result.message || 'An error occurred while adding the expense.');
+                }
+            } catch (error) {
+                console.error('FAB form submission error:', error);
+                showToast('error', 'Network Error', 'Failed to add expense. Please check your connection and try again.');
+            } finally {
+                // Restore button state
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+            }
+        });
+    }
+
+    // Initialize FAB system
+    setupFAB();
+
+    // Replace existing alert calls with toast notifications for better UX
+    function enhanceExistingAlerts() {
+        // Override window.alert for success/error messages (optional)
+        const originalAlert = window.alert;
+        window.showSuccessToast = (message) => showToast('success', 'Success', message);
+        window.showErrorToast = (message) => showToast('error', 'Error', message);
+        window.showInfoToast = (message) => showToast('info', 'Info', message);
+        window.showWarningToast = (message) => showToast('warning', 'Warning', message);
+    }
+
+    enhanceExistingAlerts();
 });

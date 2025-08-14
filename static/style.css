@@ -180,6 +180,7 @@ h1 {
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 1px;
+   
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     backdrop-filter: blur(10px);
     box-shadow: 
@@ -191,6 +192,7 @@ h1 {
     position: relative;
     overflow: hidden;
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+   
 }
 
 h1::before {
@@ -1289,27 +1291,6 @@ button:hover, .button-style:hover {
     }
 }
 
-/* --- VIEW SWITCHING FIX -- */
-/* This section is now redundant and can be removed or commented out.
-   The logic has been integrated into the main responsive breakpoints above. */
-/*
-#desktop-view {
-    display: block;
-}
-#mobile-view {
-    display: none;
-}
-
-@media (max-width: 768px) {
-    #desktop-view {
-        display: none !important;
-    }
-    #mobile-view {
-        display: block !important;
-    }
-}
-*/
-/* --- MOBILE VIEW STYLES --- */
 
 /* --- MOBILE HEADER --- */
 .mobile-header {
@@ -1329,6 +1310,7 @@ button:hover, .button-style:hover {
     border-radius: 0 0 16px 16px;
     overflow: hidden;
     position: relative;
+
 }
 
 .mobile-header::before {
@@ -1622,5 +1604,395 @@ button:hover, .button-style:hover {
   width: 20px;
   height: 20px;
   display: block;
+}
+
+/* --- FLOATING ACTION BUTTON (FAB) --- */
+.fab {
+    position: fixed !important; /* Ensure fixed positioning to viewport */
+    top: 50% !important; /* Center vertically on all devices */
+    right: 0px !important; /* Stick to right edge on all devices */
+    transform: translateY(-50%) !important; /* Perfect vertical centering */
+    width: 56px;
+    height: 56px;
+    background: linear-gradient(135deg, #1e40af, #3b82f6, #60a5fa) !important; /* Corporate Blue gradient */
+    border: none;
+    border-radius: 28px 0 0 28px; /* Rounded left side, flat right side */
+    box-shadow: 
+        -6px 6px 20px rgba(30, 64, 175, 0.4),
+        -3px 0 15px rgba(59, 130, 246, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    color: white;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    z-index: 10000 !important; /* Very high z-index */
+    backdrop-filter: blur(10px);
+    overflow: hidden;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    animation: fabPulse 2s ease-in-out infinite alternate;
+}
+
+/* Desktop adjustments - larger size */
+@media (min-width: 769px) {
+    .fab {
+        width: 60px !important;
+        height: 60px !important;
+        font-size: 24px !important;
+        border-radius: 30px 0 0 30px !important; /* Larger radius */
+        box-shadow: 
+            -8px 8px 25px rgba(30, 64, 175, 0.4),
+            -4px 0 20px rgba(59, 130, 246, 0.3),
+            inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+    }
+    
+    /* Alternative: Integrate with tab controls */
+    .fab.integrated {
+        position: absolute;
+        top: -70px;
+        right: 20px;
+        z-index: 11;
+    }
+}
+
+/* Mobile adjustments - smaller size */
+@media (max-width: 768px) {
+    .fab {
+        width: 52px !important;
+        height: 52px !important;
+        font-size: 18px !important;
+        border-radius: 26px 0 0 26px !important; /* Smaller radius */
+    }
+}
+
+.fab::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.3),
+        transparent
+    );
+    transition: left 0.6s ease;
+    z-index: 1;
+}
+
+.fab:hover::before {
+    left: 100%;
+}
+
+.fab:hover {
+    transform: translateY(-50%) translateX(-8px) !important; /* Slide out on hover for side positioning */
+    box-shadow: 
+        -12px 8px 35px rgba(30, 64, 175, 0.6),
+        -6px 0 30px rgba(59, 130, 246, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+    border-radius: 30px !important; /* Full rounded on hover */
+}
+
+.fab:active {
+    transform: translateY(-50%) translateX(-4px) scale(0.95) !important; /* Slight push back on click */
+    transition: all 0.1s ease;
+}
+
+.fab i {
+    position: relative;
+    z-index: 2;
+}
+
+/* --- TOAST NOTIFICATION SYSTEM --- */
+.toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+}
+
+.toast {
+    min-width: 320px;
+    max-width: 400px;
+    padding: 16px 20px;
+    border-radius: 12px;
+    color: white;
+    font-weight: 500;
+    font-size: 0.95em;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    backdrop-filter: blur(15px);
+    box-shadow: 
+        0 8px 25px rgba(0, 0, 0, 0.2),
+        0 0 20px rgba(0, 0, 0, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    transform: translateX(450px);
+    opacity: 0;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    pointer-events: auto;
+    position: relative;
+    overflow: hidden;
+}
+
+.toast.show {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+.toast.hide {
+    transform: translateX(450px);
+    opacity: 0;
+}
+
+.toast.success {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.9), rgba(5, 150, 105, 0.9));
+    border: 1px solid rgba(16, 185, 129, 0.6);
+}
+
+.toast.error {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.9), rgba(220, 38, 38, 0.9));
+    border: 1px solid rgba(239, 68, 68, 0.6);
+}
+
+.toast.info {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.9), rgba(37, 99, 235, 0.9));
+    border: 1px solid rgba(59, 130, 246, 0.6);
+}
+
+.toast.warning {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.9), rgba(217, 119, 6, 0.9));
+    border: 1px solid rgba(245, 158, 11, 0.6);
+}
+
+.toast-icon {
+    font-size: 1.2em;
+    flex-shrink: 0;
+}
+
+.toast-content {
+    flex-grow: 1;
+}
+
+.toast-title {
+    font-weight: 600;
+    margin-bottom: 2px;
+    font-size: 1em;
+}
+
+.toast-message {
+    font-size: 0.9em;
+    opacity: 0.9;
+    line-height: 1.4;
+}
+
+.toast-close {
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s ease;
+    flex-shrink: 0;
+}
+
+.toast-close:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.toast-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 0 0 12px 12px;
+    animation: toastProgress 4s linear forwards;
+}
+
+@keyframes toastProgress {
+    from {
+        width: 100%;
+    }
+    to {
+        width: 0%;
+    }
+}
+
+/* FAB pulsing animation for better discoverability */
+@keyframes fabPulse {
+    0% {
+        box-shadow: 
+            -6px 6px 20px rgba(30, 64, 175, 0.4),
+            -3px 0 15px rgba(59, 130, 246, 0.3),
+            inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    }
+    100% {
+        box-shadow: 
+            -8px 8px 30px rgba(30, 64, 175, 0.6),
+            -4px 0 25px rgba(59, 130, 246, 0.5),
+            inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    }
+}
+
+/* Mobile toast adjustments */
+@media (max-width: 768px) {
+    .toast-container {
+        top: 10px;
+        right: 10px;
+        left: 10px;
+    }
+    
+    .toast {
+        min-width: auto;
+        max-width: none;
+        width: 100%;
+        transform: translateY(-100px);
+    }
+    
+    .toast.show {
+        transform: translateY(0);
+    }
+    
+    .toast.hide {
+        transform: translateY(-100px);
+    }
+}
+
+/* --- QUICK EXPENSE MODAL --- */
+.fab-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(8px);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.fab-modal-overlay.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.fab-modal {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.9));
+    backdrop-filter: blur(20px);
+    border-radius: 20px;
+    padding: 30px;
+    width: 90%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 
+        0 20px 60px rgba(0, 0, 0, 0.3),
+        0 0 40px rgba(30, 64, 175, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    transform: scale(0.8) translateY(50px);
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.fab-modal-overlay.show .fab-modal {
+    transform: scale(1) translateY(0);
+}
+
+.fab-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid rgba(30, 64, 175, 0.1);
+}
+
+.fab-modal-title {
+    font-size: 1.4em;
+    font-weight: 700;
+    color: #1e40af;
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.fab-modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5em;
+    color: #64748b;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.fab-modal-close:hover {
+    background: rgba(100, 116, 139, 0.1);
+    color: #475569;
+    transform: scale(1.1);
+}
+
+.fab-quick-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.fab-form-row {
+    display: flex;
+    gap: 15px;
+}
+
+.fab-form-row .form-field {
+    flex: 1;
+}
+
+.fab-form-buttons {
+    display: flex;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.fab-form-buttons button {
+    flex: 1;
+    padding: 14px 20px;
+    font-size: 1em;
+}
+
+.fab-submit-btn {
+    background: linear-gradient(135deg, #1e40af, #3b82f6, #60a5fa) !important;
+    color: white !important;
+}
+
+.fab-cancel-btn {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.7)) !important;
+    color: #1e40af !important;
+    border: 1px solid rgba(30, 64, 175, 0.3) !important;
 }
 
