@@ -1612,11 +1612,11 @@ button:hover, .button-style:hover {
     top: 50% !important; /* Center vertically on all devices */
     right: 0px !important; /* Stick to right edge on all devices */
     transform: translateY(-50%) !important; /* Perfect vertical centering */
-    width: 56px;
-    height: 56px;
+    width: 46px;
+    height: 46px;
     background: linear-gradient(135deg, #1e40af, #3b82f6, #60a5fa) !important; /* Corporate Blue gradient */
     border: none;
-    border-radius: 28px 0 0 28px; /* Rounded left side, flat right side */
+    border-radius: 23px 0 0 23px; /* Rounded left side, flat right side */
     box-shadow: 
         -6px 6px 20px rgba(30, 64, 175, 0.4),
         -3px 0 15px rgba(59, 130, 246, 0.3),
@@ -1625,7 +1625,7 @@ button:hover, .button-style:hover {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 20px;
+    font-size: 16px;
     color: white;
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     z-index: 10000 !important; /* Very high z-index */
@@ -1638,10 +1638,10 @@ button:hover, .button-style:hover {
 /* Desktop adjustments - larger size */
 @media (min-width: 769px) {
     .fab {
-        width: 60px !important;
-        height: 60px !important;
-        font-size: 24px !important;
-        border-radius: 30px 0 0 30px !important; /* Larger radius */
+        width: 50px !important;
+        height: 50px !important;
+        font-size: 20px !important;
+        border-radius: 25px 0 0 25px !important; /* Larger radius */
         box-shadow: 
             -8px 8px 25px rgba(30, 64, 175, 0.4),
             -4px 0 20px rgba(59, 130, 246, 0.3),
@@ -1660,10 +1660,10 @@ button:hover, .button-style:hover {
 /* Mobile adjustments - smaller size */
 @media (max-width: 768px) {
     .fab {
-        width: 52px !important;
-        height: 52px !important;
-        font-size: 18px !important;
-        border-radius: 26px 0 0 26px !important; /* Smaller radius */
+        width: 42px !important;
+        height: 42px !important;
+        font-size: 14px !important;
+        border-radius: 21px 0 0 21px !important; /* Smaller radius */
     }
 }
 
@@ -1694,7 +1694,7 @@ button:hover, .button-style:hover {
         -12px 8px 35px rgba(30, 64, 175, 0.6),
         -6px 0 30px rgba(59, 130, 246, 0.5),
         inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
-    border-radius: 30px !important; /* Full rounded on hover */
+    border-radius: 25px !important; /* Full rounded on hover */
 }
 
 .fab:active {
