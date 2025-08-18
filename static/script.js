@@ -620,6 +620,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
             renderAllDashboards();
             renderAllLists(expenses);
+            console.log("About to update budget forms with:", flaskData.budget);
+            console.log("Flask data keys:", Object.keys(flaskData));
             updateBudgetForms(flaskData.budget || {});
 
         } catch (error) {
@@ -815,18 +817,32 @@ document.addEventListener('DOMContentLoaded', function () {
     // --- NEW FUNCTION TO UPDATE BUDGET FORMS ---
     function updateBudgetForms(budgetData) {
         console.log("Updating budget forms with data:", budgetData);
+        console.log("Budget data type:", typeof budgetData);
+        console.log("Budget data keys:", Object.keys(budgetData));
         const categories = ['Food', 'Cloth', 'Online', 'Miscellaneous', 'Other'];
 
         // Update both desktop and mobile forms
         ['Desktop', 'Mobile'].forEach(view => {
             const form = document.getElementById(`setBudgetForm${view}`);
             if (form) {
+                console.log(`Processing form: setBudgetForm${view}`);
                 categories.forEach(category => {
                     const input = form.querySelector(`input[name="${category}"]`);
                     if (input) {
-                        // Use the value from budgetData, or default to 0 if not present
-                        const budgetValue = budgetData[category] !== undefined && budgetData[category] !== null ? parseFloat(budgetData[category]) : 0;
-                        input.value = budgetValue; // Set as a number, not a formatted string
+                        console.log(`Category: ${category}, Current value: "${input.value}", Budget data value:`, budgetData[category]);
+                        // Clear the input and set only if there's valid budget data
+                        input.value = ''; // Always clear first
+                        if (budgetData[category] !== undefined && budgetData[category] !== null && budgetData[category] !== 0 && budgetData[category] !== '0') {
+                            const budgetValue = parseFloat(budgetData[category]);
+                            if (!isNaN(budgetValue) && budgetValue > 0) {
+                                input.value = budgetValue;
+                                console.log(`Set ${category} to: ${budgetValue}`);
+                            } else {
+                                console.log(`Leaving ${category} empty (invalid value: ${budgetData[category]})`);
+                            }
+                        } else {
+                            console.log(`Leaving ${category} empty (no data or zero value)`);
+                        }
                     }
                 });
             }
