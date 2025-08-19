@@ -1492,25 +1492,35 @@ button:hover, .button-style:hover {
     list-style: none;
     padding: 0;
     margin: 0;
+    background-color: transparent;
 }
 
 .mobile-item-list li {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 5px;
-    border-bottom: 1px solid #eee;
-    background-color: #fff; 
-    margin-bottom: 0; 
-    flex-direction: row; 
-    flex-wrap: nowrap; /* Prevent wrapping */
+    /* Card-based layout for better mobile experience */
+    display: block;
+    padding: 12px;
+    margin: 0 0 8px 0;
+    background-color: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: box-shadow 0.2s ease;
+}
+
+.mobile-item-list li:hover {
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.mobile-item-list li:last-child {
+    margin-bottom: 0;
 }
 
 .mobile-item-list .item-details {
+    /* Legacy support - not used in new card layout */
     display: flex;
     flex-grow: 1;
-    align-items: center; /* Align items horizontally */
-    gap: 8px; /* Space between details */
+    align-items: center;
+    gap: 8px;
     font-size: 0.85em;
     white-space: nowrap;
     overflow: hidden;
@@ -1549,14 +1559,40 @@ button:hover, .button-style:hover {
 .mobile-item-actions {
     display: flex;
     align-items: center;
-    gap: 5px; /* Reduced gap */
+    gap: 8px;
 }
 
 .mobile-item-actions .edit-btn,
 .mobile-item-actions .delete-btn {
-    padding: 6px 8px; /* Smaller buttons */
-    font-size: 0.9em;
-    line-height: 1; 
+    padding: 6px 12px;
+    font-size: 0.85em;
+    line-height: 1.2;
+    border-radius: 6px;
+    text-decoration: none;
+    border: none;
+    color: white !important;
+    transition: all 0.2s ease;
+    font-weight: 500;
+    min-width: 50px;
+    text-align: center;
+}
+
+.mobile-item-actions .edit-btn {
+    background: linear-gradient(135deg, #6b7280, #4b5563) !important;
+}
+
+.mobile-item-actions .delete-btn {
+    background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+}
+
+.mobile-item-actions .edit-btn:hover {
+    background: linear-gradient(135deg, #4299e1, #3182ce) !important;
+    color: white !important;
+}
+
+.mobile-item-actions .delete-btn:hover {
+    background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
+    color: white !important;
 }
 
 .mobile-item-actions form {

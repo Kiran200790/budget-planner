@@ -351,194 +351,300 @@ document.addEventListener('DOMContentLoaded', function () {
         data.forEach(record => {
             const li = document.createElement('li');
             if (isMobile && itemType === 'expense') {
-                // --- MOBILE EXPENSE: date, category, description, amount, actions ---
-                li.style.display = 'grid';
-                li.style.gridTemplateColumns = 'minmax(0,1.2fr) minmax(0,1fr) minmax(0,2.5fr) minmax(0,1.2fr) auto';
-                li.style.alignItems = 'center';
-                li.style.gap = '6px';
-                li.style.width = '100%';
-                li.style.minWidth = '0';
+                // --- MOBILE EXPENSE: Modern Card Layout ---
+                li.style.display = 'block';
+                li.style.padding = '12px';
+                li.style.margin = '0 0 8px 0';
+                li.style.backgroundColor = '#fff';
+                li.style.border = '1px solid #e5e7eb';
+                li.style.borderRadius = '8px';
+                li.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)';
 
-                // Date (MM-DD)
-                const dateSpan = document.createElement('span');
-                dateSpan.className = 'item-category-date';
-                dateSpan.style.fontSize = '0.93em';
-                dateSpan.style.color = '#555';
-                dateSpan.style.whiteSpace = 'nowrap';
-                let shortDate = record.date;
-                if (typeof shortDate === 'string' && shortDate.length === 10 && shortDate.includes('-')) {
-                    const parts = shortDate.split('-');
-                    if (parts.length === 3) {
-                        shortDate = parts[1] + '-' + parts[2];
-                    }
-                }
-                dateSpan.textContent = shortDate;
-                li.appendChild(dateSpan);
+                // Main container for expense info
+                const mainContainer = document.createElement('div');
+                mainContainer.style.display = 'flex';
+                mainContainer.style.justifyContent = 'space-between';
+                mainContainer.style.alignItems = 'flex-start';
+                mainContainer.style.marginBottom = '8px';
 
-                // Category (first 2 letters, uppercase)
-                const catSpan = document.createElement('span');
-                catSpan.className = 'item-category-date';
-                catSpan.style.fontSize = '0.93em';
-                catSpan.style.color = '#555';
-                catSpan.style.whiteSpace = 'nowrap';
-                let shortCat = record.category ? record.category.slice(0,2).toUpperCase() : '';
-                catSpan.textContent = shortCat;
-                li.appendChild(catSpan);
+                // Left side - Description and meta info
+                const leftSide = document.createElement('div');
+                leftSide.style.flex = '1';
+                leftSide.style.minWidth = '0';
 
-                // Description + Payment Type (first letter in brackets)
-                const descSpan = document.createElement('span');
-                descSpan.className = 'item-description';
-                descSpan.style.overflow = 'hidden';
-                descSpan.style.textOverflow = 'ellipsis';
-                descSpan.style.whiteSpace = 'nowrap';
-                descSpan.style.maxWidth = 'none';
-                descSpan.style.fontSize = '0.9em';
-                descSpan.style.fontWeight = 'normal';
-                let descText = record.description || '(No description)';
-                let payType = record.payment_type ? record.payment_type.charAt(0).toUpperCase() : '';
-                if (payType) {
-                    descText += ` [${payType}]`;
-                }
-                descSpan.textContent = descText;
-                li.appendChild(descSpan);
+                // Description (primary info)
+                const descSpan = document.createElement('div');
+                descSpan.style.fontSize = '1.05em';
+                descSpan.style.fontWeight = '600';
+                descSpan.style.color = '#1f2937';
+                descSpan.style.marginBottom = '4px';
+                descSpan.style.lineHeight = '1.3';
+                descSpan.style.wordWrap = 'break-word';
+                descSpan.textContent = record.description || '(No description)';
+                leftSide.appendChild(descSpan);
 
-                // Amount
-                const amtSpan = document.createElement('span');
-                amtSpan.className = 'item-amount';
-                amtSpan.style.whiteSpace = 'nowrap';
-                amtSpan.style.fontSize = '0.9em';
-                amtSpan.style.fontWeight = 'normal';
-                amtSpan.style.flexShrink = '0';
-                let amountValue = record.amount !== undefined && record.amount !== null && record.amount !== '' ? `₹${parseFloat(record.amount).toFixed(2)}` : '₹0.00';
-                amtSpan.textContent = amountValue;
-                li.appendChild(amtSpan);
-
-                // Actions
-                const actionsDiv = createItemActions(itemType, record);
-                actionsDiv.classList.add('mobile-item-actions');
-                actionsDiv.style.display = 'flex';
-                actionsDiv.style.alignItems = 'center';
-                actionsDiv.style.justifyContent = 'flex-end';
-                actionsDiv.style.gap = '4px';
-                actionsDiv.style.margin = '0 0 0 8px';
-                li.appendChild(actionsDiv);
-            } else if (isMobile && itemType === 'income') {
-
-                // --- MOBILE INCOME: date, description, amount, actions ---
-                li.style.display = 'grid';
-                li.style.gridTemplateColumns = 'minmax(0,auto) minmax(0,1fr) minmax(0,1.2fr) auto';
-                li.style.alignItems = 'center';
-                li.style.gap = '6px';
-                li.style.width = '100%';
-                li.style.minWidth = '0';
-                li.style.paddingLeft = '0';
-                li.style.marginLeft = '0';
+                // Meta info container (date, category, payment type)
+                const metaContainer = document.createElement('div');
+                metaContainer.style.display = 'flex';
+                metaContainer.style.flexWrap = 'wrap';
+                metaContainer.style.gap = '8px';
+                metaContainer.style.fontSize = '0.85em';
+                metaContainer.style.color = '#6b7280';
 
                 // Date
                 const dateSpan = document.createElement('span');
-                dateSpan.className = 'item-category-date';
-                dateSpan.style.fontSize = '0.93em';
-                dateSpan.style.color = '#555';
-                dateSpan.style.whiteSpace = 'nowrap';
-                dateSpan.textContent = record.date || '';
-                li.appendChild(dateSpan);
+                dateSpan.style.backgroundColor = '#f3f4f6';
+                dateSpan.style.padding = '2px 6px';
+                dateSpan.style.borderRadius = '4px';
+                dateSpan.style.fontSize = '0.8em';
+                dateSpan.style.fontWeight = '500';
+                const displayDate = record.date ? new Date(record.date).toLocaleDateString('en-GB', { 
+                    day: '2-digit', 
+                    month: 'short' 
+                }) : 'No date';
+                dateSpan.textContent = displayDate;
+                metaContainer.appendChild(dateSpan);
 
-                // Description
-                const descSpan = document.createElement('span');
-                descSpan.className = 'item-description';
-                descSpan.style.overflow = 'hidden';
-                descSpan.style.textOverflow = 'ellipsis';
-                descSpan.style.whiteSpace = 'nowrap';
-                descSpan.style.maxWidth = 'none';
-                descSpan.style.fontSize = '0.9em';
-                descSpan.style.fontWeight = 'normal';
-                descSpan.style.textAlign = 'left';
-                descSpan.style.display = 'block';
-                descSpan.style.minWidth = '0';
-                descSpan.style.paddingLeft = '0';
-                descSpan.style.marginLeft = '0';
-                descSpan.style.boxSizing = 'border-box';
-                descSpan.textContent = record.description || '(No description)';
-                li.appendChild(descSpan);
+                // Category
+                const catSpan = document.createElement('span');
+                catSpan.style.backgroundColor = '#f3f4f6';
+                catSpan.style.padding = '2px 6px';
+                catSpan.style.borderRadius = '4px';
+                catSpan.style.fontSize = '0.8em';
+                catSpan.style.fontWeight = '500';
+                catSpan.textContent = record.category || 'Other';
+                metaContainer.appendChild(catSpan);
 
-                // Amount
-                const amtSpan = document.createElement('span');
-                amtSpan.className = 'item-amount';
+                // Payment type
+                if (record.payment_type) {
+                    const paymentSpan = document.createElement('span');
+                    paymentSpan.style.backgroundColor = '#f3f4f6';
+                    paymentSpan.style.padding = '2px 6px';
+                    paymentSpan.style.borderRadius = '4px';
+                    paymentSpan.style.fontSize = '0.8em';
+                    paymentSpan.style.fontWeight = '500';
+                    paymentSpan.textContent = record.payment_type;
+                    metaContainer.appendChild(paymentSpan);
+                }
+
+                leftSide.appendChild(metaContainer);
+                mainContainer.appendChild(leftSide);
+
+                // Right side - Amount
+                const rightSide = document.createElement('div');
+                rightSide.style.display = 'flex';
+                rightSide.style.flexDirection = 'column';
+                rightSide.style.alignItems = 'flex-end';
+                rightSide.style.marginLeft = '12px';
+
+                const amtSpan = document.createElement('div');
+                amtSpan.style.fontSize = '1.1em';
+                amtSpan.style.fontWeight = '700';
+                amtSpan.style.color = '#475569';
                 amtSpan.style.whiteSpace = 'nowrap';
-                amtSpan.style.fontSize = '0.9em';
-                amtSpan.style.fontWeight = 'normal';
-                amtSpan.style.flexShrink = '0';
-                let amountValue = record.amount !== undefined && record.amount !== null && record.amount !== '' ? `₹${parseFloat(record.amount).toFixed(2)}` : '₹0.00';
+                const amountValue = record.amount !== undefined && record.amount !== null && record.amount !== '' 
+                    ? `₹${parseFloat(record.amount).toFixed(2)}` 
+                    : '₹0.00';
                 amtSpan.textContent = amountValue;
-                li.appendChild(amtSpan);
+                rightSide.appendChild(amtSpan);
 
-                // Actions
+                mainContainer.appendChild(rightSide);
+                li.appendChild(mainContainer);
+
+                // Actions row
+                const actionsContainer = document.createElement('div');
+                actionsContainer.style.borderTop = '1px solid #f3f4f6';
+                actionsContainer.style.paddingTop = '8px';
+                actionsContainer.style.display = 'flex';
+                actionsContainer.style.justifyContent = 'flex-end';
+
                 const actionsDiv = createItemActions(itemType, record);
                 actionsDiv.classList.add('mobile-item-actions');
                 actionsDiv.style.display = 'flex';
                 actionsDiv.style.alignItems = 'center';
-                actionsDiv.style.justifyContent = 'flex-end';
-                actionsDiv.style.gap = '4px';
-                actionsDiv.style.margin = '0 0 0 8px';
-                li.appendChild(actionsDiv);
+                actionsDiv.style.gap = '8px';
+                
+                // Style action buttons for better mobile experience
+                const actionButtons = actionsDiv.querySelectorAll('a, button');
+                actionButtons.forEach(btn => {
+                    btn.style.padding = '6px 12px';
+                    btn.style.fontSize = '0.85em';
+                    btn.style.borderRadius = '6px';
+                    btn.style.textDecoration = 'none';
+                    btn.style.border = 'none';
+                    btn.style.setProperty('color', 'white', 'important');
+                    btn.style.fontWeight = '500';
+                    btn.style.transition = 'all 0.2s';
+                    btn.style.minWidth = '50px';
+                    btn.style.textAlign = 'center';
+                    
+                    // Apply specific background colors based on button type
+                    if (btn.classList.contains('edit-btn') || btn.textContent.toLowerCase().includes('edit')) {
+                        btn.style.setProperty('background', 'linear-gradient(135deg, #6b7280, #4b5563)', 'important');
+                    } else if (btn.classList.contains('delete-btn') || btn.textContent.toLowerCase().includes('delete')) {
+                        btn.style.setProperty('background', 'linear-gradient(135deg, #ef4444, #dc2626)', 'important');
+                    }
+                });
+
+                actionsContainer.appendChild(actionsDiv);
+                li.appendChild(actionsContainer);
+            } else if (isMobile && itemType === 'income') {
+                // --- MOBILE INCOME: Modern Card Layout ---
+                li.style.display = 'block';
+                li.style.padding = '12px';
+                li.style.margin = '0 0 8px 0';
+                li.style.backgroundColor = '#fff';
+                li.style.border = '1px solid #e5e7eb';
+                li.style.borderRadius = '8px';
+                li.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)';
+
+                // Main container
+                const mainContainer = document.createElement('div');
+                mainContainer.style.display = 'flex';
+                mainContainer.style.justifyContent = 'space-between';
+                mainContainer.style.alignItems = 'flex-start';
+                mainContainer.style.marginBottom = '8px';
+
+                // Left side - Description and date
+                const leftSide = document.createElement('div');
+                leftSide.style.flex = '1';
+                leftSide.style.minWidth = '0';
+
+                // Description (primary info)
+                const descSpan = document.createElement('div');
+                descSpan.style.fontSize = '1.05em';
+                descSpan.style.fontWeight = '600';
+                descSpan.style.color = '#1f2937';
+                descSpan.style.marginBottom = '4px';
+                descSpan.style.lineHeight = '1.3';
+                descSpan.style.wordWrap = 'break-word';
+                descSpan.textContent = record.description || '(No description)';
+                leftSide.appendChild(descSpan);
+
+                // Date info
+                if (record.date) {
+                    const dateSpan = document.createElement('div');
+                    dateSpan.style.fontSize = '0.85em';
+                    dateSpan.style.color = '#6b7280';
+                    const displayDate = new Date(record.date).toLocaleDateString('en-GB', { 
+                        day: '2-digit', 
+                        month: 'short',
+                        year: 'numeric'
+                    });
+                    dateSpan.textContent = displayDate;
+                    leftSide.appendChild(dateSpan);
+                }
+
+                mainContainer.appendChild(leftSide);
+
+                // Right side - Amount
+                const rightSide = document.createElement('div');
+                rightSide.style.display = 'flex';
+                rightSide.style.flexDirection = 'column';
+                rightSide.style.alignItems = 'flex-end';
+                rightSide.style.marginLeft = '12px';
+
+                const amtSpan = document.createElement('div');
+                amtSpan.style.fontSize = '1.1em';
+                amtSpan.style.fontWeight = '700';
+                amtSpan.style.color = '#059669';
+                amtSpan.style.whiteSpace = 'nowrap';
+                const amountValue = record.amount !== undefined && record.amount !== null && record.amount !== '' 
+                    ? `₹${parseFloat(record.amount).toFixed(2)}` 
+                    : '₹0.00';
+                amtSpan.textContent = amountValue;
+                rightSide.appendChild(amtSpan);
+
+                mainContainer.appendChild(rightSide);
+                li.appendChild(mainContainer);
+
+                // Actions row
+                const actionsContainer = document.createElement('div');
+                actionsContainer.style.borderTop = '1px solid #f3f4f6';
+                actionsContainer.style.paddingTop = '8px';
+                actionsContainer.style.display = 'flex';
+                actionsContainer.style.justifyContent = 'flex-end';
+
+                const actionsDiv = createItemActions(itemType, record);
+                actionsDiv.classList.add('mobile-item-actions');
+                actionsContainer.appendChild(actionsDiv);
+                li.appendChild(actionsContainer);
             } else if (isMobile && itemType === 'emi') {
-                // --- MOBILE EMI: due_date, loan_name, emi_amount, actions ---
-                li.style.display = 'grid';
-                li.style.gridTemplateColumns = 'minmax(0,auto) minmax(0,1fr) minmax(0,1.2fr) auto';
-                li.style.alignItems = 'center';
-                li.style.gap = '6px';
-                li.style.width = '100%';
-                li.style.minWidth = '0';
-                li.style.paddingLeft = '0';
-                li.style.marginLeft = '0';
+                // --- MOBILE EMI: Modern Card Layout ---
+                li.style.display = 'block';
+                li.style.padding = '12px';
+                li.style.margin = '0 0 8px 0';
+                li.style.backgroundColor = '#fff';
+                li.style.border = '1px solid #e5e7eb';
+                li.style.borderRadius = '8px';
+                li.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)';
 
-                // Due Date
-                const dueDateSpan = document.createElement('span');
-                dueDateSpan.className = 'item-category-date';
-                dueDateSpan.style.fontSize = '0.93em';
-                dueDateSpan.style.color = '#555';
-                dueDateSpan.style.whiteSpace = 'nowrap';
-                dueDateSpan.textContent = record.due_date || '';
-                li.appendChild(dueDateSpan);
+                // Main container
+                const mainContainer = document.createElement('div');
+                mainContainer.style.display = 'flex';
+                mainContainer.style.justifyContent = 'space-between';
+                mainContainer.style.alignItems = 'flex-start';
+                mainContainer.style.marginBottom = '8px';
 
-                // Loan Name
-                const loanSpan = document.createElement('span');
-                loanSpan.className = 'item-description';
-                loanSpan.style.overflow = 'hidden';
-                loanSpan.style.textOverflow = 'ellipsis';
-                loanSpan.style.whiteSpace = 'nowrap';
-                loanSpan.style.maxWidth = 'none';
-                loanSpan.style.fontSize = '0.9em';
-                loanSpan.style.fontWeight = 'normal';
-                loanSpan.style.textAlign = 'left';
-                loanSpan.style.display = 'block';
-                loanSpan.style.minWidth = '0';
-                loanSpan.style.paddingLeft = '0';
-                loanSpan.style.marginLeft = '0';
-                loanSpan.style.boxSizing = 'border-box';
+                // Left side - Loan name and due date
+                const leftSide = document.createElement('div');
+                leftSide.style.flex = '1';
+                leftSide.style.minWidth = '0';
+
+                // Loan name (primary info)
+                const loanSpan = document.createElement('div');
+                loanSpan.style.fontSize = '1.05em';
+                loanSpan.style.fontWeight = '600';
+                loanSpan.style.color = '#1f2937';
+                loanSpan.style.marginBottom = '4px';
+                loanSpan.style.lineHeight = '1.3';
+                loanSpan.style.wordWrap = 'break-word';
                 loanSpan.textContent = record.loan_name || '(No name)';
-                li.appendChild(loanSpan);
+                leftSide.appendChild(loanSpan);
 
-                // EMI Amount
-                const emiAmtSpan = document.createElement('span');
-                emiAmtSpan.className = 'item-amount';
+                // Due date info
+                if (record.due_date) {
+                    const dueDateSpan = document.createElement('div');
+                    dueDateSpan.style.fontSize = '0.85em';
+                    dueDateSpan.style.color = '#6b7280';
+                    dueDateSpan.textContent = `Due: ${record.due_date}`;
+                    leftSide.appendChild(dueDateSpan);
+                }
+
+                mainContainer.appendChild(leftSide);
+
+                // Right side - EMI Amount
+                const rightSide = document.createElement('div');
+                rightSide.style.display = 'flex';
+                rightSide.style.flexDirection = 'column';
+                rightSide.style.alignItems = 'flex-end';
+                rightSide.style.marginLeft = '12px';
+
+                const emiAmtSpan = document.createElement('div');
+                emiAmtSpan.style.fontSize = '1.1em';
+                emiAmtSpan.style.fontWeight = '700';
+                emiAmtSpan.style.color = '#dc2626';
                 emiAmtSpan.style.whiteSpace = 'nowrap';
-                emiAmtSpan.style.fontSize = '0.9em';
-                emiAmtSpan.style.fontWeight = 'normal';
-                emiAmtSpan.style.flexShrink = '0';
-                let emiAmountValue = record.emi_amount !== undefined && record.emi_amount !== null && record.emi_amount !== '' ? `₹${parseFloat(record.emi_amount).toFixed(2)}` : '₹0.00';
+                const emiAmountValue = record.emi_amount !== undefined && record.emi_amount !== null && record.emi_amount !== '' 
+                    ? `₹${parseFloat(record.emi_amount).toFixed(2)}` 
+                    : '₹0.00';
                 emiAmtSpan.textContent = emiAmountValue;
-                li.appendChild(emiAmtSpan);
+                rightSide.appendChild(emiAmtSpan);
 
-                // Actions
+                mainContainer.appendChild(rightSide);
+                li.appendChild(mainContainer);
+
+                // Actions row
+                const actionsContainer = document.createElement('div');
+                actionsContainer.style.borderTop = '1px solid #f3f4f6';
+                actionsContainer.style.paddingTop = '8px';
+                actionsContainer.style.display = 'flex';
+                actionsContainer.style.justifyContent = 'flex-end';
+
                 const actionsDiv = createItemActions(itemType, record);
                 actionsDiv.classList.add('mobile-item-actions');
-                actionsDiv.style.display = 'flex';
-                actionsDiv.style.alignItems = 'center';
-                actionsDiv.style.justifyContent = 'flex-end';
-                actionsDiv.style.gap = '4px';
-                actionsDiv.style.margin = '0 0 0 8px';
-                li.appendChild(actionsDiv);
+                actionsContainer.appendChild(actionsDiv);
+                li.appendChild(actionsContainer);
             } else {
                 // Desktop or other lists: fallback to old rendering
                 const textSpan = document.createElement('span');
