@@ -1,11 +1,12 @@
-const CACHE_NAME = 'budget-planner-cache-v1.2'; // Incremented version
+const CACHE_NAME = 'budget-planner-cache-v2.0'; // Updated for new icons
 const urlsToCache = [
   '/',
   '/static/style.css',
   '/static/script.js',
   '/static/manifest.json',
   '/static/icon-192x192.png',
-  '/static/icon-512x512.png'
+  '/static/icon-512x512.png',
+  '/static/icon-192x192-round.png'  // New maskable icon
 ];
 
 self.addEventListener('install', event => {

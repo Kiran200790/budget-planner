@@ -2,12 +2,13 @@
   "name": "Budget Planner",
   "short_name": "Budget",
   "description": "Smart Budget Planner for tracking income, expenses, and financial goals",
-  "start_url": "/",
+  "start_url": "/?v=2.0",
   "display": "standalone",
   "background_color": "#4299e1",
   "theme_color": "#4299e1",
   "orientation": "portrait-primary",
   "categories": ["finance", "productivity"],
+  "version": "2.0",
   "icons": [
     {
       "src": "/static/icon-192x192.png",
