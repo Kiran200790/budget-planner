@@ -1,11 +1,11 @@
 {
   "name": "Budget Planner",
   "short_name": "Budget",
-  "description": "Monthly Budget Planner for tracking expenses, income, and EMI",
+  "description": "Smart Budget Planner for tracking income, expenses, and financial goals",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f0f2f5",
-  "theme_color": "#2a69a5",
+  "background_color": "#4299e1",
+  "theme_color": "#4299e1",
   "orientation": "portrait-primary",
   "categories": ["finance", "productivity"],
   "icons": [
@@ -13,13 +13,19 @@
       "src": "/static/icon-192x192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "maskable any"
+      "purpose": "any"
+    },
+    {
+      "src": "/static/icon-192x192-round.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "/static/icon-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "maskable any"
+      "purpose": "any"
     }
   ]
 }
