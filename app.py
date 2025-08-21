@@ -150,55 +150,64 @@ def close_connection(exception):
 
 def get_smart_default_month():
     """
-    Determines the smart default month based on recent expense entries.
-    If user has started entering expenses for next month, switch to that month.
+    Determines the smart default month based on the last active month context
+    where the user was working (month selector context when adding expenses).
     """
     try:
         db = get_db()
         
-        # Get the most recent expense entries (last 10 entries)
-        recent_expenses = db.execute('''
-            SELECT date, strftime("%Y-%m", date) as expense_month 
-            FROM expenses 
-            ORDER BY date DESC, id DESC 
-            LIMIT 10
+        # First check if user_settings table exists, create if not
+        db.execute('''
+            CREATE TABLE IF NOT EXISTS user_settings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                setting_key TEXT UNIQUE NOT NULL,
+                setting_value TEXT NOT NULL,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
         ''')
         
-        recent_entries = [row for row in db.fetchall(recent_expenses)]
+        # Get the last active month context
+        last_active_result = db.execute('''
+            SELECT setting_value 
+            FROM user_settings 
+            WHERE setting_key = 'last_active_month_context'
+        ''').fetchone()
         
-        if not recent_entries:
-            # No expenses yet, return current calendar month
-            return datetime.now().strftime('%Y-%m')
-        
-        # Count entries by month in recent entries
-        month_counts = {}
-        for entry in recent_entries:
-            month = entry['expense_month']
-            month_counts[month] = month_counts.get(month, 0) + 1
-        
-        # Get the month with most recent entries
-        most_active_month = max(month_counts.keys())
-        
-        # If the most active month is future compared to current calendar month,
-        # it means user has started working on next month
-        current_calendar_month = datetime.now().strftime('%Y-%m')
-        
-        if most_active_month > current_calendar_month:
-            return most_active_month
+        if last_active_result:
+            last_active_month = last_active_result['setting_value']
+            app.logger.info(f"Smart default: Found last active month context: {last_active_month}")
+            return last_active_month
         else:
-            # Check if majority of recent entries are for a future month
-            future_month_entries = sum(1 for entry in recent_entries 
-                                     if entry['expense_month'] > current_calendar_month)
-            
-            if future_month_entries >= len(recent_entries) // 2:  # 50% or more
-                return most_active_month
-            else:
-                return current_calendar_month
+            # No context saved yet, return current calendar month
+            current_month = datetime.now().strftime('%Y-%m')
+            app.logger.info(f"Smart default: No month context found, returning current month {current_month}")
+            return current_month
                 
     except Exception as e:
         app.logger.error(f"Error determining smart default month: {e}")
         # Fallback to current calendar month
         return datetime.now().strftime('%Y-%m')
+
+
+def update_last_active_month_context(month_context):
+    """
+    Updates the last active month context when user adds expense.
+    This tracks which month view the user was in when adding expense.
+    """
+    try:
+        db = get_db()
+        
+        # Insert or update the last active month context
+        db.execute('''
+            INSERT OR REPLACE INTO user_settings (setting_key, setting_value, updated_at)
+            VALUES ('last_active_month_context', ?, CURRENT_TIMESTAMP)
+        ''', (month_context,))
+        
+        db.commit()
+        app.logger.info(f"Updated last active month context to: {month_context}")
+        
+    except Exception as e:
+        app.logger.error(f"Error updating last active month context: {e}")
 
 def init_db():
     with app.app_context():
@@ -363,6 +372,8 @@ def index():
     smart_default = get_smart_default_month()
     active_month = request.args.get('month_select', default=smart_default)
     
+    app.logger.info(f"Index route: Smart default month = {smart_default}, URL param = {request.args.get('month_select')}, Final active_month = {active_month}")
+    
     # Check for a success message passed in the URL, used for redirects from edit pages
     flash_success = request.args.get('flash_success')
     if flash_success:
@@ -448,6 +459,10 @@ def api_add_expense():
             (month_for_db, date, category, description, float(amount), payment_type)
         )
         db.commit()
+        
+        # Update the last active month context (this is the key change!)
+        update_last_active_month_context(active_month)
+        
         return jsonify({'status': 'success', 'message': 'Expense added successfully!'})
     except ValueError:
         return jsonify({'status': 'error', 'message': 'Invalid amount. Please use numbers only.'}), 400
