@@ -182,6 +182,11 @@ def get_smart_default_month():
             current_month = datetime.now().strftime('%Y-%m')
             app.logger.info(f"Smart default: No month context found, returning current month {current_month}")
             return current_month
+    except Exception as e:
+        # Fallback to current month if any database error occurs
+        current_month = datetime.now().strftime('%Y-%m')
+        app.logger.error(f"Smart default: Database error {str(e)}, falling back to current month {current_month}")
+        return current_month
                 
     except Exception as e:
         app.logger.error(f"Error determining smart default month: {e}")
@@ -248,6 +253,14 @@ def init_db():
                 category TEXT NOT NULL,
                 amount REAL NOT NULL,
                 UNIQUE(month, category)
+            );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS user_settings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                setting_key TEXT UNIQUE NOT NULL,
+                setting_value TEXT NOT NULL,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
             );
             """
         ]
