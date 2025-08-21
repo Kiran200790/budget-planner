@@ -1126,6 +1126,40 @@ def internal_error(error):
     return render_template('500.html'), 500
 
 # --- Main App Runner ---
+@app.route('/api/debug/month_context')
+def debug_month_context():
+    """Debug endpoint to check month context feature status"""
+    try:
+        db = get_db()
+        
+        # Check if user_settings table exists
+        tables_result = db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='user_settings'").fetchall()
+        table_exists = len(tables_result) > 0
+        
+        # Get current month context if table exists
+        current_context = None
+        if table_exists:
+            context_result = db.execute("SELECT setting_value FROM user_settings WHERE setting_key = 'last_active_month_context'").fetchone()
+            current_context = context_result['setting_value'] if context_result else None
+        
+        # Get smart default result
+        smart_default = get_smart_default_month()
+        
+        return jsonify({
+            'status': 'success',
+            'user_settings_table_exists': table_exists,
+            'current_month_context': current_context,
+            'smart_default_month': smart_default,
+            'current_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'feature_version': 'v1.2'
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'error': str(e),
+            'feature_version': 'v1.2'
+        })
+
 if __name__ == '__main__':
     # The init_db() function can be called here to ensure the database
     # is created before the app starts. This is useful for local development.
