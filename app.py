@@ -150,69 +150,48 @@ def close_connection(exception):
 
 def get_smart_default_month():
     """
-    Determines the smart default month based on the last active month context
-    where the user was working (month selector context when adding expenses).
+    Smart default month logic:
+    1. Calculate next month (current month + 1)
+    2. Check if next month has any expense records
+    3. If yes, return next month as default
+    4. If no, return current month as default
     """
     try:
-        db = get_db()
+        # Get current date and calculate next month
+        current_date = datetime.now()
         
-        # First check if user_settings table exists, create if not
-        db.execute('''
-            CREATE TABLE IF NOT EXISTS user_settings (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                setting_key TEXT UNIQUE NOT NULL,
-                setting_value TEXT NOT NULL,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-        
-        # Get the last active month context
-        last_active_result = db.execute('''
-            SELECT setting_value 
-            FROM user_settings 
-            WHERE setting_key = 'last_active_month_context'
-        ''').fetchone()
-        
-        if last_active_result:
-            last_active_month = last_active_result['setting_value']
-            app.logger.info(f"Smart default: Found last active month context: {last_active_month}")
-            return last_active_month
+        # Calculate next month
+        if current_date.month == 12:
+            next_month_date = current_date.replace(year=current_date.year + 1, month=1)
         else:
-            # No context saved yet, return current calendar month
-            current_month = datetime.now().strftime('%Y-%m')
-            app.logger.info(f"Smart default: No month context found, returning current month {current_month}")
-            return current_month
-    except Exception as e:
-        # Fallback to current month if any database error occurs
-        current_month = datetime.now().strftime('%Y-%m')
-        app.logger.error(f"Smart default: Database error {str(e)}, falling back to current month {current_month}")
-        return current_month
-                
-    except Exception as e:
-        app.logger.error(f"Error determining smart default month: {e}")
-        # Fallback to current calendar month
-        return datetime.now().strftime('%Y-%m')
-
-
-def update_last_active_month_context(month_context):
-    """
-    Updates the last active month context when user adds expense.
-    This tracks which month view the user was in when adding expense.
-    """
-    try:
+            next_month_date = current_date.replace(month=current_date.month + 1)
+        
+        next_month = next_month_date.strftime('%Y-%m')
+        current_month = current_date.strftime('%Y-%m')
+        
+        # Check if next month has any expense records
         db = get_db()
+        expense_count = db.execute('''
+            SELECT COUNT(*) as count 
+            FROM expenses 
+            WHERE month = ?
+        ''', (next_month,)).fetchone()
         
-        # Insert or update the last active month context
-        db.execute('''
-            INSERT OR REPLACE INTO user_settings (setting_key, setting_value, updated_at)
-            VALUES ('last_active_month_context', ?, CURRENT_TIMESTAMP)
-        ''', (month_context,))
-        
-        db.commit()
-        app.logger.info(f"Updated last active month context to: {month_context}")
-        
+        if expense_count and expense_count['count'] > 0:
+            app.logger.info(f"Smart default: Next month {next_month} has {expense_count['count']} expenses, using as default")
+            return next_month
+        else:
+            app.logger.info(f"Smart default: Next month {next_month} has no expenses, using current month {current_month}")
+            return current_month
+            
     except Exception as e:
-        app.logger.error(f"Error updating last active month context: {e}")
+        # Fallback to current month if any error occurs
+        current_month = datetime.now().strftime('%Y-%m')
+        app.logger.error(f"Smart default: Error {str(e)}, falling back to current month {current_month}")
+        return current_month
+
+
+# Note: Using next-month expense logic for smart defaults
 
 def init_db():
     with app.app_context():
@@ -253,14 +232,6 @@ def init_db():
                 category TEXT NOT NULL,
                 amount REAL NOT NULL,
                 UNIQUE(month, category)
-            );
-            """,
-            """
-            CREATE TABLE IF NOT EXISTS user_settings (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                setting_key TEXT UNIQUE NOT NULL,
-                setting_value TEXT NOT NULL,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
             );
             """
         ]
@@ -431,7 +402,7 @@ def add_expense():
         return redirect(url_for('index', month_select=active_month))
 
     try:
-        # The month for the expense record should match the active month context
+        # The month for the expense record matches the selected month view
         month_for_db = active_month
 
         db = get_db()
@@ -472,9 +443,6 @@ def api_add_expense():
             (month_for_db, date, category, description, float(amount), payment_type)
         )
         db.commit()
-        
-        # Update the last active month context (this is the key change!)
-        update_last_active_month_context(active_month)
         
         return jsonify({'status': 'success', 'message': 'Expense added successfully!'})
     except ValueError:
@@ -1126,38 +1094,49 @@ def internal_error(error):
     return render_template('500.html'), 500
 
 # --- Main App Runner ---
-@app.route('/api/debug/month_context')
-def debug_month_context():
-    """Debug endpoint to check month context feature status"""
+@app.route('/api/debug/month_logic')
+def debug_month_logic():
+    """Debug endpoint to check the next-month default logic"""
     try:
+        # Get current date and calculate next month
+        current_date = datetime.now()
+        
+        if current_date.month == 12:
+            next_month_date = current_date.replace(year=current_date.year + 1, month=1)
+        else:
+            next_month_date = current_date.replace(month=current_date.month + 1)
+        
+        next_month = next_month_date.strftime('%Y-%m')
+        current_month = current_date.strftime('%Y-%m')
+        
+        # Check if next month has any expense records
         db = get_db()
+        expense_count = db.execute('''
+            SELECT COUNT(*) as count 
+            FROM expenses 
+            WHERE month = ?
+        ''', (next_month,)).fetchone()
         
-        # Check if user_settings table exists
-        tables_result = db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='user_settings'").fetchall()
-        table_exists = len(tables_result) > 0
-        
-        # Get current month context if table exists
-        current_context = None
-        if table_exists:
-            context_result = db.execute("SELECT setting_value FROM user_settings WHERE setting_key = 'last_active_month_context'").fetchone()
-            current_context = context_result['setting_value'] if context_result else None
+        next_month_expenses = expense_count['count'] if expense_count else 0
         
         # Get smart default result
         smart_default = get_smart_default_month()
         
         return jsonify({
             'status': 'success',
-            'user_settings_table_exists': table_exists,
-            'current_month_context': current_context,
+            'current_month': current_month,
+            'next_month': next_month,
+            'next_month_expense_count': next_month_expenses,
             'smart_default_month': smart_default,
+            'logic': 'If next month has expenses, use next month. Otherwise, use current month.',
             'current_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'feature_version': 'v1.2'
+            'feature_version': 'v2.0'
         })
     except Exception as e:
         return jsonify({
             'status': 'error',
             'error': str(e),
-            'feature_version': 'v1.2'
+            'feature_version': 'v2.0'
         })
 
 if __name__ == '__main__':
@@ -1171,4 +1150,3 @@ if __name__ == '__main__':
     # The debug=True flag enables the interactive debugger and reloads the server on code changes.
     # IMPORTANT: Do NOT use debug=True in a production environment.
     app.run(host='0.0.0.0', port=5001, debug=True)
-# Force deployment: Updated with month context tracking feature - v1.1
