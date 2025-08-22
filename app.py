@@ -761,7 +761,6 @@ def api_edit_item(item_id):
     # Use the active_month from the form, not the expense's date
     active_month = request.form.get('month_select')
 
-
     if not all([date, category, description, amount, payment_type, active_month]):
         return jsonify({'status': 'error', 'message': 'All fields are required!'}), 400
 
