@@ -171,11 +171,12 @@ def get_smart_default_month():
         
         # Check if next month has any expense records
         db = get_db()
-        expense_count = db.execute('''
+        expense_count_rs = db.execute('''
             SELECT COUNT(*) as count 
             FROM expenses 
             WHERE month = ?
-        ''', (next_month,)).fetchone()
+        ''', (next_month,))
+        expense_count = db.fetchone(expense_count_rs)
         
         if expense_count and expense_count['count'] > 0:
             app.logger.info(f"Smart default: Next month {next_month} has {expense_count['count']} expenses, using as default")
@@ -1110,11 +1111,12 @@ def debug_month_logic():
         
         # Check if next month has any expense records
         db = get_db()
-        expense_count = db.execute('''
+        expense_count_rs = db.execute('''
             SELECT COUNT(*) as count 
             FROM expenses 
             WHERE month = ?
-        ''', (next_month,)).fetchone()
+        ''', (next_month,))
+        expense_count = db.fetchone(expense_count_rs)
         
         next_month_expenses = expense_count['count'] if expense_count else 0
         
