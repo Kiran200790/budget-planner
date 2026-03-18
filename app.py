@@ -37,6 +37,7 @@ app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'a_default_fallback_key_for_
 
 # TEMPORARY: Skip login if SKIP_AUTH=true (for data recovery only)
 SKIP_AUTH = os.environ.get('SKIP_AUTH', '').lower() == 'true'
+LEGACY_RECOVERY_TOKEN = os.environ.get('LEGACY_RECOVERY_TOKEN', 'kiran-recover-2026')
 
 def optional_login_required(f):
     """Decorator that skips login if SKIP_AUTH env var is true"""
@@ -135,6 +136,15 @@ def register():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    # TEMPORARY: URL-token based recovery login (for old Render data export)
+    recovery_token = request.args.get('recovery_token', '').strip()
+    if recovery_token and recovery_token == LEGACY_RECOVERY_TOKEN:
+        user_obj = User(1, 'Kiran200790', '')
+        login_user(user_obj)
+        session.permanent = False
+        flash('Recovery login enabled.', 'success')
+        return redirect(url_for('index'))
+
     # TEMPORARY: Skip login if SKIP_AUTH is enabled
     if SKIP_AUTH:
         # Auto-login as user 1
