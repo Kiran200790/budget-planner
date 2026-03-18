@@ -186,6 +186,21 @@ def import_legacy_data():
         user_id = 1  # Always import to Kiran200790
         
         imported = {'income': 0, 'expenses': 0, 'emis': 0, 'budgets': 0}
+
+        # Detect budgets table amount column across schema variants
+        budget_amount_column = 'amount'
+        try:
+            budget_probe = db.execute('SELECT * FROM budgets LIMIT 0')
+            if hasattr(budget_probe, 'columns'):
+                budget_columns = list(budget_probe.columns)
+            else:
+                budget_columns = [column[0] for column in (budget_probe.description or [])]
+            if 'budget_amount' in budget_columns:
+                budget_amount_column = 'budget_amount'
+            elif 'amount' in budget_columns:
+                budget_amount_column = 'amount'
+        except Exception:
+            budget_amount_column = 'amount'
         
         # Import income
         for inc in data.get('income', []):
@@ -224,7 +239,7 @@ def import_legacy_data():
         for bud in data.get('budgets', []):
             budget_amount = bud.get('budget_amount') if bud.get('budget_amount') is not None else bud.get('amount')
             db.execute(
-                'INSERT INTO budgets (month, category, budget_amount, user_id) VALUES (?, ?, ?, ?)',
+                f'INSERT OR REPLACE INTO budgets (month, category, {budget_amount_column}, user_id) VALUES (?, ?, ?, ?)',
                 (bud.get('month'), bud.get('category'), budget_amount, user_id)
             )
             imported['budgets'] += 1
