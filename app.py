@@ -1288,7 +1288,7 @@ if __name__ == '__main__':
     with app.app_context():
         init_db()
     
-    # The host='0.0.0.0' makes the server accessible from other devices on the network.
-    # The debug=True flag enables the interactive debugger and reloads the server on code changes.
-    # IMPORTANT: Do NOT use debug=True in a production environment.
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    # Use Railway/hosting provided PORT in production, fallback for local runs.
+    port = int(os.environ.get('PORT', 5001))
+    debug_mode = os.environ.get('FLASK_DEBUG', '0') == '1'
+    app.run(host='0.0.0.0', port=port, debug=debug_mode)
