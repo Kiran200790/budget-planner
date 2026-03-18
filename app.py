@@ -70,6 +70,17 @@ def validate_password(password):
         return False, 'Password must contain at least one digit.'
     return True, 'Password is strong.'
 
+
+def hash_password(password):
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+
+def verify_password(password, stored_hash):
+    if stored_hash is None:
+        return False
+    hash_bytes = stored_hash.encode('utf-8') if isinstance(stored_hash, str) else stored_hash
+    return bcrypt.checkpw(password.encode('utf-8'), hash_bytes)
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
@@ -98,7 +109,7 @@ def register():
         if db.fetchone(user_rs):
             flash('That username is already taken.', 'error')
             return redirect(url_for('register'))
-        password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+        password_hash = hash_password(password)
         db.execute('INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?)',
                    (username, password_hash, datetime.now().isoformat()))
         db.commit()
@@ -114,7 +125,7 @@ def login():
         db = get_db()
         user_rs = db.execute('SELECT * FROM users WHERE username = ?', (username,))
         user = db.fetchone(user_rs)
-        if user and bcrypt.checkpw(password.encode('utf-8'), user['password_hash']):
+        if user and verify_password(password, user['password_hash']):
             user_obj = User(user['id'], user['username'], user['password_hash'])
             login_user(user_obj)
             session.permanent = False
