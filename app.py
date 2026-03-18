@@ -35,6 +35,22 @@ def load_user(user_id):
 # Use an environment variable for the secret key in production, with a fallback for local dev
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'a_default_fallback_key_for_development')
 
+# TEMPORARY: Skip login if SKIP_AUTH=true (for data recovery only)
+SKIP_AUTH = os.environ.get('SKIP_AUTH', '').lower() == 'true'
+
+def optional_login_required(f):
+    """Decorator that skips login if SKIP_AUTH env var is true"""
+    from functools import wraps
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if SKIP_AUTH:
+            # Fake login as user ID 1
+            from flask import g
+            g.user = User(1, 'Kiran200790', '')
+            return f(*args, **kwargs)
+        return login_required(f)(*args, **kwargs)
+    return decorated_function
+
 # session configuration – by default Flask uses a session cookie with no
 # expiration date.  The browser is responsible for destroying it when the
 # window is closed.  Some browsers (especially if you "restore tabs") will
@@ -119,6 +135,13 @@ def register():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    # TEMPORARY: Skip login if SKIP_AUTH is enabled
+    if SKIP_AUTH:
+        # Auto-login as user 1
+        user_obj = User(1, 'Kiran200790', '')
+        login_user(user_obj)
+        return redirect(url_for('index'))
+    
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         password = request.form['password']
