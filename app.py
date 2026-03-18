@@ -18,9 +18,9 @@ login_manager.login_view = 'login'
 
 # User model for Flask-Login
 class User(UserMixin):
-    def __init__(self, id, email, password_hash):
+    def __init__(self, id, username, password_hash):
         self.id = id
-        self.email = email
+        self.username = username
         self.password_hash = password_hash
 
 # User loader for Flask-Login
@@ -30,7 +30,7 @@ def load_user(user_id):
     user_rs = db.execute('SELECT * FROM users WHERE id = ?', (user_id,))
     user = db.fetchone(user_rs)
     if user:
-        return User(user['id'], user['email'], user['password_hash'])
+        return User(user['id'], user['username'], user['password_hash'])
     return None
 # Use an environment variable for the secret key in production, with a fallback for local dev
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'a_default_fallback_key_for_development')
@@ -94,12 +94,12 @@ def register():
             return redirect(url_for('register'))
 
         db = get_db()
-        user_rs = db.execute('SELECT * FROM users WHERE email = ?', (username,))
+        user_rs = db.execute('SELECT * FROM users WHERE username = ?', (username,))
         if db.fetchone(user_rs):
             flash('That username is already taken.', 'error')
             return redirect(url_for('register'))
         password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-        db.execute('INSERT INTO users (email, password_hash, created_at) VALUES (?, ?, ?)',
+        db.execute('INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?)',
                    (username, password_hash, datetime.now().isoformat()))
         db.commit()
         flash('Account created! Please log in.', 'success')
@@ -112,10 +112,10 @@ def login():
         username = request.form.get('username', '').strip()
         password = request.form['password']
         db = get_db()
-        user_rs = db.execute('SELECT * FROM users WHERE email = ?', (username,))
+        user_rs = db.execute('SELECT * FROM users WHERE username = ?', (username,))
         user = db.fetchone(user_rs)
         if user and bcrypt.checkpw(password.encode('utf-8'), user['password_hash']):
-            user_obj = User(user['id'], user['email'], user['password_hash'])
+            user_obj = User(user['id'], user['username'], user['password_hash'])
             login_user(user_obj)
             session.permanent = False
             flash('Logged in successfully.', 'success')
@@ -312,7 +312,7 @@ def init_db():
             """
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                email TEXT UNIQUE NOT NULL,
+                username TEXT UNIQUE NOT NULL,
                 password_hash TEXT NOT NULL,
                 created_at TEXT NOT NULL
             );
