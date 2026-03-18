@@ -143,6 +143,54 @@ def logout():
     flash('Logged out successfully.', 'success')
     return redirect(url_for('login'))
 
+# --- TEMPORARY: Import legacy data from old app ---
+@app.route('/import_legacy_data', methods=['POST'])
+def import_legacy_data():
+    """Temporary endpoint to import data from old single-user app"""
+    try:
+        data = request.get_json()
+        db = get_db()
+        user_id = 1  # Always import to Kiran200790
+        
+        imported = {'income': 0, 'expenses': 0, 'emis': 0, 'budgets': 0}
+        
+        # Import income
+        for inc in data.get('income', []):
+            db.execute(
+                'INSERT INTO income (month, description, amount, user_id) VALUES (?, ?, ?, ?)',
+                (inc.get('month'), inc.get('description'), inc.get('amount'), user_id)
+            )
+            imported['income'] += 1
+        
+        # Import expenses
+        for exp in data.get('expenses', []):
+            db.execute(
+                'INSERT INTO expenses (month, category, amount, user_id) VALUES (?, ?, ?, ?)',
+                (exp.get('month'), exp.get('category'), exp.get('amount'), user_id)
+            )
+            imported['expenses'] += 1
+        
+        # Import EMIs
+        for emi in data.get('emis', []):
+            db.execute(
+                'INSERT INTO emis (month, description, amount, user_id) VALUES (?, ?, ?, ?)',
+                (emi.get('month'), emi.get('description'), emi.get('amount'), user_id)
+            )
+            imported['emis'] += 1
+        
+        # Import budgets
+        for bud in data.get('budgets', []):
+            db.execute(
+                'INSERT INTO budgets (month, category, budget_amount, user_id) VALUES (?, ?, ?, ?)',
+                (bud.get('month'), bud.get('category'), bud.get('budget_amount'), user_id)
+            )
+            imported['budgets'] += 1
+        
+        db.commit()
+        return jsonify({'status': 'success', 'imported': imported, 'message': f"Imported {sum(imported.values())} records"}), 200
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
 # --- ADD /api/edit_income/<int:income_id> API ENDPOINT ---
 @app.route('/api/edit_income/<int:income_id>', methods=['POST'])
 @login_required
