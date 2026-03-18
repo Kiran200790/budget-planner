@@ -197,19 +197,26 @@ def import_legacy_data():
         
         # Import expenses
         for exp in data.get('expenses', []):
+            exp_month = exp.get('month') or datetime.now().strftime('%Y-%m')
+            exp_date = exp.get('date') or f"{exp_month}-01"
+            exp_category = exp.get('category') or 'Other'
+            exp_description = exp.get('description') or exp_category
+            exp_amount = exp.get('amount')
+            exp_payment_type = exp.get('payment_type')
             db.execute(
-                'INSERT INTO expenses (month, category, amount, user_id) VALUES (?, ?, ?, ?)',
-                (exp.get('month'), exp.get('category'), exp.get('amount'), user_id)
+                'INSERT INTO expenses (month, date, category, description, amount, payment_type, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                (exp_month, exp_date, exp_category, exp_description, exp_amount, exp_payment_type, user_id)
             )
             imported['expenses'] += 1
         
         # Import EMIs
         for emi in data.get('emis', []):
-            emi_description = emi.get('description') or emi.get('bank') or emi.get('name') or 'EMI'
-            emi_amount = emi.get('amount') if emi.get('amount') is not None else emi.get('emi_amount')
+            emi_month = emi.get('month') or datetime.now().strftime('%Y-%m')
+            loan_name = emi.get('loan_name') or emi.get('description') or emi.get('bank') or emi.get('name') or 'EMI'
+            emi_amount = emi.get('emi_amount') if emi.get('emi_amount') is not None else emi.get('amount')
             db.execute(
-                'INSERT INTO emis (month, description, amount, user_id) VALUES (?, ?, ?, ?)',
-                (emi.get('month'), emi_description, emi_amount, user_id)
+                'INSERT INTO emis (month, loan_name, emi_amount, user_id) VALUES (?, ?, ?, ?)',
+                (emi_month, loan_name, emi_amount, user_id)
             )
             imported['emis'] += 1
         
