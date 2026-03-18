@@ -205,17 +205,20 @@ def import_legacy_data():
         
         # Import EMIs
         for emi in data.get('emis', []):
+            emi_description = emi.get('description') or emi.get('bank') or emi.get('name') or 'EMI'
+            emi_amount = emi.get('amount') if emi.get('amount') is not None else emi.get('emi_amount')
             db.execute(
                 'INSERT INTO emis (month, description, amount, user_id) VALUES (?, ?, ?, ?)',
-                (emi.get('month'), emi.get('description'), emi.get('amount'), user_id)
+                (emi.get('month'), emi_description, emi_amount, user_id)
             )
             imported['emis'] += 1
         
         # Import budgets
         for bud in data.get('budgets', []):
+            budget_amount = bud.get('budget_amount') if bud.get('budget_amount') is not None else bud.get('amount')
             db.execute(
                 'INSERT INTO budgets (month, category, budget_amount, user_id) VALUES (?, ?, ?, ?)',
-                (bud.get('month'), bud.get('category'), bud.get('budget_amount'), user_id)
+                (bud.get('month'), bud.get('category'), budget_amount, user_id)
             )
             imported['budgets'] += 1
         
@@ -223,6 +226,31 @@ def import_legacy_data():
         return jsonify({'status': 'success', 'imported': imported, 'message': f"Imported {sum(imported.values())} records"}), 200
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
+@app.route('/legacy_export', methods=['GET'])
+def legacy_export():
+    """Token-protected export endpoint to recover old data without login session."""
+    token = request.args.get('token', '').strip()
+    if token != LEGACY_RECOVERY_TOKEN:
+        return jsonify({'status': 'error', 'message': 'Invalid token'}), 403
+
+    db = get_db()
+    tables = ['income', 'expenses', 'emis', 'budgets', 'users']
+    payload = {}
+    counts = {}
+
+    for table in tables:
+        try:
+            result = db.execute(f'SELECT * FROM {table} ORDER BY id')
+            rows = db.fetchall(result)
+            payload[table] = rows
+            counts[table] = len(rows)
+        except Exception:
+            payload[table] = []
+            counts[table] = 0
+
+    return jsonify({'status': 'success', 'counts': counts, 'data': payload}), 200
 
 # --- ADD /api/edit_income/<int:income_id> API ENDPOINT ---
 @app.route('/api/edit_income/<int:income_id>', methods=['POST'])
