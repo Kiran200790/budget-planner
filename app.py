@@ -35,23 +35,6 @@ def load_user(user_id):
 # Use an environment variable for the secret key in production, with a fallback for local dev
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'a_default_fallback_key_for_development')
 
-# TEMPORARY: Skip login if SKIP_AUTH=true (for data recovery only)
-SKIP_AUTH = os.environ.get('SKIP_AUTH', '').lower() == 'true'
-LEGACY_RECOVERY_TOKEN = os.environ.get('LEGACY_RECOVERY_TOKEN', 'kiran-recover-2026')
-
-def optional_login_required(f):
-    """Decorator that skips login if SKIP_AUTH env var is true"""
-    from functools import wraps
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if SKIP_AUTH:
-            # Fake login as user ID 1
-            from flask import g
-            g.user = User(1, 'Kiran200790', '')
-            return f(*args, **kwargs)
-        return login_required(f)(*args, **kwargs)
-    return decorated_function
-
 # session configuration – by default Flask uses a session cookie with no
 # expiration date.  The browser is responsible for destroying it when the
 # window is closed.  Some browsers (especially if you "restore tabs") will
@@ -136,22 +119,6 @@ def register():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    # TEMPORARY: URL-token based recovery login (for old Render data export)
-    recovery_token = request.args.get('recovery_token', '').strip()
-    if recovery_token and recovery_token == LEGACY_RECOVERY_TOKEN:
-        user_obj = User(1, 'Kiran200790', '')
-        login_user(user_obj)
-        session.permanent = False
-        flash('Recovery login enabled.', 'success')
-        return redirect(url_for('index'))
-
-    # TEMPORARY: Skip login if SKIP_AUTH is enabled
-    if SKIP_AUTH:
-        # Auto-login as user 1
-        user_obj = User(1, 'Kiran200790', '')
-        login_user(user_obj)
-        return redirect(url_for('index'))
-    
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         password = request.form['password']
@@ -175,104 +142,6 @@ def logout():
     logout_user()
     flash('Logged out successfully.', 'success')
     return redirect(url_for('login'))
-
-# --- TEMPORARY: Import legacy data from old app ---
-@app.route('/import_legacy_data', methods=['POST'])
-def import_legacy_data():
-    """Temporary endpoint to import data from old single-user app"""
-    try:
-        data = request.get_json()
-        db = get_db()
-        user_id = 1  # Always import to Kiran200790
-        
-        imported = {'income': 0, 'expenses': 0, 'emis': 0, 'budgets': 0}
-
-        # Detect budgets table amount column across schema variants
-        budget_amount_column = 'amount'
-        try:
-            budget_probe = db.execute('SELECT * FROM budgets LIMIT 0')
-            if hasattr(budget_probe, 'columns'):
-                budget_columns = list(budget_probe.columns)
-            else:
-                budget_columns = [column[0] for column in (budget_probe.description or [])]
-            if 'budget_amount' in budget_columns:
-                budget_amount_column = 'budget_amount'
-            elif 'amount' in budget_columns:
-                budget_amount_column = 'amount'
-        except Exception:
-            budget_amount_column = 'amount'
-        
-        # Import income
-        for inc in data.get('income', []):
-            db.execute(
-                'INSERT INTO income (month, description, amount, user_id) VALUES (?, ?, ?, ?)',
-                (inc.get('month'), inc.get('description'), inc.get('amount'), user_id)
-            )
-            imported['income'] += 1
-        
-        # Import expenses
-        for exp in data.get('expenses', []):
-            exp_month = exp.get('month') or datetime.now().strftime('%Y-%m')
-            exp_date = exp.get('date') or f"{exp_month}-01"
-            exp_category = exp.get('category') or 'Other'
-            exp_description = exp.get('description') or exp_category
-            exp_amount = exp.get('amount')
-            exp_payment_type = exp.get('payment_type')
-            db.execute(
-                'INSERT INTO expenses (month, date, category, description, amount, payment_type, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                (exp_month, exp_date, exp_category, exp_description, exp_amount, exp_payment_type, user_id)
-            )
-            imported['expenses'] += 1
-        
-        # Import EMIs
-        for emi in data.get('emis', []):
-            emi_month = emi.get('month') or datetime.now().strftime('%Y-%m')
-            loan_name = emi.get('loan_name') or emi.get('description') or emi.get('bank') or emi.get('name') or 'EMI'
-            emi_amount = emi.get('emi_amount') if emi.get('emi_amount') is not None else emi.get('amount')
-            db.execute(
-                'INSERT INTO emis (month, loan_name, emi_amount, user_id) VALUES (?, ?, ?, ?)',
-                (emi_month, loan_name, emi_amount, user_id)
-            )
-            imported['emis'] += 1
-        
-        # Import budgets
-        for bud in data.get('budgets', []):
-            budget_amount = bud.get('budget_amount') if bud.get('budget_amount') is not None else bud.get('amount')
-            db.execute(
-                f'INSERT OR REPLACE INTO budgets (month, category, {budget_amount_column}, user_id) VALUES (?, ?, ?, ?)',
-                (bud.get('month'), bud.get('category'), budget_amount, user_id)
-            )
-            imported['budgets'] += 1
-        
-        db.commit()
-        return jsonify({'status': 'success', 'imported': imported, 'message': f"Imported {sum(imported.values())} records"}), 200
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
-
-
-@app.route('/legacy_export', methods=['GET'])
-def legacy_export():
-    """Token-protected export endpoint to recover old data without login session."""
-    token = request.args.get('token', '').strip()
-    if token != LEGACY_RECOVERY_TOKEN:
-        return jsonify({'status': 'error', 'message': 'Invalid token'}), 403
-
-    db = get_db()
-    tables = ['income', 'expenses', 'emis', 'budgets', 'users']
-    payload = {}
-    counts = {}
-
-    for table in tables:
-        try:
-            result = db.execute(f'SELECT * FROM {table} ORDER BY id')
-            rows = db.fetchall(result)
-            payload[table] = rows
-            counts[table] = len(rows)
-        except Exception:
-            payload[table] = []
-            counts[table] = 0
-
-    return jsonify({'status': 'success', 'counts': counts, 'data': payload}), 200
 
 # --- ADD /api/edit_income/<int:income_id> API ENDPOINT ---
 @app.route('/api/edit_income/<int:income_id>', methods=['POST'])
