@@ -4,6 +4,13 @@ __pycache__/
 
 # Virtual Environment
 .venv/
+venv/
+venv_fresh/
+venv_test/
 
 # Database
 budget.db
+*.db
+
+# Local temp/secrets
+cookies.txt

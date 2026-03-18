@@ -117,6 +117,423 @@ body {
     padding: 20px;
 }
 
+/* =============================================
+   AUTH PAGES  (login / register)
+   ============================================= */
+
+/* full-width banner wrapper for auth pages */
+.banner-wrapper {
+    background-color: #f0f2f5;
+    padding: 0;
+    text-align: center;
+}
+
+.banner {
+    background-color: transparent;
+    text-align: center;
+    margin: 0;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    padding: 0;
+}
+
+.banner h1 {
+    font-size: 2.5em;
+    padding: 24px;
+    color: #ffffff;
+    background: linear-gradient(135deg, #1e40af, #3b82f6, #60a5fa);
+    border: 1px solid rgba(30, 64, 175, 0.6);
+    border-radius: 20px;
+    cursor: default;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    backdrop-filter: blur(10px);
+    box-shadow:
+        0 12px 30px rgba(30, 64, 175, 0.4),
+        0 0 25px rgba(59, 130, 246, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    width: 90%;
+    margin: 20px auto;
+    position: relative;
+    overflow: hidden;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.banner h1::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition: left 0.8s ease;
+    z-index: 1;
+}
+.banner h1:hover::before { left: 100%; }
+.banner h1:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow:
+        0 16px 35px rgba(30, 64, 175, 0.5),
+        0 0 35px rgba(59, 130, 246, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+/* Auth wrapper — centres the card */
+.auth-wrapper {
+    background-color: #f0f2f5;
+    padding: 32px 16px 60px;
+    min-height: calc(100vh - 130px);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+}
+
+/* Auth card */
+.auth-container {
+    width: 100%;
+    max-width: 420px;
+    background: #ffffff;
+    border-radius: 20px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 10px 40px rgba(30, 64, 175, 0.09), 0 2px 8px rgba(0,0,0,0.04);
+    padding: 36px 32px 28px;
+    box-sizing: border-box;
+}
+
+/* Avatar icon at top */
+.auth-icon {
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, #1e40af, #3b82f6);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+    box-shadow: 0 6px 18px rgba(30, 64, 175, 0.35);
+}
+
+.auth-icon svg {
+    width: 28px;
+    height: 28px;
+    color: #ffffff;
+    stroke: #ffffff;
+}
+
+/* Heading */
+.auth-container h2 {
+    margin: 0 0 4px;
+    font-size: 1.6em;
+    font-weight: 800;
+    text-align: center;
+    background: linear-gradient(135deg, #1e40af, #3b82f6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Flash messages inside auth card */
+.auth-flash-messages {
+    margin-bottom: 16px;
+}
+
+.auth-flash {
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 0.9em;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.auth-flash.error {
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+}
+
+.auth-flash.success {
+    background: #f0fdf4;
+    color: #16a34a;
+    border: 1px solid #bbf7d0;
+}
+
+/* Bare inputs directly in auth-form-field (no wrapper) */
+.auth-form-field > input[type="text"],
+.auth-form-field > input[type="password"],
+.auth-form-field > input[type="email"] {
+    width: 100%;
+    padding: 11px 14px;
+    border: 1.8px solid #e2e8f0;
+    border-radius: 11px;
+    font-size: 0.97em;
+    font-family: 'Nunito Sans', sans-serif;
+    background: #f8fafc;
+    color: #1e293b;
+    box-sizing: border-box;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+    outline: none;
+}
+
+.auth-form-field > input:focus {
+    border-color: #3b82f6;
+    background: #ffffff;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+}
+
+/* Form fields */
+.auth-form-field {
+    margin-bottom: 18px;
+}
+
+.auth-form-field label {
+    display: block;
+    font-size: 0.875em;
+    font-weight: 700;
+    color: #374151;
+    margin-bottom: 7px;
+    letter-spacing: 0.01em;
+}
+
+/* Input row: icon + input + eye button */
+.auth-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.input-icon {
+    position: absolute;
+    left: 13px;
+    display: flex;
+    align-items: center;
+    pointer-events: none;
+}
+
+.input-icon svg {
+    width: 17px;
+    height: 17px;
+    stroke: #94a3b8;
+}
+
+.auth-input-wrapper input[type="email"],
+.auth-input-wrapper input[type="password"],
+.auth-input-wrapper input[type="text"] {
+    width: 100%;
+    padding: 11px 44px 11px 40px;
+    border: 1.8px solid #e2e8f0;
+    border-radius: 11px;
+    font-size: 0.97em;
+    font-family: 'Nunito Sans', sans-serif;
+    background: #f8fafc;
+    color: #1e293b;
+    box-sizing: border-box;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+    outline: none;
+}
+
+.auth-input-wrapper input:focus {
+    border-color: #3b82f6;
+    background: #ffffff;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+}
+
+/* Eye toggle button */
+.eye-toggle {
+    position: absolute;
+    right: 12px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    color: #94a3b8;
+    transition: color 0.2s;
+    border-radius: 6px;
+}
+
+.eye-toggle:hover {
+    color: #3b82f6;
+    background: rgba(59, 130, 246, 0.07);
+}
+
+.eye-icon {
+    width: 18px;
+    height: 18px;
+    stroke: currentColor;
+}
+
+/* --- Segmented strength meter --- */
+.strength-meter {
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.strength-segments {
+    display: flex;
+    gap: 5px;
+    flex: 1;
+}
+
+.seg {
+    flex: 1;
+    height: 5px;
+    border-radius: 3px;
+    background: #e2e8f0;
+    transition: background-color 0.3s ease;
+}
+
+.strength-label {
+    font-size: 0.78em;
+    font-weight: 700;
+    min-width: 48px;
+    text-align: right;
+    color: #94a3b8;
+    transition: color 0.3s;
+}
+
+/* ---- Info tooltip on Password label ---- */
+.info-tooltip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    margin-left: 5px;
+    vertical-align: middle;
+    cursor: pointer;
+}
+
+.info-icon {
+    font-size: 0.95em;
+    color: #3b82f6;
+    font-style: normal;
+    line-height: 1;
+    transition: color 0.2s;
+    user-select: none;
+}
+
+.info-tooltip:hover .info-icon {
+    color: #1e40af;
+}
+
+.tooltip-box {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1e293b;
+    color: #f1f5f9;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 0.8em;
+    font-weight: 400;
+    white-space: nowrap;
+    z-index: 100;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+    pointer-events: none;
+}
+
+.tooltip-box::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: #1e293b;
+}
+
+.tooltip-box strong {
+    display: block;
+    margin-bottom: 5px;
+    color: #93c5fd;
+    font-weight: 700;
+}
+
+.tooltip-box ul {
+    margin: 0;
+    padding-left: 16px;
+}
+
+.tooltip-box ul li {
+    margin-bottom: 2px;
+    color: #cbd5e1;
+}
+
+.info-tooltip:hover .tooltip-box {
+    display: block;
+}
+
+/* ---- End Info tooltip ---- */
+
+/* Match indicator */
+.match-indicator {
+    font-size: 0.82em;
+    font-weight: 600;
+    margin-top: 7px;
+    min-height: 18px;
+    padding-left: 2px;
+}
+
+.match-indicator.match  { color: #22c55e; }
+.match-indicator.mismatch { color: #ef4444; }
+
+/* Footer link (sign in / register) */
+.auth-footer-link {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 0.9em;
+    color: #64748b;
+}
+
+.auth-footer-link a {
+    color: #3b82f6;
+    font-weight: 700;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.auth-footer-link a:hover {
+    color: #1e40af;
+    text-decoration: underline;
+}
+
+/* =============================================
+   END AUTH PAGES
+   ============================================= */
+
+.btn-primary {
+    display: block;
+    width: 100%;
+    background: linear-gradient(135deg, #1e40af, #3b82f6);
+    color: #fff;
+    padding: 14px 28px;
+    border: none;
+    border-radius: 10px;
+    font-size: 1.05em;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    margin-top: 6px;
+    box-shadow: 0 8px 20px rgba(30, 64, 175, 0.3);
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #1e3a8a, #2563eb);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(30, 64, 175, 0.4);
+}
+
+.btn-primary:active {
+    transform: translateY(0);
+    box-shadow: 0 4px 12px rgba(30, 64, 175, 0.2);
+}
+
 /* Hide desktop-only elements on mobile and vice-versa */
 .desktop-only {
     display: none; /* Hidden by default, shown on larger screens */
@@ -1349,7 +1766,8 @@ button:hover, .button-style:hover {
 .month-selector-mobile {
     display: flex;
     gap: 10px;
-    justify-content: center;
+    justify-content: flex-start;
+    align-items: center;
     position: relative;
     z-index: 2;
 }
@@ -1671,6 +2089,38 @@ button:hover, .button-style:hover {
     animation: fabPulse 2s ease-in-out infinite alternate;
 }
 
+/* Logout FAB — same pill style, stacked 58px below quick-add */
+.fab-logout {
+    top: calc(50% + 58px) !important;
+    text-decoration: none;
+    animation: none !important;
+    background: linear-gradient(135deg, #991b1b, #ef4444, #f87171) !important;
+    box-shadow:
+        -6px 6px 20px rgba(153, 27, 27, 0.4),
+        -3px 0 15px rgba(239, 68, 68, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+.fab-logout::before {
+    display: none; /* remove shimmer so it doesn't shift icon */
+}
+
+.fab-logout i {
+    position: static !important;
+    font-size: 1em;
+    line-height: 1;
+    margin: 0 0 0 8px;
+    padding: 0;
+}
+
+.fab-logout:hover {
+    background: linear-gradient(135deg, #7f1d1d, #dc2626, #ef4444) !important;
+    transform: translateY(-50%) scale(1.08) !important;
+}
+
 /* Desktop adjustments - larger size */
 @media (min-width: 769px) {
     .fab {
@@ -1682,6 +2132,14 @@ button:hover, .button-style:hover {
             -8px 8px 25px rgba(30, 64, 175, 0.4),
             -4px 0 20px rgba(59, 130, 246, 0.3),
             inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+    }
+
+    .fab-logout {
+        width: 50px !important;
+        height: 50px !important;
+        font-size: 20px !important;
+        border-radius: 25px 0 0 25px !important;
+        top: calc(50% + 64px) !important;
     }
     
     /* Alternative: Integrate with tab controls */
@@ -1700,6 +2158,14 @@ button:hover, .button-style:hover {
         height: 42px !important;
         font-size: 14px !important;
         border-radius: 21px 0 0 21px !important; /* Smaller radius */
+    }
+
+    .fab-logout {
+        width: 42px !important;
+        height: 42px !important;
+        font-size: 14px !important;
+        border-radius: 21px 0 0 21px !important;
+        top: calc(50% + 54px) !important;
     }
 }
 

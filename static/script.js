@@ -980,6 +980,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 // Setup copy functionality
                 setupCopyFunctionality();
             });
+        }
+    }
 
     // --- COPY FROM PREVIOUS MONTH FUNCTIONALITY ---
     function setupCopyFunctionality() {
@@ -1116,8 +1118,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 mobileButton.disabled = false;
                 mobileButton.innerHTML = `<i class="fas fa-copy"></i> Copy`;
             }
-        }
-    }
         }
     }
 

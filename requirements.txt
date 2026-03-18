@@ -1,9 +1,11 @@
-blinker==1.9.0
+Blinker==1.9.0
 Brotli==1.1.0
 cffi==1.17.1
 click==8.2.0
 cssselect2==0.8.0
 Flask==3.1.0
+Flask-Login==0.6.3
+bcrypt==4.1.2
 fonttools==4.58.0
 itsdangerous==2.2.0
 Jinja2==3.1.6
@@ -23,3 +25,4 @@ Werkzeug>=3.0.3
 python-dateutil
 zopfli==0.2.3.post1
 gunicorn==22.0.0
+pytest==7.4.3

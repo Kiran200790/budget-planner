@@ -1,4 +1,6 @@
 import os
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+import bcrypt
 import sqlite3
 import logging
 import libsql_client
@@ -10,8 +12,39 @@ import io
 import csv
 
 app = Flask(__name__)
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+
+# User model for Flask-Login
+class User(UserMixin):
+    def __init__(self, id, email, password_hash):
+        self.id = id
+        self.email = email
+        self.password_hash = password_hash
+
+# User loader for Flask-Login
+@login_manager.user_loader
+def load_user(user_id):
+    db = get_db()
+    user_rs = db.execute('SELECT * FROM users WHERE id = ?', (user_id,))
+    user = db.fetchone(user_rs)
+    if user:
+        return User(user['id'], user['email'], user['password_hash'])
+    return None
 # Use an environment variable for the secret key in production, with a fallback for local dev
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'a_default_fallback_key_for_development')
+
+# session configuration – by default Flask uses a session cookie with no
+# expiration date.  The browser is responsible for destroying it when the
+# window is closed.  Some browsers (especially if you "restore tabs") will
+# keep the cookie around, so users may appear still logged in after a restart.
+# If you want stricter behaviour you can adjust these values or clear
+# cookies on the client side.
+app.config['SESSION_COOKIE_EXPIRES'] = False          # don't send an Expires header
+app.config['SESSION_PERMANENT'] = False               # sessions are not permanent
+from datetime import timedelta
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 
 # --- DEVELOPMENT SETTINGS TO PREVENT CACHING ---
 # These settings ensure that changes to templates and static files are
@@ -24,10 +57,84 @@ if app.config['DEBUG']:
 
 # Configure logging to see output in the terminal
 logging.basicConfig(level=logging.INFO)
-# --- ADD /api/edit_income/<int:income_id> API ENDPOINT ---
+
+def validate_password(password):
+    """Validate password strength. Returns (is_valid, message)"""
+    if len(password) < 8:
+        return False, 'Password must be at least 8 characters long.'
+    if not any(c.isupper() for c in password):
+        return False, 'Password must contain at least one uppercase letter.'
+    if not any(c.islower() for c in password):
+        return False, 'Password must contain at least one lowercase letter.'
+    if not any(c.isdigit() for c in password):
+        return False, 'Password must contain at least one digit.'
+    return True, 'Password is strong.'
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form['password']
+        confirm_password = request.form.get('confirmPassword', '')
+
+        # Validate username
+        if not username or len(username) < 3:
+            flash('Username must be at least 3 characters.', 'error')
+            return redirect(url_for('register'))
+
+        # Validate passwords match
+        if password != confirm_password:
+            flash('Passwords do not match.', 'error')
+            return redirect(url_for('register'))
+
+        # Validate password strength
+        is_valid, message = validate_password(password)
+        if not is_valid:
+            flash(message, 'error')
+            return redirect(url_for('register'))
+
+        db = get_db()
+        user_rs = db.execute('SELECT * FROM users WHERE email = ?', (username,))
+        if db.fetchone(user_rs):
+            flash('That username is already taken.', 'error')
+            return redirect(url_for('register'))
+        password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+        db.execute('INSERT INTO users (email, password_hash, created_at) VALUES (?, ?, ?)',
+                   (username, password_hash, datetime.now().isoformat()))
+        db.commit()
+        flash('Account created! Please log in.', 'success')
+        return redirect(url_for('login'))
+    return render_template('register.html')
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form['password']
+        db = get_db()
+        user_rs = db.execute('SELECT * FROM users WHERE email = ?', (username,))
+        user = db.fetchone(user_rs)
+        if user and bcrypt.checkpw(password.encode('utf-8'), user['password_hash']):
+            user_obj = User(user['id'], user['email'], user['password_hash'])
+            login_user(user_obj)
+            session.permanent = False
+            flash('Logged in successfully.', 'success')
+            return redirect(url_for('index'))
+        else:
+            flash('Invalid username or password.', 'error')
+            return redirect(url_for('login'))
+    return render_template('login.html')
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    flash('Logged out successfully.', 'success')
+    return redirect(url_for('login'))
 
 # --- ADD /api/edit_income/<int:income_id> API ENDPOINT ---
 @app.route('/api/edit_income/<int:income_id>', methods=['POST'])
+@login_required
 def api_edit_income(income_id):
     """API endpoint to update an existing income record."""
     description = request.form.get('description')
@@ -40,8 +147,8 @@ def api_edit_income(income_id):
     try:
         db = get_db()
         db.execute(
-            'UPDATE income SET description = ?, amount = ?, month = ? WHERE id = ?',
-            (description, float(amount), month, income_id)
+            'UPDATE income SET description = ?, amount = ?, month = ? WHERE id = ? AND user_id = ?',
+            (description, float(amount), month, income_id, current_user.id)
         )
         db.commit()
         message = 'Income updated successfully!'
@@ -152,11 +259,14 @@ def get_smart_default_month():
     """
     Smart default month logic:
     1. Calculate next month (current month + 1)
-    2. Check if next month has any expense records
+    2. Check if next month has any expense records for current user
     3. If yes, return next month as default
     4. If no, return current month as default
     """
     try:
+        if not current_user.is_authenticated:
+            return datetime.now().strftime('%Y-%m')
+        
         # Get current date and calculate next month
         current_date = datetime.now()
         
@@ -169,13 +279,13 @@ def get_smart_default_month():
         next_month = next_month_date.strftime('%Y-%m')
         current_month = current_date.strftime('%Y-%m')
         
-        # Check if next month has any expense records
+        # Check if next month has any expense records for current user
         db = get_db()
         expense_count_rs = db.execute('''
             SELECT COUNT(*) as count 
             FROM expenses 
-            WHERE month = ?
-        ''', (next_month,))
+            WHERE month = ? AND user_id = ?
+        ''', (next_month, current_user.id))
         expense_count = db.fetchone(expense_count_rs)
         
         if expense_count and expense_count['count'] > 0:
@@ -200,39 +310,55 @@ def init_db():
         # Use a list of SQL statements for batch execution
         schema_queries = [
             """
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+            """,
+            """
             CREATE TABLE IF NOT EXISTS income (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
                 month TEXT NOT NULL,
                 description TEXT NOT NULL,
-                amount REAL NOT NULL
+                amount REAL NOT NULL,
+                FOREIGN KEY(user_id) REFERENCES users(id)
             );
             """,
             """
             CREATE TABLE IF NOT EXISTS expenses (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
                 month TEXT NOT NULL,
                 date TEXT NOT NULL,
                 category TEXT NOT NULL,
                 description TEXT NOT NULL,
                 amount REAL NOT NULL,
-                payment_type TEXT
+                payment_type TEXT,
+                FOREIGN KEY(user_id) REFERENCES users(id)
             );
             """,
             """
             CREATE TABLE IF NOT EXISTS emis (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
                 month TEXT NOT NULL,
                 loan_name TEXT NOT NULL,
-                emi_amount REAL NOT NULL
+                emi_amount REAL NOT NULL,
+                FOREIGN KEY(user_id) REFERENCES users(id)
             );
             """,
             """
             CREATE TABLE IF NOT EXISTS budgets (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
                 month TEXT NOT NULL,
                 category TEXT NOT NULL,
                 amount REAL NOT NULL,
-                UNIQUE(month, category)
+                UNIQUE(user_id, month, category),
+                FOREIGN KEY(user_id) REFERENCES users(id)
             );
             """
         ]
@@ -243,24 +369,26 @@ def init_db():
 # init_db() # Commented out for production, will be run via build.sh
 
 def get_budget_data(active_month):
-    """Fetches and calculates all necessary data for a given month."""
+    """Fetches and calculates all necessary data for a given month for the current user."""
     app.logger.info(f"--- Fetching data for active_month: {active_month} ---")
+    if not current_user.is_authenticated:
+        return {}
     db = get_db()
 
-    # Fetch all data for the active month
-    expenses_rs = db.execute('SELECT * FROM expenses WHERE month = ? ORDER BY date DESC', (active_month,))
+    # Fetch all data for the active month for current user
+    expenses_rs = db.execute('SELECT * FROM expenses WHERE month = ? AND user_id = ? ORDER BY date DESC', (active_month, current_user.id))
     expenses = db.fetchall(expenses_rs)
     app.logger.info(f"Found {len(expenses)} expenses.")
 
-    income_rs = db.execute('SELECT * FROM income WHERE month = ? ORDER BY id DESC', (active_month,))
+    income_rs = db.execute('SELECT * FROM income WHERE month = ? AND user_id = ? ORDER BY id DESC', (active_month, current_user.id))
     income = db.fetchall(income_rs)
     app.logger.info(f"Found {len(income)} income records.")
 
-    emis_rs = db.execute('SELECT * FROM emis WHERE month = ? ORDER BY id DESC', (active_month,))
+    emis_rs = db.execute('SELECT * FROM emis WHERE month = ? AND user_id = ? ORDER BY id DESC', (active_month, current_user.id))
     emis = db.fetchall(emis_rs)
     app.logger.info(f"Found {len(emis)} EMI records.")
 
-    budget_cursor = db.execute('SELECT category, amount FROM budgets WHERE month = ?', (active_month,))
+    budget_cursor = db.execute('SELECT category, amount FROM budgets WHERE month = ? AND user_id = ?', (active_month, current_user.id))
     budget = {row['category']: row['amount'] for row in db.fetchall(budget_cursor)}
     app.logger.info(f"Found budget categories: {list(budget.keys())}")
 
@@ -295,14 +423,14 @@ def get_budget_data(active_month):
     recent_trans_rs = db.execute("""
         SELECT date, category, description, amount, 'expense' as type
         FROM expenses
-        WHERE month = ?
+        WHERE month = ? AND user_id = ?
         UNION ALL
         SELECT month || '-01' as date, 'Income' as category, description, amount, 'income' as type
         FROM income
-        WHERE month = ?
+        WHERE month = ? AND user_id = ?
         ORDER BY date DESC
         LIMIT 5
-    """, (active_month, active_month))
+    """, (active_month, current_user.id, active_month, current_user.id))
     recent_transactions = db.fetchall(recent_trans_rs)
     app.logger.info(f"Found {len(recent_transactions)} recent transactions for mobile view.")
 
@@ -328,6 +456,7 @@ def get_budget_data(active_month):
     return result_data
 
 @app.route('/api/report_data', methods=['GET'])
+@login_required
 def api_report_data():
     """API endpoint to fetch all dashboard data for a given month."""
     active_month = request.args.get('month_select')
@@ -352,6 +481,7 @@ def health_check():
     }), 200
 
 @app.route('/', methods=['GET'])
+@login_required
 def index():
     # Use smart default month detection, but allow manual override via URL parameter
     smart_default = get_smart_default_month()
@@ -368,13 +498,13 @@ def index():
 
     db = get_db()
     available_months_rs = db.execute('''
-        SELECT DISTINCT strftime("%Y-%m", date) as month FROM expenses
+        SELECT DISTINCT strftime("%Y-%m", date) as month FROM expenses WHERE user_id = ?
         UNION
-        SELECT DISTINCT month FROM income
+        SELECT DISTINCT month FROM income WHERE user_id = ?
         UNION
-        SELECT DISTINCT month FROM emis
+        SELECT DISTINCT month FROM emis WHERE user_id = ?
         ORDER BY month DESC
-    ''')
+    ''', (current_user.id, current_user.id, current_user.id))
     available_months = [row['month'] for row in db.fetchall(available_months_rs)]
 
     return render_template('index.html', 
@@ -390,6 +520,7 @@ def index():
 
 
 @app.route('/add_expense', methods=['POST'])
+@login_required
 def add_expense():
     active_month = request.form.get('month_select')
     date = request.form.get('date')
@@ -408,9 +539,9 @@ def add_expense():
 
         db = get_db()
         db.execute(
-            '''INSERT INTO expenses (month, date, category, description, amount, payment_type)
-               VALUES (?, ?, ?, ?, ?, ?)''',
-            (month_for_db, date, category, description, float(amount), payment_type)
+            '''INSERT INTO expenses (user_id, month, date, category, description, amount, payment_type)
+               VALUES (?, ?, ?, ?, ?, ?, ?)''',
+            (current_user.id, month_for_db, date, category, description, float(amount), payment_type)
         )
         db.commit()
         flash('Expense added successfully!', 'success')
@@ -424,6 +555,7 @@ def add_expense():
 
 
 @app.route('/api/add_expense', methods=['POST'])
+@login_required
 def api_add_expense():
     active_month = request.form.get('month_select')
     date = request.form.get('date')
@@ -439,9 +571,9 @@ def api_add_expense():
         month_for_db = active_month
         db = get_db()
         db.execute(
-            '''INSERT INTO expenses (month, date, category, description, amount, payment_type)
-               VALUES (?, ?, ?, ?, ?, ?)''',
-            (month_for_db, date, category, description, float(amount), payment_type)
+            '''INSERT INTO expenses (user_id, month, date, category, description, amount, payment_type)
+               VALUES (?, ?, ?, ?, ?, ?, ?)''',
+            (current_user.id, month_for_db, date, category, description, float(amount), payment_type)
         )
         db.commit()
         
@@ -454,6 +586,7 @@ def api_add_expense():
 
 
 @app.route('/api/add_income', methods=['POST'])
+@login_required
 def api_add_income():
     description = request.form.get('description')
     amount = request.form.get('amount')
@@ -472,8 +605,8 @@ def api_add_income():
             current_month_dt = start_month + relativedelta(months=i)
             current_month_str = current_month_dt.strftime('%Y-%m')
             queries.append(
-                ('INSERT INTO income (description, amount, month) VALUES (?, ?, ?)',
-                (description, float(amount), current_month_str))
+                ('INSERT INTO income (user_id, description, amount, month) VALUES (?, ?, ?, ?)',
+                (current_user.id, description, float(amount), current_month_str))
             )
         
         db.execute_batch(queries)
@@ -486,6 +619,7 @@ def api_add_income():
         return jsonify({'status': 'error', 'message': 'An error occurred while adding the income.'}), 500
 
 @app.route('/api/add_emi', methods=['POST'])
+@login_required
 def api_add_emi():
     loan_name = request.form.get('loan_name')
     emi_amount = request.form.get('emi_amount')
@@ -504,8 +638,8 @@ def api_add_emi():
             current_month_dt = start_month + relativedelta(months=i)
             current_month_str = current_month_dt.strftime('%Y-%m')
             queries.append(
-                ('INSERT INTO emis (loan_name, emi_amount, month) VALUES (?, ?, ?)',
-                (loan_name, float(emi_amount), current_month_str))
+                ('INSERT INTO emis (user_id, loan_name, emi_amount, month) VALUES (?, ?, ?, ?)',
+                (current_user.id, loan_name, float(emi_amount), current_month_str))
             )
 
         db.execute_batch(queries)
@@ -519,6 +653,7 @@ def api_add_emi():
 
 
 @app.route('/set_budget', methods=['POST'])
+@login_required
 def set_budget():
     active_month = request.form.get('month_select')
     # This route now handles multiple budget entries from the form
@@ -529,10 +664,10 @@ def set_budget():
                 db = get_db()
                 # Use UPSERT logic to either insert a new budget or update the existing one
                 db.execute(
-                    '''INSERT INTO budgets (month, category, amount)
-                       VALUES (?, ?, ?)
-                       ON CONFLICT(month, category) DO UPDATE SET amount = excluded.amount''',
-                    (active_month, category, float(amount))
+                    '''INSERT INTO budgets (user_id, month, category, amount)
+                       VALUES (?, ?, ?, ?)
+                       ON CONFLICT(user_id, month, category) DO UPDATE SET amount = excluded.amount''',
+                    (current_user.id, active_month, category, float(amount))
                 )
                 db.commit()
             except ValueError:
@@ -546,6 +681,7 @@ def set_budget():
 
 
 @app.route('/api/set_budget', methods=['POST'])
+@login_required
 def api_set_budget():
     active_month = request.form.get('month_select')
     category = request.form.get('category')
@@ -557,10 +693,10 @@ def api_set_budget():
     try:
         db = get_db()
         db.execute(
-            '''INSERT INTO budgets (month, category, amount)
-               VALUES (?, ?, ?)
-               ON CONFLICT(month, category) DO UPDATE SET amount = excluded.amount''',
-            (active_month, category, float(amount))
+            '''INSERT INTO budgets (user_id, month, category, amount)
+               VALUES (?, ?, ?, ?)
+               ON CONFLICT(user_id, month, category) DO UPDATE SET amount = excluded.amount''',
+            (current_user.id, active_month, category, float(amount))
         )
         db.commit()
         return jsonify({'status': 'success', 'message': 'Budget set successfully!'})
@@ -572,6 +708,7 @@ def api_set_budget():
 
 
 @app.route('/api/set_budgets', methods=['POST'])
+@login_required
 def api_set_budgets():
     active_month = request.form.get('month_select')
 
@@ -592,8 +729,8 @@ def api_set_budgets():
                 amount_str = request.form.get(category, '0.0').strip()
                 amount = float(amount_str) if amount_str else 0.0
                 queries.append(
-                    ('INSERT INTO budgets (month, category, amount) VALUES (?, ?, ?) ON CONFLICT(month, category) DO UPDATE SET amount = excluded.amount',
-                    (current_month_str, category, amount))
+                    ('INSERT INTO budgets (user_id, month, category, amount) VALUES (?, ?, ?, ?) ON CONFLICT(user_id, month, category) DO UPDATE SET amount = excluded.amount',
+                    (current_user.id, current_month_str, category, amount))
                 )
 
         db.execute_batch(queries)
@@ -608,11 +745,12 @@ def api_set_budgets():
 
 
 @app.route('/api/get_income/<int:income_id>', methods=['GET'])
+@login_required
 def api_get_income(income_id):
     """API endpoint to fetch a single income entry by its ID."""
     try:
         db = get_db()
-        income_rs = db.execute('SELECT * FROM income WHERE id = ?', (income_id,))
+        income_rs = db.execute('SELECT * FROM income WHERE id = ? AND user_id = ?', (income_id, current_user.id))
         income = db.fetchone(income_rs)
         if income:
             return jsonify(income)
@@ -623,11 +761,12 @@ def api_get_income(income_id):
         return jsonify({'status': 'error', 'message': 'An error occurred'}), 500
 
 @app.route('/api/get_emi/<int:emi_id>', methods=['GET'])
+@login_required
 def api_get_emi(emi_id):
     """API endpoint to fetch a single EMI entry by its ID."""
     try:
         db = get_db()
-        emi_rs = db.execute('SELECT * FROM emis WHERE id = ?', (emi_id,))
+        emi_rs = db.execute('SELECT * FROM emis WHERE id = ? AND user_id = ?', (emi_id, current_user.id))
         emi = db.fetchone(emi_rs)
         if emi:
             return jsonify(emi)
@@ -639,21 +778,9 @@ def api_get_emi(emi_id):
 
 
 
-@app.route('/api/delete_expense/<int:expense_id>', methods=['DELETE'])
-def api_delete_expense(expense_id):
-    """API endpoint to delete an expense."""
-    try:
-        db = get_db()
-        db.execute('DELETE FROM expenses WHERE id = ?', (expense_id,))
-        db.commit()
-        return jsonify({'status': 'success', 'message': 'Expense deleted successfully!'})
-    except Exception as e:
-        app.logger.error(f"Error deleting expense {expense_id} via API: {e}")
-        return jsonify({'status': 'error', 'message': 'An error occurred while deleting.'}), 500
-
-
 # This route is kept for non-JS compatibility if needed, but the primary delete is via API
 @app.route('/delete_expense/<int:expense_id>', methods=['POST'])
+@login_required
 def delete_expense(expense_id):
     """Route to delete a single expense item."""
     # The month is needed to redirect back correctly
@@ -661,7 +788,7 @@ def delete_expense(expense_id):
     active_month = request.args.get('month_select', default=smart_default)
     try:
         db = get_db()
-        db.execute('DELETE FROM expenses WHERE id = ?', (expense_id,))
+        db.execute('DELETE FROM expenses WHERE id = ? AND user_id = ?', (expense_id, current_user.id))
         db.commit()
         flash('Expense deleted successfully!', 'success')
     except Exception as e:
@@ -672,6 +799,7 @@ def delete_expense(expense_id):
 
 # This route is kept for non-JS compatibility if needed, but the primary edit is via API
 @app.route('/edit_expense/<int:expense_id>', methods=['GET', 'POST'])
+@login_required
 def edit_expense(expense_id):
     db = get_db()
     smart_default = get_smart_default_month()
@@ -688,14 +816,14 @@ def edit_expense(expense_id):
 
         db.execute('''UPDATE expenses 
                    SET month = ?, date = ?, category = ?, description = ?, amount = ?, payment_type = ?
-                   WHERE id = ?''',
-                   (month_for_db, date, category, description, float(amount), payment_type, expense_id))
+                   WHERE id = ? AND user_id = ?''',
+                   (month_for_db, date, category, description, float(amount), payment_type, expense_id, current_user.id))
         db.commit()
         flash('Expense updated successfully!', 'success')
         return redirect(url_for('index', month_select=month_for_db))
 
     # For GET request
-    expense_rs = db.execute('SELECT * FROM expenses WHERE id = ?', (expense_id,))
+    expense_rs = db.execute('SELECT * FROM expenses WHERE id = ? AND user_id = ?', (expense_id, current_user.id))
     expense = db.fetchone(expense_rs)
     if expense is None:
         flash('Expense not found!', 'error')
@@ -706,13 +834,14 @@ def edit_expense(expense_id):
 
 
 @app.route('/edit_item/<int:item_id>', methods=['GET'])
+@login_required
 def edit_item(item_id):
     """Serves the page to edit an existing expense."""
     db = get_db()
     smart_default = get_smart_default_month()
     active_month = request.args.get('month_select', smart_default)
     
-    item_cursor = db.execute('SELECT * FROM expenses WHERE id = ?', (item_id,))
+    item_cursor = db.execute('SELECT * FROM expenses WHERE id = ? AND user_id = ?', (item_id, current_user.id))
     item = db.fetchone(item_cursor)
 
     if item is None:
@@ -721,13 +850,14 @@ def edit_item(item_id):
     return render_template('edit_item.html', item=item, active_month=active_month)
 
 @app.route('/edit_income/<int:income_id>', methods=['GET'])
+@login_required
 def edit_income(income_id):
     """Serves the page to edit an existing income record."""
     db = get_db()
     smart_default = get_smart_default_month()
     active_month = request.args.get('month_select', smart_default)
 
-    income_cursor = db.execute('SELECT * FROM income WHERE id = ?', (income_id,))
+    income_cursor = db.execute('SELECT * FROM income WHERE id = ? AND user_id = ?', (income_id, current_user.id))
     income = db.fetchone(income_cursor)
 
     if income is None:
@@ -736,13 +866,14 @@ def edit_income(income_id):
     return render_template('edit_income.html', income=income, active_month=active_month)
 
 @app.route('/edit_emi/<int:emi_id>', methods=['GET'])
+@login_required
 def edit_emi(emi_id):
     """Serves the page to edit an existing EMI record."""
     db = get_db()
     smart_default = get_smart_default_month()
     active_month = request.args.get('month_select', smart_default)
 
-    emi_cursor = db.execute('SELECT * FROM emis WHERE id = ?', (emi_id,))
+    emi_cursor = db.execute('SELECT * FROM emis WHERE id = ? AND user_id = ?', (emi_id, current_user.id))
     emi = db.fetchone(emi_cursor)
 
     if emi is None:
@@ -752,6 +883,7 @@ def edit_emi(emi_id):
 
 
 @app.route('/api/edit_item/<int:item_id>', methods=['POST'])
+@login_required
 def api_edit_item(item_id):
     """API endpoint to update an existing expense."""
     date = request.form.get('date')
@@ -771,8 +903,8 @@ def api_edit_item(item_id):
         db.execute(
             """UPDATE expenses 
                SET date = ?, category = ?, description = ?, amount = ?, payment_type = ?, month = ?
-               WHERE id = ?""",
-            (date, category, description, float(amount), payment_type, month_for_db, item_id)
+               WHERE id = ? AND user_id = ?""",
+            (date, category, description, float(amount), payment_type, month_for_db, item_id, current_user.id)
         )
         db.commit()
         return jsonify({'status': 'success', 'message': 'Expense updated successfully!'})
@@ -785,6 +917,7 @@ def api_edit_item(item_id):
 
 # --- RESTORE /api/edit_emi/<int:emi_id> API ENDPOINT ---
 @app.route('/api/edit_emi/<int:emi_id>', methods=['POST'])
+@login_required
 def api_edit_emi(emi_id):
     """API endpoint to update an existing EMI record."""
     loan_name = request.form.get('loan_name')
@@ -797,8 +930,8 @@ def api_edit_emi(emi_id):
     try:
         db = get_db()
         db.execute(
-            'UPDATE emis SET loan_name = ?, emi_amount = ? WHERE id = ?',
-            (loan_name, float(emi_amount), emi_id)
+            'UPDATE emis SET loan_name = ?, emi_amount = ? WHERE id = ? AND user_id = ?',
+            (loan_name, float(emi_amount), emi_id, current_user.id)
         )
         db.commit()
         message = 'EMI updated successfully!'
@@ -813,10 +946,11 @@ def api_edit_emi(emi_id):
 
 
 @app.route('/api/delete_expense/<int:item_id>', methods=['POST'])
+@login_required
 def api_delete_expense_post(item_id):
     try:
         db = get_db()
-        db.execute('DELETE FROM expenses WHERE id = ?', (item_id,))
+        db.execute('DELETE FROM expenses WHERE id = ? AND user_id = ?', (item_id, current_user.id))
         db.commit()
         return jsonify({'status': 'success', 'message': 'Expense deleted successfully!'})
     except Exception as e:
@@ -824,10 +958,11 @@ def api_delete_expense_post(item_id):
         return jsonify({'status': 'error', 'message': 'An error occurred while deleting the expense.'}), 500
 
 @app.route('/api/delete_income/<int:income_id>', methods=['POST'])
+@login_required
 def api_delete_income(income_id):
     try:
         db = get_db()
-        db.execute('DELETE FROM income WHERE id = ?', (income_id,))
+        db.execute('DELETE FROM income WHERE id = ? AND user_id = ?', (income_id, current_user.id))
         db.commit()
         return jsonify({'status': 'success', 'message': 'Income record deleted successfully!'})
     except Exception as e:
@@ -835,10 +970,11 @@ def api_delete_income(income_id):
         return jsonify({'status': 'error', 'message': 'An error occurred while deleting the income record.'}), 500
 
 @app.route('/api/delete_emi/<int:emi_id>', methods=['POST'])
+@login_required
 def api_delete_emi(emi_id):
     try:
         db = get_db()
-        db.execute('DELETE FROM emis WHERE id = ?', (emi_id,))
+        db.execute('DELETE FROM emis WHERE id = ? AND user_id = ?', (emi_id, current_user.id))
         db.commit()
         return jsonify({'status': 'success', 'message': 'EMI record deleted successfully!'})
     except Exception as e:
@@ -847,22 +983,23 @@ def api_delete_emi(emi_id):
 
 
 @app.route('/generate_report')
+@login_required
 def generate_report():
     # This route will generate a report for the current month.
     active_month = datetime.now().strftime('%Y-%m')
     db = get_db()
 
-    # Fetch data
-    expenses_rs = db.execute('SELECT * FROM expenses WHERE strftime("%Y-%m", date) = ?', (active_month,))
+    # Fetch data for current user
+    expenses_rs = db.execute('SELECT * FROM expenses WHERE strftime("%Y-%m", date) = ? AND user_id = ?', (active_month, current_user.id))
     expenses = db.fetchall(expenses_rs)
 
-    income_rs = db.execute('SELECT * FROM income WHERE month = ?', (active_month,))
+    income_rs = db.execute('SELECT * FROM income WHERE month = ? AND user_id = ?', (active_month, current_user.id))
     income = db.fetchall(income_rs)
 
-    emis_rs = db.execute('SELECT * FROM emis WHERE month = ?', (active_month,))
+    emis_rs = db.execute('SELECT * FROM emis WHERE month = ? AND user_id = ?', (active_month, current_user.id))
     emis = db.fetchall(emis_rs)
 
-    budget_rs = db.execute('SELECT category, amount FROM budgets WHERE month = ?', (active_month,))
+    budget_rs = db.execute('SELECT category, amount FROM budgets WHERE month = ? AND user_id = ?', (active_month, current_user.id))
     budget = {row['category']: row['amount'] for row in db.fetchall(budget_rs)}
 
     # Calculate totals
@@ -898,6 +1035,7 @@ def generate_report():
 # --- COPY FROM PREVIOUS MONTH ENDPOINTS ---
 
 @app.route('/api/copy_income_from_previous', methods=['POST'])
+@login_required
 def copy_income_from_previous():
     """Copy income records from the previous month to the current month."""
     try:
@@ -915,13 +1053,13 @@ def copy_income_from_previous():
         
         db = get_db()
         
-        # Get income records from previous month
-        previous_income_rs = db.execute('SELECT description, amount FROM income WHERE month = ?', (previous_month,))
+        # Get income records from previous month for current user
+        previous_income_rs = db.execute('SELECT description, amount FROM income WHERE month = ? AND user_id = ?', (previous_month, current_user.id))
         previous_income = db.fetchall(previous_income_rs)
         
         if not previous_income:
             # Check what months have income data to provide helpful suggestions
-            available_months_rs = db.execute('SELECT DISTINCT month FROM income ORDER BY month DESC LIMIT 5')
+            available_months_rs = db.execute('SELECT DISTINCT month FROM income WHERE user_id = ? ORDER BY month DESC LIMIT 5', (current_user.id,))
             available_months = [row['month'] for row in db.fetchall(available_months_rs)]
             
             if available_months:
@@ -937,13 +1075,13 @@ def copy_income_from_previous():
                 }), 404
         
         # Delete existing income for current month
-        db.execute('DELETE FROM income WHERE month = ?', (current_month,))
+        db.execute('DELETE FROM income WHERE month = ? AND user_id = ?', (current_month, current_user.id))
         
         # Copy income records to current month
         copied_count = 0
         for record in previous_income:
-            db.execute('INSERT INTO income (month, description, amount) VALUES (?, ?, ?)',
-                      (current_month, record['description'], record['amount']))
+            db.execute('INSERT INTO income (user_id, month, description, amount) VALUES (?, ?, ?, ?)',
+                      (current_user.id, current_month, record['description'], record['amount']))
             copied_count += 1
         
         db.commit()
@@ -960,6 +1098,7 @@ def copy_income_from_previous():
 
 
 @app.route('/api/copy_budget_from_previous', methods=['POST'])
+@login_required
 def copy_budget_from_previous():
     """Copy budget settings from the previous month to the current month."""
     try:
@@ -974,13 +1113,13 @@ def copy_budget_from_previous():
         
         db = get_db()
         
-        # Get budget records from previous month
-        previous_budget_rs = db.execute('SELECT category, amount FROM budgets WHERE month = ?', (previous_month,))
+        # Get budget records from previous month for current user
+        previous_budget_rs = db.execute('SELECT category, amount FROM budgets WHERE month = ? AND user_id = ?', (previous_month, current_user.id))
         previous_budget = db.fetchall(previous_budget_rs)
         
         if not previous_budget:
             # Check what months have budget data to provide helpful suggestions
-            available_months_rs = db.execute('SELECT DISTINCT month FROM budgets ORDER BY month DESC LIMIT 5')
+            available_months_rs = db.execute('SELECT DISTINCT month FROM budgets WHERE user_id = ? ORDER BY month DESC LIMIT 5', (current_user.id,))
             available_months = [row['month'] for row in db.fetchall(available_months_rs)]
             
             if available_months:
@@ -996,13 +1135,13 @@ def copy_budget_from_previous():
                 }), 404
         
         # Delete existing budget for current month
-        db.execute('DELETE FROM budgets WHERE month = ?', (current_month,))
+        db.execute('DELETE FROM budgets WHERE month = ? AND user_id = ?', (current_month, current_user.id))
         
         # Copy budget records to current month
         copied_count = 0
         for record in previous_budget:
-            db.execute('INSERT INTO budgets (month, category, amount) VALUES (?, ?, ?)',
-                      (current_month, record['category'], record['amount']))
+            db.execute('INSERT INTO budgets (user_id, month, category, amount) VALUES (?, ?, ?, ?)',
+                      (current_user.id, current_month, record['category'], record['amount']))
             copied_count += 1
         
         db.commit()
@@ -1019,6 +1158,7 @@ def copy_budget_from_previous():
 
 
 @app.route('/api/copy_emi_from_previous', methods=['POST'])
+@login_required
 def copy_emi_from_previous():
     """Copy EMI records from the previous month to the current month."""
     try:
@@ -1033,13 +1173,13 @@ def copy_emi_from_previous():
         
         db = get_db()
         
-        # Get EMI records from previous month
-        previous_emi_rs = db.execute('SELECT loan_name, emi_amount FROM emis WHERE month = ?', (previous_month,))
+        # Get EMI records from previous month for current user
+        previous_emi_rs = db.execute('SELECT loan_name, emi_amount FROM emis WHERE month = ? AND user_id = ?', (previous_month, current_user.id))
         previous_emi = db.fetchall(previous_emi_rs)
         
         if not previous_emi:
             # Check what months have EMI data to provide helpful suggestions
-            available_months_rs = db.execute('SELECT DISTINCT month FROM emis ORDER BY month DESC LIMIT 5')
+            available_months_rs = db.execute('SELECT DISTINCT month FROM emis WHERE user_id = ? ORDER BY month DESC LIMIT 5', (current_user.id,))
             available_months = [row['month'] for row in db.fetchall(available_months_rs)]
             
             if available_months:
@@ -1055,13 +1195,13 @@ def copy_emi_from_previous():
                 }), 404
         
         # Delete existing EMI for current month
-        db.execute('DELETE FROM emis WHERE month = ?', (current_month,))
+        db.execute('DELETE FROM emis WHERE month = ? AND user_id = ?', (current_month, current_user.id))
         
         # Copy EMI records to current month
         copied_count = 0
         for record in previous_emi:
-            db.execute('INSERT INTO emis (month, loan_name, emi_amount) VALUES (?, ?, ?)',
-                      (current_month, record['loan_name'], record['emi_amount']))
+            db.execute('INSERT INTO emis (user_id, month, loan_name, emi_amount) VALUES (?, ?, ?, ?)',
+                      (current_user.id, current_month, record['loan_name'], record['emi_amount']))
             copied_count += 1
         
         db.commit()
@@ -1095,6 +1235,7 @@ def internal_error(error):
 
 # --- Main App Runner ---
 @app.route('/api/debug/month_logic')
+@login_required
 def debug_month_logic():
     """Debug endpoint to check the next-month default logic"""
     try:
@@ -1109,13 +1250,13 @@ def debug_month_logic():
         next_month = next_month_date.strftime('%Y-%m')
         current_month = current_date.strftime('%Y-%m')
         
-        # Check if next month has any expense records
+        # Check if next month has any expense records for current user
         db = get_db()
         expense_count_rs = db.execute('''
             SELECT COUNT(*) as count 
             FROM expenses 
-            WHERE month = ?
-        ''', (next_month,))
+            WHERE month = ? AND user_id = ?
+        ''', (next_month, current_user.id))
         expense_count = db.fetchone(expense_count_rs)
         
         next_month_expenses = expense_count['count'] if expense_count else 0

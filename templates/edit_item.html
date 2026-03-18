@@ -88,7 +88,7 @@
                         <label>Payment Type:</label>
                         <div style="display:flex;gap:18px;align-items:center;">
                             <label style="display:flex;align-items:center;gap:4px;font-size:1em;">
-                                <input type="radio" name="payment_type" value="Amex" {% if item.payment_type == 'Amex' %}checked{% endif %} required> Amex
+                                <input type="radio" name="payment_type" value="AMEX" {% if item.payment_type == 'AMEX' or item.payment_type == 'Amex' %}checked{% endif %} required> Amex
                             </label>
                             <label style="display:flex;align-items:center;gap:4px;font-size:1em;">
                                 <input type="radio" name="payment_type" value="RBL" {% if item.payment_type == 'RBL' %}checked{% endif %}> RBL
@@ -125,7 +125,7 @@
                 <input type="number" step="0.01" name="amount" placeholder="Amount" value="{{ item.amount }}" required style="padding:10px 12px;border-radius:8px;border:1px solid #d1d5db;font-size:1em;">
                 <div class="mobile-radios" style="display:flex;gap:12px;justify-content:space-between;align-items:center;">
                     <label style="display:flex;align-items:center;gap:4px;font-size:1em;">
-                        <input type="radio" name="payment_type" value="Amex" {% if item.payment_type == 'Amex' %}checked{% endif %} required> Amex
+                        <input type="radio" name="payment_type" value="AMEX" {% if item.payment_type == 'AMEX' or item.payment_type == 'Amex' %}checked{% endif %} required> Amex
                     </label>
                     <label style="display:flex;align-items:center;gap:4px;font-size:1em;">
                         <input type="radio" name="payment_type" value="RBL" {% if item.payment_type == 'RBL' %}checked{% endif %}> RBL

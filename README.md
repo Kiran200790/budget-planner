@@ -35,6 +35,41 @@ A simple web application to track income, expenses, loan EMIs, and plan monthly 
 
     The application will be available at `http://127.0.0.1:5000`.
 
+## Upgrading an Existing Single-User Database
+
+If your running app already has data from the old single-user version, do not deploy the auth changes without backfilling `user_id` first.
+
+The migration script `migrate_add_users_and_userid.py` will:
+
+- create the `users` table if needed
+- add missing `user_id` columns to `income`, `expenses`, `emis`, and `budgets`
+- create or reuse a legacy login account
+- attach all existing rows with `user_id IS NULL` to that legacy account
+- add the required unique budget index on `(user_id, month, category)`
+
+Run it once before or during deployment:
+
+```bash
+export LEGACY_USERNAME="your-existing-admin"
+export LEGACY_PASSWORD="choose-a-strong-password"
+python migrate_add_users_and_userid.py
+```
+
+If you deploy with `build.sh`, make the backfill explicit:
+
+```bash
+export RUN_LEGACY_USER_BACKFILL=1
+export LEGACY_USERNAME="your-existing-admin"
+export LEGACY_PASSWORD="choose-a-strong-password"
+./build.sh
+```
+
+Notes:
+
+- Use the same `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` env vars as the app if production uses Turso/libSQL.
+- The password is only used if the legacy user does not already exist.
+- After migration, sign in with the legacy account to see all pre-auth data.
+
 ## Project Structure
 
 ```
