@@ -13,6 +13,54 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     let expenses = flaskData.expenses || [];
 
+    // --- DATALIST HELPER (improve UX for payment method and category selection) ---
+    function setupDatalistInputs() {
+        const toggleTargets = [
+            { inputSelector: 'input[list="paymentTypeOptions"]', containerSelector: '.payment-input-container', clearSelector: '.clearPaymentInput' },
+            { inputSelector: 'input[list="categoryOptions"]', containerSelector: '.category-input-container', clearSelector: '.clearCategoryInput' }
+        ];
+
+        function toggleInlineClear(input, containerSelector) {
+            const container = input.closest(containerSelector);
+            if (!container) return;
+            if ((input.value || '').trim()) {
+                container.classList.add('has-text');
+            } else {
+                container.classList.remove('has-text');
+            }
+        }
+
+        toggleTargets.forEach(target => {
+            const inputs = document.querySelectorAll(target.inputSelector);
+            inputs.forEach(input => {
+                input.addEventListener('input', () => toggleInlineClear(input, target.containerSelector));
+                input.addEventListener('change', () => toggleInlineClear(input, target.containerSelector));
+                input.addEventListener('click', function() {
+                    this.focus();
+                });
+                toggleInlineClear(input, target.containerSelector);
+            });
+        });
+
+        document.querySelectorAll('.clearPaymentInput, .clearCategoryInput').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('data-target');
+                let input = targetId ? document.getElementById(targetId) : null;
+                if (!input) {
+                    input = this.closest('div')?.querySelector('input[type="text"][list]') || null;
+                }
+                if (input) {
+                    input.value = '';
+                    input.focus();
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                    const isCategory = input.getAttribute('list') === 'categoryOptions';
+                    toggleInlineClear(input, isCategory ? '.category-input-container' : '.payment-input-container');
+                }
+            });
+        });
+    }
+
     // --- PANE/TAB SWITCHING LOGIC ---
     function switchPane(targetId, view) {
         console.log(`Switching to pane: ${targetId} in view: ${view}`);
@@ -112,24 +160,58 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
 
-        // Payment Type Totals
-        // Fix: Use correct data for payment type totals (use data.expenses, not global expenses)
-        let totals = { 'AMEX': 0, 'RBL': 0, 'CASH': 0 };
+        // Payment Method Totals (dynamic, public-friendly)
+        const paymentTotals = {};
         (data.expenses || []).forEach(exp => {
-            const paymentType = (exp.payment_type || '').toUpperCase();
-            if (totals.hasOwnProperty(paymentType)) {
-                totals[paymentType] += parseFloat(exp.amount || 0);
-            }
+            const method = (exp.payment_type || 'Unknown').toString().trim() || 'Unknown';
+            paymentTotals[method] = (paymentTotals[method] || 0) + parseFloat(exp.amount || 0);
         });
-        // Use IDs for payment type totals (not class selectors)
-        const totalAmexEl = container.querySelector('#totalAmex');
-        if(totalAmexEl) totalAmexEl.textContent = totals.AMEX.toFixed(2);
 
-        const totalRblEl = container.querySelector('#totalRbl');
-        if(totalRblEl) totalRblEl.textContent = totals.RBL.toFixed(2);
+        const totalsContainer = view === 'desktop'
+            ? container.querySelector('#paymentTypeTotalsDesktop')
+            : container.querySelector('#paymentTypeTotalsMobile');
 
-        const totalCashEl = container.querySelector('#totalCash');
-        if(totalCashEl) totalCashEl.textContent = totals.CASH.toFixed(2);
+        if (totalsContainer) {
+            totalsContainer.innerHTML = '';
+            const sortedMethods = Object.entries(paymentTotals)
+                .sort((first, second) => second[1] - first[1]);
+
+            if (!sortedMethods.length) {
+                const empty = document.createElement('div');
+                empty.style.color = '#6b7280';
+                empty.textContent = 'No expense records yet.';
+                totalsContainer.appendChild(empty);
+            } else {
+                const list = document.createElement('div');
+                list.style.display = 'grid';
+                list.style.gridTemplateColumns = 'repeat(auto-fit, minmax(180px, 1fr))';
+                list.style.gap = '10px';
+
+                sortedMethods.forEach(([method, total]) => {
+                    const item = document.createElement('div');
+                    item.style.background = '#f8fafc';
+                    item.style.border = '1px solid #e5e7eb';
+                    item.style.borderRadius = '8px';
+                    item.style.padding = '8px 10px';
+
+                    const label = document.createElement('div');
+                    label.style.fontWeight = '600';
+                    label.style.color = '#334155';
+                    label.textContent = method;
+
+                    const value = document.createElement('div');
+                    value.style.color = '#0f766e';
+                    value.style.marginTop = '2px';
+                    value.textContent = `₹${total.toFixed(2)}`;
+
+                    item.appendChild(label);
+                    item.appendChild(value);
+                    list.appendChild(item);
+                });
+
+                totalsContainer.appendChild(list);
+            }
+        }
 
         // Budget Report Table
         const tableBody = container.querySelector('.budgetReportTable tbody');
@@ -838,6 +920,32 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
 
+        document.querySelectorAll('.addBudgetRow').forEach(addButton => {
+            addButton.addEventListener('click', () => {
+                const targetId = addButton.getAttribute('data-target');
+                const targetContainer = targetId ? document.getElementById(targetId) : null;
+                if (!targetContainer) return;
+
+                const isMobile = targetId.toLowerCase().includes('mobile');
+                const row = document.createElement('div');
+                row.className = isMobile ? 'budget-row' : 'form-field budget-row';
+                row.style.display = 'grid';
+                row.style.gridTemplateColumns = isMobile ? '1fr 120px' : '1fr 140px';
+                row.style.gap = '8px';
+                if (!isMobile) {
+                    row.style.alignItems = 'center';
+                    row.style.minWidth = '320px';
+                }
+
+                row.innerHTML = `
+                    <input type="text" name="budget_category[]" list="categoryOptions" placeholder="Category" autocomplete="off">
+                    <input type="number" step="0.01" name="budget_amount[]" placeholder="Amount" autocomplete="off">
+                `;
+                targetContainer.appendChild(row);
+                setupDatalistInputs();
+            });
+        });
+
         // Form Submissions via AJAX (for all forms in both views)
         document.querySelectorAll('form[id]').forEach(form => {
             form.addEventListener('submit', async (e) => {
@@ -925,34 +1033,49 @@ document.addEventListener('DOMContentLoaded', function () {
         console.log("Updating budget forms with data:", budgetData);
         console.log("Budget data type:", typeof budgetData);
         console.log("Budget data keys:", Object.keys(budgetData));
-        const categories = ['Food', 'Cloth', 'Online', 'Miscellaneous', 'Other'];
-
-        // Update both desktop and mobile forms
         ['Desktop', 'Mobile'].forEach(view => {
             const form = document.getElementById(`setBudgetForm${view}`);
-            if (form) {
-                console.log(`Processing form: setBudgetForm${view}`);
-                categories.forEach(category => {
-                    const input = form.querySelector(`input[name="${category}"]`);
-                    if (input) {
-                        console.log(`Category: ${category}, Current value: "${input.value}", Budget data value:`, budgetData[category]);
-                        // Clear the input and set only if there's valid budget data
-                        input.value = ''; // Always clear first
-                        if (budgetData[category] !== undefined && budgetData[category] !== null && budgetData[category] !== 0 && budgetData[category] !== '0') {
-                            const budgetValue = parseFloat(budgetData[category]);
-                            if (!isNaN(budgetValue) && budgetValue > 0) {
-                                input.value = budgetValue;
-                                console.log(`Set ${category} to: ${budgetValue}`);
-                            } else {
-                                console.log(`Leaving ${category} empty (invalid value: ${budgetData[category]})`);
-                            }
-                        } else {
-                            console.log(`Leaving ${category} empty (no data or zero value)`);
-                        }
+            if (!form) return;
+
+            const rows = form.querySelectorAll('.budget-row');
+            const assigned = new Set();
+
+            rows.forEach(row => {
+                const categoryInput = row.querySelector('input[name="budget_category[]"]');
+                const amountInput = row.querySelector('input[name="budget_amount[]"]');
+                if (!categoryInput || !amountInput) return;
+
+                const categoryName = (categoryInput.value || '').trim();
+                amountInput.value = '';
+
+                if (categoryName && budgetData[categoryName] !== undefined && budgetData[categoryName] !== null) {
+                    const budgetValue = parseFloat(budgetData[categoryName]);
+                    if (!isNaN(budgetValue) && budgetValue > 0) {
+                        amountInput.value = budgetValue;
                     }
+                    assigned.add(categoryName);
+                }
+            });
+
+            const remaining = Object.keys(budgetData).filter(categoryName => !assigned.has(categoryName));
+            remaining.forEach(categoryName => {
+                const emptyRow = Array.from(form.querySelectorAll('.budget-row')).find(row => {
+                    const categoryInput = row.querySelector('input[name="budget_category[]"]');
+                    const amountInput = row.querySelector('input[name="budget_amount[]"]');
+                    return categoryInput && amountInput && !(categoryInput.value || '').trim() && !(amountInput.value || '').trim();
                 });
-            }
+
+                if (emptyRow) {
+                    const categoryInput = emptyRow.querySelector('input[name="budget_category[]"]');
+                    const amountInput = emptyRow.querySelector('input[name="budget_amount[]"]');
+                    categoryInput.value = categoryName;
+                    const budgetValue = parseFloat(budgetData[categoryName]);
+                    amountInput.value = !isNaN(budgetValue) && budgetValue > 0 ? budgetValue : '';
+                }
+            });
         });
+
+        setupDatalistInputs();
     }
 
     // --- INITIALIZATION ---
@@ -1316,4 +1439,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     enhanceExistingAlerts();
+
+    // Setup datalist inputs to show all options on focus
+    setupDatalistInputs();
 });

@@ -58,6 +58,36 @@ if app.config['DEBUG']:
 # Configure logging to see output in the terminal
 logging.basicConfig(level=logging.INFO)
 
+DEFAULT_CATEGORY_OPTIONS = [
+    'Groceries', 'Utilities', 'Transport', 'Entertainment', 'Healthcare',
+    'Shopping', 'Dining', 'Subscriptions', 'Education', 'Travel', 'Rent', 'Other'
+]
+
+
+def get_user_category_options(user_id):
+    db = get_db()
+    category_rs = db.execute('''
+        SELECT category FROM expenses WHERE user_id = ?
+        UNION
+        SELECT category FROM budgets WHERE user_id = ?
+    ''', (user_id, user_id))
+    db_categories = {
+        (row['category'] or '').strip()
+        for row in db.fetchall(category_rs)
+        if (row['category'] or '').strip()
+    }
+
+    ordered = []
+    for category_name in DEFAULT_CATEGORY_OPTIONS:
+        if category_name not in ordered:
+            ordered.append(category_name)
+
+    for category_name in sorted(db_categories):
+        if category_name not in ordered:
+            ordered.append(category_name)
+
+    return ordered
+
 def validate_password(password):
     """Validate password strength. Returns (is_valid, message)"""
     if len(password) < 8:
@@ -422,10 +452,7 @@ def get_budget_data(active_month):
         amount = expense['amount']
         category_totals[category] = category_totals.get(category, 0) + amount
 
-    # Define a fixed list of all possible categories to ensure they always appear.
-    all_categories = sorted(['Food', 'Cloth', 'Online', 'Miscellaneous', 'Other'])
-
-    chart_labels = all_categories
+    chart_labels = sorted(set(list(category_totals.keys()) + list(budget.keys())))
     budget_values = [budget.get(cat, 0) for cat in chart_labels]
     spent_values = [category_totals.get(cat, 0) for cat in chart_labels]
 
@@ -517,11 +544,13 @@ def index():
         ORDER BY month DESC
     ''', (current_user.id, current_user.id, current_user.id))
     available_months = [row['month'] for row in db.fetchall(available_months_rs)]
+    category_options = get_user_category_options(current_user.id)
 
     return render_template('index.html', 
                          js_data=js_data, 
                          active_month=active_month, 
                          available_months=available_months, 
+                         category_options=category_options,
                          current_date=datetime.now().strftime('%Y-%m-%d'),
                          # Pass individual data points that the template still needs directly
                          budget=js_data.get('budget', {}),
@@ -667,25 +696,50 @@ def api_add_emi():
 @login_required
 def set_budget():
     active_month = request.form.get('month_select')
-    # This route now handles multiple budget entries from the form
-    for category in ['Food', 'Cloth', 'Online', 'Miscellaneous', 'Other']:
-        amount = request.form.get(category)
-        if amount:  # Only process if an amount was entered
+    categories = request.form.getlist('budget_category[]')
+    amounts = request.form.getlist('budget_amount[]')
+    budget_map = {}
+
+    if categories and amounts:
+        for category_raw, amount_raw in zip(categories, amounts):
+            category_name = (category_raw or '').strip()
+            amount_text = (amount_raw or '').strip()
+            if not category_name or not amount_text:
+                continue
             try:
-                db = get_db()
-                # Use UPSERT logic to either insert a new budget or update the existing one
-                db.execute(
-                    '''INSERT INTO budgets (user_id, month, category, amount)
-                       VALUES (?, ?, ?, ?)
-                       ON CONFLICT(user_id, month, category) DO UPDATE SET amount = excluded.amount''',
-                    (current_user.id, active_month, category, float(amount))
-                )
-                db.commit()
+                budget_map[category_name] = float(amount_text)
             except ValueError:
-                flash(f'Invalid amount entered for {category}. Please use numbers only.', 'error')
-            except Exception as e:
-                app.logger.error(f"Error setting budget for {category}: {e}")
-                flash(f'An error occurred while setting the budget for {category}.', 'error')
+                flash(f'Invalid amount entered for {category_name}. Please use numbers only.', 'error')
+                return redirect(url_for('index', month_select=active_month))
+    else:
+        for category_name in DEFAULT_CATEGORY_OPTIONS:
+            amount_text = (request.form.get(category_name) or '').strip()
+            if not amount_text:
+                continue
+            try:
+                budget_map[category_name] = float(amount_text)
+            except ValueError:
+                flash(f'Invalid amount entered for {category_name}. Please use numbers only.', 'error')
+                return redirect(url_for('index', month_select=active_month))
+
+    if not budget_map:
+        flash('Please add at least one budget category with amount.', 'error')
+        return redirect(url_for('index', month_select=active_month))
+
+    try:
+        db = get_db()
+        for category_name, amount in budget_map.items():
+            db.execute(
+                '''INSERT INTO budgets (user_id, month, category, amount)
+                   VALUES (?, ?, ?, ?)
+                   ON CONFLICT(user_id, month, category) DO UPDATE SET amount = excluded.amount''',
+                (current_user.id, active_month, category_name, amount)
+            )
+        db.commit()
+    except Exception as e:
+        app.logger.error(f"Error setting budget: {e}")
+        flash('An error occurred while setting budget categories.', 'error')
+        return redirect(url_for('index', month_select=active_month))
     
     flash('Budget updated successfully!', 'success')
     return redirect(url_for('index', month_select=active_month))
@@ -730,15 +784,33 @@ def api_set_budgets():
         db = get_db()
         num_months = 3  # Default to propagating the budget for the next 3 months
         start_month = datetime.strptime(active_month, '%Y-%m')
+        categories = request.form.getlist('budget_category[]')
+        amounts = request.form.getlist('budget_amount[]')
+
+        budget_map = {}
+        if categories and amounts:
+            for category_raw, amount_raw in zip(categories, amounts):
+                category_name = (category_raw or '').strip()
+                amount_text = (amount_raw or '').strip()
+                if not category_name or not amount_text:
+                    continue
+                budget_map[category_name] = float(amount_text)
+        else:
+            for category_name in DEFAULT_CATEGORY_OPTIONS:
+                amount_text = (request.form.get(category_name, '0.0') or '').strip()
+                if not amount_text:
+                    continue
+                budget_map[category_name] = float(amount_text)
+
+        if not budget_map:
+            return jsonify({'status': 'error', 'message': 'Add at least one budget category and amount.'}), 400
         
         queries = []
         for i in range(num_months):
             current_month_dt = start_month + relativedelta(months=i)
             current_month_str = current_month_dt.strftime('%Y-%m')
 
-            for category in ['Food', 'Cloth', 'Online', 'Miscellaneous', 'Other']:
-                amount_str = request.form.get(category, '0.0').strip()
-                amount = float(amount_str) if amount_str else 0.0
+            for category, amount in budget_map.items():
                 queries.append(
                     ('INSERT INTO budgets (user_id, month, category, amount) VALUES (?, ?, ?, ?) ON CONFLICT(user_id, month, category) DO UPDATE SET amount = excluded.amount',
                     (current_user.id, current_month_str, category, amount))
@@ -841,7 +913,13 @@ def edit_expense(expense_id):
         return redirect(url_for('index', month_select=active_month))
 
     # Pass the expense object as 'item' and specify the 'item_type'
-    return render_template('edit_item.html', item=expense, item_type='expense', active_month=active_month)
+    return render_template(
+        'edit_item.html',
+        item=expense,
+        item_type='expense',
+        active_month=active_month,
+        category_options=get_user_category_options(current_user.id)
+    )
 
 
 @app.route('/edit_item/<int:item_id>', methods=['GET'])
@@ -858,7 +936,12 @@ def edit_item(item_id):
     if item is None:
         return "Item not found", 404
         
-    return render_template('edit_item.html', item=item, active_month=active_month)
+    return render_template(
+        'edit_item.html',
+        item=item,
+        active_month=active_month,
+        category_options=get_user_category_options(current_user.id)
+    )
 
 @app.route('/edit_income/<int:income_id>', methods=['GET'])
 @login_required

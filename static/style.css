@@ -2060,6 +2060,30 @@ button:hover, .button-style:hover {
   display: block;
 }
 
+/* Show/hide clear (X) button in payment method fields */
+.payment-input-container .clearPaymentInput {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
+}
+
+.payment-input-container.has-text .clearPaymentInput {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Show/hide clear (X) button in category fields */
+.category-input-container .clearCategoryInput {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
+}
+
+.category-input-container.has-text .clearCategoryInput {
+    opacity: 1;
+    pointer-events: auto;
+}
+
 /* --- FLOATING ACTION BUTTON (FAB) --- */
 .fab {
     position: fixed !important; /* Ensure fixed positioning to viewport */

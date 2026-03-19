@@ -26,6 +26,11 @@
                     </div>
                   {% endif %}
                 {% endwith %}
+                                {% set default_category_options = ['Groceries', 'Utilities', 'Transport', 'Entertainment', 'Healthcare', 'Shopping', 'Dining', 'Subscriptions', 'Education', 'Travel', 'Rent', 'Other'] %}
+                                {% set budget_rows = budget.keys()|list %}
+                                {% if not budget_rows %}
+                                        {% set budget_rows = default_category_options[:6] %}
+                                {% endif %}
 
                 <div class="month-selector card-style">
                     <div class="month-selector-inline">
@@ -92,21 +97,22 @@
                         <div class="form-field"><label for="expense_date_desktop">Date:</label><input type="date" id="expense_date_desktop" name="date" value="{{ current_date }}" required></div>
                         <div class="form-field category-field">
                             <label for="expense_category_desktop">Category:</label>
-                            <select id="expense_category_desktop" name="category">
-                                <option value="Food">Food</option>
-                                <option value="Cloth">Cloth</option>
-                                <option value="Online">Online</option>
-                                <option value="Miscellaneous">Miscellaneous</option>
-                                <option value="Other">Other</option>
-                            </select>
+                            <div class="category-input-container" style="position: relative;">
+                                <input type="text" id="expense_category_desktop" name="category" list="categoryOptions" placeholder="e.g., Groceries, Transport" required style="width: 100%; padding-right: 34px;">
+                                <button type="button" class="clearCategoryInput" data-target="expense_category_desktop" title="Clear category" style="position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; height: 24px; color: #64748b;">
+                                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2"/><path d="M7 7l6 6M13 7l-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+                                </button>
+                            </div>
                         </div>
                         <div class="form-field description-field"><label for="expense_description_desktop">Description:</label><input type="text" id="expense_description_desktop" name="description" required></div>
                         <div class="form-field amount-field"><label for="expense_amount_desktop">Amount:</label><input type="number" step="0.01" id="expense_amount_desktop" name="amount" required></div>
                         <div class="form-field payment-field">
-                            <div class="payment-radios">
-                                <label><input type="radio" name="payment_type" value="Amex"> Amex</label>
-                                <label><input type="radio" name="payment_type" value="RBL"> RBL</label>
-                                <label><input type="radio" name="payment_type" value="CASH"> Cash</label>
+                            <label for="expense_payment_type_desktop">Payment Method:</label>
+                            <div class="payment-input-container" style="position: relative;">
+                                <input type="text" id="expense_payment_type_desktop" name="payment_type" list="paymentTypeOptions" placeholder="e.g., UPI, Cash, Card" required style="width: 100%; padding-right: 34px;">
+                                <button type="button" class="clearPaymentInput" data-target="expense_payment_type_desktop" title="Clear payment method" style="position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; height: 24px; color: #64748b;">
+                                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2"/><path d="M7 7l6 6M13 7l-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+                                </button>
                             </div>
                         </div>
                         <div class="form-field"><button type="submit">Add Expense</button></div>
@@ -135,14 +141,20 @@
                 </div>
                 <form action="/set_budget" method="post" class="expense-form-compact" id="setBudgetFormDesktop" autocomplete="off">
                     <input type="hidden" name="month_select" value="{{ active_month }}">
-                    <div class="expense-fields-inline">
-                        <div class="form-field amount-field"><label for="budget_food">Food:</label><input type="number" step="0.01" id="budget_food" name="Food" value="{{ budget.get('Food', '') }}" autocomplete="off"></div>
-                        <div class="form-field amount-field"><label for="budget_cloth">Cloth:</label><input type="number" step="0.01" id="budget_cloth" name="Cloth" value="{{ budget.get('Cloth', '') }}" autocomplete="off"></div>
-                        <div class="form-field amount-field"><label for="budget_online">Online:</label><input type="number" step="0.01" id="budget_online" name="Online" value="{{ budget.get('Online', '') }}" autocomplete="off"></div>
-                        <div class="form-field amount-field"><label for="budget_miscellaneous">Miscellaneous:</label><input type="number" step="0.01" id="budget_miscellaneous" name="Miscellaneous" value="{{ budget.get('Miscellaneous', '') }}" autocomplete="off"></div>
-                        <div class="form-field amount-field"><label for="budget_other">Other:</label><input type="number" step="0.01" id="budget_other" name="Other" value="{{ budget.get('Other', '') }}" autocomplete="off"></div>
+                    <div id="budgetRowsDesktop" class="expense-fields-inline" style="gap: 10px;">
+                        {% for category_name in budget_rows %}
+                        <div class="form-field budget-row" style="display: grid; grid-template-columns: 1fr 140px; gap: 8px; align-items: center; min-width: 320px;">
+                            <input type="text" name="budget_category[]" list="categoryOptions" value="{{ category_name }}" placeholder="Category" autocomplete="off">
+                            <input type="number" step="0.01" name="budget_amount[]" value="{{ budget.get(category_name, '') }}" placeholder="Amount" autocomplete="off">
+                        </div>
+                        {% endfor %}
+                        <div class="form-field budget-row" style="display: grid; grid-template-columns: 1fr 140px; gap: 8px; align-items: center; min-width: 320px;">
+                            <input type="text" name="budget_category[]" list="categoryOptions" placeholder="Add another category" autocomplete="off">
+                            <input type="number" step="0.01" name="budget_amount[]" placeholder="Amount" autocomplete="off">
+                        </div>
                     </div>
                     <div class="form-actions">
+                        <button type="button" class="addBudgetRow" data-target="budgetRowsDesktop">+ Add Category</button>
                         <button type="submit">Set Budget</button>
                     </div>
                 </form>
@@ -191,12 +203,8 @@
             </div>
 
             <div class="card" id="payment-type-totals" style="margin-top: 30px;">
-                <h2>Expense Totals by Payment Type</h2>
-                <div style="display: flex; gap: 30px; justify-content: space-around;">
-                    <div><strong>Amex:</strong> <span id="totalAmex">0.00</span></div>
-                    <div><strong>RBL:</strong> <span id="totalRbl">0.00</span></div>
-                    <div><strong>Cash:</strong> <span id="totalCash">0.00</span></div>
-                </div>
+                <h2>Expense Totals by Payment Method</h2>
+                <div id="paymentTypeTotalsDesktop"></div>
             </div>
         </div>
 
@@ -249,12 +257,8 @@
 
                     <!-- Expense Totals by Payment Type for Mobile -->
                     <div class="dashboard-block" id="payment-type-totals-mobile" style="margin-top: 30px;">
-                        <h3>Expense Totals by Payment Type</h3>
-                        <div style="display: flex; gap: 20px; justify-content: space-around;">
-                            <div><strong>Amex:</strong> <span id="totalAmex">0.00</span></div>
-                            <div><strong>RBL:</strong> <span id="totalRbl">0.00</span></div>
-                            <div><strong>Cash:</strong> <span id="totalCash">0.00</span></div>
-                        </div>
+                        <h3>Expense Totals by Payment Method</h3>
+                        <div id="paymentTypeTotalsMobile"></div>
                     </div>
                 </div>
 
@@ -317,12 +321,20 @@
                         </button>
                     </div>
                     <form id="setBudgetFormMobile" class="mobile-form" autocomplete="off">
-                        <label>Food: <input type="number" step="0.01" name="Food" value="{{ budget.get('Food', '') }}" autocomplete="off"></label>
-                        <label>Cloth: <input type="number" step="0.01" name="Cloth" value="{{ budget.get('Cloth', '') }}" autocomplete="off"></label>
-                        <label>Online: <input type="number" step="0.01" name="Online" value="{{ budget.get('Online', '') }}" autocomplete="off"></label>
-                        <label>Miscellaneous: <input type="number" step="0.01" name="Miscellaneous" value="{{ budget.get('Miscellaneous', '') }}" autocomplete="off"></label>
-                        <label>Other: <input type="number" step="0.01" name="Other" value="{{ budget.get('Other', '') }}" autocomplete="off"></label>
+                        <div id="budgetRowsMobile" style="display: flex; flex-direction: column; gap: 10px;">
+                            {% for category_name in budget_rows %}
+                            <div class="budget-row" style="display: grid; grid-template-columns: 1fr 120px; gap: 8px;">
+                                <input type="text" name="budget_category[]" list="categoryOptions" value="{{ category_name }}" placeholder="Category" autocomplete="off">
+                                <input type="number" step="0.01" name="budget_amount[]" value="{{ budget.get(category_name, '') }}" placeholder="Amount" autocomplete="off">
+                            </div>
+                            {% endfor %}
+                            <div class="budget-row" style="display: grid; grid-template-columns: 1fr 120px; gap: 8px;">
+                                <input type="text" name="budget_category[]" list="categoryOptions" placeholder="Add another category" autocomplete="off">
+                                <input type="number" step="0.01" name="budget_amount[]" placeholder="Amount" autocomplete="off">
+                            </div>
+                        </div>
                         <div class="form-actions-mobile">
+                            <button type="button" class="addBudgetRow" data-target="budgetRowsMobile">+ Add Category</button>
                             <button type="submit">Set Budget</button>
                         </div>
                     </form>
@@ -376,14 +388,12 @@
                 <div class="fab-form-row">
                     <div class="form-field">
                         <label for="fabCategory">Category</label>
-                        <select id="fabCategory" name="category" required>
-                            <option value="">Select Category</option>
-                            <option value="Food">Food</option>
-                            <option value="Cloth">Cloth</option>
-                            <option value="Online">Online</option>
-                            <option value="Miscellaneous">Miscellaneous</option>
-                            <option value="Other">Other</option>
-                        </select>
+                        <div class="category-input-container" style="position: relative;">
+                            <input type="text" id="fabCategory" name="category" list="categoryOptions" placeholder="e.g., Groceries, Transport" required style="width: 100%; padding-right: 34px;">
+                            <button type="button" class="clearCategoryInput" data-target="fabCategory" title="Clear category" style="position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; height: 24px; color: #64748b;">
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2"/><path d="M7 7l6 6M13 7l-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+                            </button>
+                        </div>
                     </div>
                     <div class="form-field">
                         <label for="fabDate">Date</label>
@@ -392,11 +402,12 @@
                 </div>
 
                 <div class="form-field">
-                    <label>Payment Type</label>
-                    <div class="payment-radios">
-                        <label><input type="radio" name="payment_type" value="Amex" required> Amex</label>
-                        <label><input type="radio" name="payment_type" value="RBL" required> RBL</label>
-                        <label><input type="radio" name="payment_type" value="CASH" required> Cash</label>
+                    <label for="fabPaymentType">Payment Method</label>
+                    <div class="payment-input-container" style="position: relative;">
+                        <input type="text" id="fabPaymentType" name="payment_type" list="paymentTypeOptions" placeholder="e.g., UPI, Cash, Card" required style="width: 100%; padding-right: 34px;">
+                        <button type="button" class="clearPaymentInput" data-target="fabPaymentType" title="Clear payment method" style="position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; height: 24px; color: #64748b;">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2"/><path d="M7 7l6 6M13 7l-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+                        </button>
                     </div>
                 </div>
 
@@ -411,6 +422,23 @@
             </form>
         </div>
     </div>
+
+    <datalist id="paymentTypeOptions">
+        <option value="Cash"></option>
+        <option value="UPI"></option>
+        <option value="Card"></option>
+        <option value="Bank Transfer"></option>
+        <option value="Wallet"></option>
+        <option value="Net Banking"></option>
+        <option value="Cheque"></option>
+        <option value="Other"></option>
+    </datalist>
+
+    <datalist id="categoryOptions">
+        {% for category_name in category_options %}
+        <option value="{{ category_name }}"></option>
+        {% endfor %}
+    </datalist>
 
     <script id="flask-data" data-json="{{ js_data|tojson|safe }}"></script>
     <script src="{{ url_for('static', filename='script.js') }}"></script>

@@ -68,13 +68,12 @@
                     </div>
                     <div class="form-field">
                         <label for="category">Category:</label>
-                        <select id="category" name="category" required>
-                            <option value="Food" {% if item.category == 'Food' %}selected{% endif %}>Food</option>
-                            <option value="Cloth" {% if item.category == 'Cloth' %}selected{% endif %}>Cloth</option>
-                            <option value="Online" {% if item.category == 'Online' %}selected{% endif %}>Online</option>
-                            <option value="Miscellaneous" {% if item.category == 'Miscellaneous' %}selected{% endif %}>Miscellaneous</option>
-                            <option value="Other" {% if item.category == 'Other' %}selected{% endif %}>Other</option>
-                        </select>
+                        <div class="category-input-container" style="position: relative;">
+                            <input type="text" id="category" name="category" list="categoryOptions" value="{{ item.category }}" placeholder="e.g., Groceries, Transport" required style="width: 100%; padding-right: 34px;">
+                            <button type="button" class="clearCategoryInput" data-target="category" title="Clear category" style="position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; height: 24px; color: #64748b;">
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2"/><path d="M7 7l6 6M13 7l-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+                            </button>
+                        </div>
                     </div>
                     <div class="form-field">
                         <label for="description">Description:</label>
@@ -85,17 +84,12 @@
                         <input type="number" step="0.01" id="amount" name="amount" value="{{ item.amount }}" required>
                     </div>
                     <div class="form-field">
-                        <label>Payment Type:</label>
-                        <div style="display:flex;gap:18px;align-items:center;">
-                            <label style="display:flex;align-items:center;gap:4px;font-size:1em;">
-                                <input type="radio" name="payment_type" value="AMEX" {% if item.payment_type == 'AMEX' or item.payment_type == 'Amex' %}checked{% endif %} required> Amex
-                            </label>
-                            <label style="display:flex;align-items:center;gap:4px;font-size:1em;">
-                                <input type="radio" name="payment_type" value="RBL" {% if item.payment_type == 'RBL' %}checked{% endif %}> RBL
-                            </label>
-                            <label style="display:flex;align-items:center;gap:4px;font-size:1em;">
-                                <input type="radio" name="payment_type" value="CASH" {% if item.payment_type == 'CASH' %}checked{% endif %}> Cash
-                            </label>
+                        <label for="expense_payment_type_edit_desktop">Payment Method:</label>
+                        <div class="payment-input-container" style="position: relative;">
+                            <input type="text" id="expense_payment_type_edit_desktop" name="payment_type" list="paymentTypeOptions" value="{{ item.payment_type }}" placeholder="e.g., UPI, Cash, Card" required style="width: 100%; padding-right: 34px;">
+                            <button type="button" class="clearPaymentInput" data-target="expense_payment_type_edit_desktop" title="Clear payment method" style="position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; height: 24px; color: #64748b;">
+                                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2"/><path d="M7 7l6 6M13 7l-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+                            </button>
                         </div>
                     </div>
                     <div class="button-container">
@@ -114,25 +108,19 @@
                 <input type="hidden" name="month" value="{{ active_month }}">
                 <input type="hidden" name="month_select" value="{{ active_month }}">
                 <input type="date" name="date" value="{{ item.date }}" required style="padding:10px 12px;border-radius:8px;border:1px solid #d1d5db;font-size:1em;">
-                <select name="category" required style="padding:10px 12px;border-radius:8px;border:1px solid #d1d5db;font-size:1em;">
-                    <option value="Food" {% if item.category == 'Food' %}selected{% endif %}>Food</option>
-                    <option value="Cloth" {% if item.category == 'Cloth' %}selected{% endif %}>Cloth</option>
-                    <option value="Online" {% if item.category == 'Online' %}selected{% endif %}>Online</option>
-                    <option value="Miscellaneous" {% if item.category == 'Miscellaneous' %}selected{% endif %}>Miscellaneous</option>
-                    <option value="Other" {% if item.category == 'Other' %}selected{% endif %}>Other</option>
-                </select>
+                <div class="category-input-container" style="position: relative;">
+                    <input type="text" id="category_mobile" name="category" list="categoryOptions" value="{{ item.category }}" placeholder="e.g., Groceries, Transport" required style="width: 100%; padding:10px 36px 10px 12px;border-radius:8px;border:1px solid #d1d5db;font-size:1em;">
+                    <button type="button" class="clearCategoryInput" data-target="category_mobile" title="Clear category" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; height: 24px; color: #64748b;">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2"/><path d="M7 7l6 6M13 7l-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+                    </button>
+                </div>
                 <input type="text" name="description" placeholder="Description" value="{{ item.description }}" required style="padding:10px 12px;border-radius:8px;border:1px solid #d1d5db;font-size:1em;">
                 <input type="number" step="0.01" name="amount" placeholder="Amount" value="{{ item.amount }}" required style="padding:10px 12px;border-radius:8px;border:1px solid #d1d5db;font-size:1em;">
-                <div class="mobile-radios" style="display:flex;gap:12px;justify-content:space-between;align-items:center;">
-                    <label style="display:flex;align-items:center;gap:4px;font-size:1em;">
-                        <input type="radio" name="payment_type" value="AMEX" {% if item.payment_type == 'AMEX' or item.payment_type == 'Amex' %}checked{% endif %} required> Amex
-                    </label>
-                    <label style="display:flex;align-items:center;gap:4px;font-size:1em;">
-                        <input type="radio" name="payment_type" value="RBL" {% if item.payment_type == 'RBL' %}checked{% endif %}> RBL
-                    </label>
-                    <label style="display:flex;align-items:center;gap:4px;font-size:1em;">
-                        <input type="radio" name="payment_type" value="CASH" {% if item.payment_type == 'CASH' %}checked{% endif %}> Cash
-                    </label>
+                <div class="payment-input-container" style="position: relative;">
+                    <input type="text" id="expense_payment_type_edit_mobile" name="payment_type" list="paymentTypeOptions" value="{{ item.payment_type }}" placeholder="Payment method" required style="width: 100%; padding:10px 36px 10px 12px;border-radius:8px;border:1px solid #d1d5db;font-size:1em;">
+                    <button type="button" class="clearPaymentInput" data-target="expense_payment_type_edit_mobile" title="Clear payment method" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; height: 24px; color: #64748b;">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2"/><path d="M7 7l6 6M13 7l-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+                    </button>
                 </div>
                 <button type="submit" class="btn-primary" style="margin-top:8px;padding:12px 0;font-size:1.08em;border-radius:8px;background:#2a69a5;color:#fff;font-weight:600;">Save Changes</button>
                 <a href="/" class="btn-secondary" style="text-align:center;display:block;margin-top:2px;padding:10px 0;font-size:1.05em;border-radius:8px;background:#f3f4f6;color:#2a69a5;font-weight:500;text-decoration:none;">Cancel</a>
@@ -140,6 +128,21 @@
         </div>
     </div>
     {% endif %}
+    <datalist id="paymentTypeOptions">
+        <option value="Cash"></option>
+        <option value="UPI"></option>
+        <option value="Card"></option>
+        <option value="Bank Transfer"></option>
+        <option value="Wallet"></option>
+        <option value="Net Banking"></option>
+        <option value="Cheque"></option>
+        <option value="Other"></option>
+    </datalist>
+    <datalist id="categoryOptions">
+        {% for category_name in category_options %}
+        <option value="{{ category_name }}"></option>
+        {% endfor %}
+    </datalist>
     <script src="/static/script.js"></script>
 </body>
 </html>
