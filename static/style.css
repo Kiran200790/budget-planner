@@ -365,6 +365,42 @@ body {
     stroke: currentColor;
 }
 
+.auth-remember-row {
+    margin: -6px 0 14px;
+    display: flex;
+    align-items: center;
+}
+
+.auth-remember-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82em;
+    color: #64748b;
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.2s ease;
+}
+
+.auth-remember-label:hover {
+    color: #475569;
+}
+
+.auth-remember-label input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    accent-color: #2563eb;
+    cursor: pointer;
+    border-radius: 3px;
+}
+
+.auth-remember-label input[type="checkbox"]:focus-visible {
+    outline: 2px solid rgba(37, 99, 235, 0.35);
+    outline-offset: 2px;
+}
+
 /* --- Segmented strength meter --- */
 .strength-meter {
     margin-top: 10px;

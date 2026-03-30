@@ -45,6 +45,7 @@ app.config['SESSION_COOKIE_EXPIRES'] = False          # don't send an Expires he
 app.config['SESSION_PERMANENT'] = False               # sessions are not permanent
 from datetime import timedelta
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
+app.config['REMEMBER_COOKIE_DURATION'] = timedelta(days=30)
 
 # --- DEVELOPMENT SETTINGS TO PREVENT CACHING ---
 # These settings ensure that changes to templates and static files are
@@ -149,16 +150,20 @@ def register():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         password = request.form['password']
+        remember_me = request.form.get('remember') == 'on'
         db = get_db()
         user_rs = db.execute('SELECT * FROM users WHERE username = ?', (username,))
         user = db.fetchone(user_rs)
         if user and verify_password(password, user['password_hash']):
             user_obj = User(user['id'], user['username'], user['password_hash'])
-            login_user(user_obj)
-            session.permanent = False
+            login_user(user_obj, remember=remember_me)
+            session.permanent = remember_me
             flash('Logged in successfully.', 'success')
             return redirect(url_for('index'))
         else:
