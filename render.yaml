@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: budget-planner
+    env: python
+    plan: free
+    buildCommand: ./build.sh
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    autoDeploy: true
+    envVars:
+      - key: TURSO_DATABASE_URL
+        sync: false
+      - key: TURSO_AUTH_TOKEN
+        sync: false
+      - key: FLASK_SECRET_KEY
+        generateValue: true
+      - key: PYTHON_VERSION
+        value: 3.11.9
