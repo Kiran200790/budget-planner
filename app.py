@@ -329,13 +329,6 @@ class DbWrapper:
 DATABASE = 'budget.db'
 
 
-def is_railway_environment():
-    return bool(
-        os.environ.get('RAILWAY_ENVIRONMENT')
-        or os.environ.get('RAILWAY_PROJECT_ID')
-        or os.environ.get('RAILWAY_SERVICE_ID')
-    )
-
 def get_db():
     db = getattr(g, '_database', None)
     if db is None:
@@ -343,20 +336,16 @@ def get_db():
         auth_token = os.environ.get("TURSO_AUTH_TOKEN")
 
         if db_url and auth_token:
-            # Production: Connect to Turso
+            # Production: Connect to Turso (libSQL cloud DB)
             https_url = db_url.replace("libsql://", "https://")
             conn = libsql_client.create_client_sync(url=https_url, auth_token=auth_token)
             db = g._database = DbWrapper(conn, is_libsql=True)
             app.logger.info("Database backend: Turso (libSQL)")
         else:
-            if is_railway_environment():
-                raise RuntimeError(
-                    "Missing TURSO_DATABASE_URL/TURSO_AUTH_TOKEN in Railway. "
-                    "Refusing to use ephemeral local SQLite in production."
-                )
             # Local development: Connect to local SQLite file
+            app.logger.warning("TURSO_DATABASE_URL not set — falling back to local SQLite (budget.db). Do not use this in production.")
             conn = sqlite3.connect(DATABASE)
-            conn.row_factory = sqlite3.Row # Allows accessing columns by name
+            conn.row_factory = sqlite3.Row
             db = g._database = DbWrapper(conn, is_libsql=False)
             app.logger.info("Database backend: Local SQLite (budget.db)")
     return db
@@ -1453,7 +1442,7 @@ if __name__ == '__main__':
     with app.app_context():
         init_db()
     
-    # Use Railway/hosting provided PORT in production, fallback for local runs.
+    # Use Render-provided PORT in production, fallback to 5001 for local runs.
     port = int(os.environ.get('PORT', 5001))
     debug_mode = os.environ.get('FLASK_DEBUG', '0') == '1'
     app.run(host='0.0.0.0', port=port, debug=debug_mode)
