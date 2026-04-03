@@ -23,11 +23,23 @@ class User(UserMixin):
         self.username = username
         self.password_hash = password_hash
 
+
+def get_user_identifier_column(db):
+    user_columns_rs = db.execute('PRAGMA table_info(users)')
+    user_columns = {row['name'] for row in db.fetchall(user_columns_rs)}
+    if 'username' in user_columns:
+        return 'username'
+    return 'email'
+
 # User loader for Flask-Login
 @login_manager.user_loader
 def load_user(user_id):
     db = get_db()
-    user_rs = db.execute('SELECT * FROM users WHERE id = ?', (user_id,))
+    identifier_column = get_user_identifier_column(db)
+    user_rs = db.execute(
+        f'SELECT id, {identifier_column} as username, password_hash FROM users WHERE id = ?',
+        (user_id,)
+    )
     user = db.fetchone(user_rs)
     if user:
         return User(user['id'], user['username'], user['password_hash'])
@@ -136,12 +148,13 @@ def register():
             return redirect(url_for('register'))
 
         db = get_db()
-        user_rs = db.execute('SELECT * FROM users WHERE username = ?', (username,))
+        identifier_column = get_user_identifier_column(db)
+        user_rs = db.execute(f'SELECT * FROM users WHERE {identifier_column} = ?', (username,))
         if db.fetchone(user_rs):
             flash('That username is already taken.', 'error')
             return redirect(url_for('register'))
         password_hash = hash_password(password)
-        db.execute('INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?)',
+        db.execute(f'INSERT INTO users ({identifier_column}, password_hash, created_at) VALUES (?, ?, ?)',
                    (username, password_hash, datetime.now().isoformat()))
         db.commit()
         flash('Account created! Please log in.', 'success')
@@ -158,7 +171,11 @@ def login():
         password = request.form['password']
         remember_me = request.form.get('remember') == 'on'
         db = get_db()
-        user_rs = db.execute('SELECT * FROM users WHERE username = ?', (username,))
+        identifier_column = get_user_identifier_column(db)
+        user_rs = db.execute(
+            f'SELECT id, {identifier_column} as username, password_hash FROM users WHERE {identifier_column} = ?',
+            (username,)
+        )
         user = db.fetchone(user_rs)
         if user and verify_password(password, user['password_hash']):
             user_obj = User(user['id'], user['username'], user['password_hash'])
@@ -213,11 +230,37 @@ class DbWrapper:
         self._conn = conn
         self._is_libsql = is_libsql
 
+    def _quote_libsql_value(self, value):
+        if value is None:
+            return 'NULL'
+        if isinstance(value, bool):
+            return '1' if value else '0'
+        if isinstance(value, (int, float)):
+            return str(value)
+        text = str(value).replace("'", "''")
+        return f"'{text}'"
+
+    def _inline_libsql_params(self, sql, params):
+        if not params:
+            return sql
+        rendered_sql = sql
+        for value in params:
+            replacement = self._quote_libsql_value(value)
+            rendered_sql = rendered_sql.replace('?', replacement, 1)
+        return rendered_sql
+
     def execute(self, sql, params=()):
         """Executes a query. For non-SELECT queries, it returns None.
            For SELECT queries, it returns an object that can be passed to fetch methods."""
         if self._is_libsql:
-            return self._conn.execute(sql, params)
+            if not params:
+                return self._conn.execute(sql)
+            try:
+                return self._conn.execute(sql, params)
+            except Exception as error:
+                app.logger.warning(f"libSQL parameter binding failed, using inlined SQL. Error: {error}")
+                rendered_sql = self._inline_libsql_params(sql, params)
+                return self._conn.execute(rendered_sql)
         else:
             cursor = self._conn.cursor()
             cursor.execute(sql, params)
@@ -226,8 +269,11 @@ class DbWrapper:
     def execute_batch(self, sqls):
         """Executes multiple SQL statements in a batch."""
         if self._is_libsql:
-            # libsql_client supports batch execution
-            self._conn.batch(sqls)
+            for sql in sqls:
+                if isinstance(sql, tuple):
+                    self.execute(sql[0], sql[1])
+                else:
+                    self.execute(sql)
         else:
             # For sqlite3, execute them one by one
             cursor = self._conn.cursor()
