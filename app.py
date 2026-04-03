@@ -10,6 +10,7 @@ from datetime import datetime, date
 from dateutil.relativedelta import relativedelta # Added for month iteration
 import io
 import csv
+import re
 
 app = Flask(__name__)
 login_manager = LoginManager()
@@ -249,17 +250,21 @@ class DbWrapper:
             rendered_sql = rendered_sql.replace('?', replacement, 1)
         return rendered_sql
 
+    def _normalize_libsql_sql(self, sql):
+        return re.sub(r'\buser_id\b', '"user_id"', sql)
+
     def execute(self, sql, params=()):
         """Executes a query. For non-SELECT queries, it returns None.
            For SELECT queries, it returns an object that can be passed to fetch methods."""
         if self._is_libsql:
+            normalized_sql = self._normalize_libsql_sql(sql)
             if not params:
-                return self._conn.execute(sql)
+                return self._conn.execute(normalized_sql)
             try:
-                return self._conn.execute(sql, params)
+                return self._conn.execute(normalized_sql, params)
             except Exception as error:
                 app.logger.warning(f"libSQL parameter binding failed, using inlined SQL. Error: {error}")
-                rendered_sql = self._inline_libsql_params(sql, params)
+                rendered_sql = self._inline_libsql_params(normalized_sql, params)
                 return self._conn.execute(rendered_sql)
         else:
             cursor = self._conn.cursor()
