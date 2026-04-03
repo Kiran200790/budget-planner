@@ -277,6 +277,14 @@ class DbWrapper:
 # Local database fallback
 DATABASE = 'budget.db'
 
+
+def is_railway_environment():
+    return bool(
+        os.environ.get('RAILWAY_ENVIRONMENT')
+        or os.environ.get('RAILWAY_PROJECT_ID')
+        or os.environ.get('RAILWAY_SERVICE_ID')
+    )
+
 def get_db():
     db = getattr(g, '_database', None)
     if db is None:
@@ -288,11 +296,18 @@ def get_db():
             https_url = db_url.replace("libsql://", "https://")
             conn = libsql_client.create_client_sync(url=https_url, auth_token=auth_token)
             db = g._database = DbWrapper(conn, is_libsql=True)
+            app.logger.info("Database backend: Turso (libSQL)")
         else:
+            if is_railway_environment():
+                raise RuntimeError(
+                    "Missing TURSO_DATABASE_URL/TURSO_AUTH_TOKEN in Railway. "
+                    "Refusing to use ephemeral local SQLite in production."
+                )
             # Local development: Connect to local SQLite file
             conn = sqlite3.connect(DATABASE)
             conn.row_factory = sqlite3.Row # Allows accessing columns by name
             db = g._database = DbWrapper(conn, is_libsql=False)
+            app.logger.info("Database backend: Local SQLite (budget.db)")
     return db
 
 @app.teardown_appcontext
