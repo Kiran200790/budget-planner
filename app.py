@@ -409,6 +409,33 @@ def get_smart_default_month():
 
 # Note: Using next-month expense logic for smart defaults
 
+def ensure_column_exists(db, table_name, column_name, column_definition):
+    try:
+        table_info_rs = db.execute(f'PRAGMA table_info({table_name})')
+        existing_columns = {row['name'] for row in db.fetchall(table_info_rs)}
+        if column_name not in existing_columns:
+            db.execute(f'ALTER TABLE {table_name} ADD COLUMN {column_name} {column_definition}')
+            db.commit()
+            app.logger.info(f"Schema migration: Added column {table_name}.{column_name}")
+    except Exception as error:
+        app.logger.error(f"Schema migration failed for {table_name}.{column_name}: {error}", exc_info=True)
+        raise
+
+
+def apply_schema_compat_migrations(db):
+    ensure_column_exists(db, 'users', 'created_at', 'TEXT')
+    ensure_column_exists(db, 'income', 'user_id', 'INTEGER')
+    ensure_column_exists(db, 'income', 'month', 'TEXT')
+    ensure_column_exists(db, 'income', 'description', 'TEXT')
+    ensure_column_exists(db, 'income', 'amount', 'REAL')
+    ensure_column_exists(db, 'expenses', 'user_id', 'INTEGER')
+    ensure_column_exists(db, 'expenses', 'month', 'TEXT')
+    ensure_column_exists(db, 'expenses', 'payment_type', 'TEXT')
+    ensure_column_exists(db, 'emis', 'user_id', 'INTEGER')
+    ensure_column_exists(db, 'emis', 'month', 'TEXT')
+    ensure_column_exists(db, 'budgets', 'user_id', 'INTEGER')
+    ensure_column_exists(db, 'budgets', 'month', 'TEXT')
+
 def init_db():
     with app.app_context():
         db = get_db()
@@ -468,6 +495,7 @@ def init_db():
             """
         ]
         db.execute_batch(schema_queries)
+        apply_schema_compat_migrations(db)
         # db.commit() is not needed here for Turso, and execute_batch handles it for SQLite
 
 # Call this function once to initialize/update the database schema
@@ -720,7 +748,7 @@ def api_add_income():
         return jsonify({'status': 'error', 'message': 'Invalid amount. Please use numbers only.'}), 400
     except Exception as e:
         app.logger.error(f"Error adding income via API: {e}", exc_info=True)
-        return jsonify({'status': 'error', 'message': f'An error occurred while adding the income: {str(e)}'}), 500
+        return jsonify({'status': 'error', 'message': 'An error occurred while adding the income.'}), 500
 
 @app.route('/api/add_emi', methods=['POST'])
 @login_required
@@ -753,7 +781,7 @@ def api_add_emi():
         return jsonify({'status': 'error', 'message': 'Invalid amount. Please use numbers only.'}), 400
     except Exception as e:
         app.logger.error(f"Error adding EMI via API: {e}", exc_info=True)
-        return jsonify({'status': 'error', 'message': f'An error occurred while adding the EMI: {str(e)}'}), 500
+        return jsonify({'status': 'error', 'message': 'An error occurred while adding the EMI.'}), 500
 
 
 @app.route('/set_budget', methods=['POST'])
@@ -888,7 +916,7 @@ def api_set_budgets():
         return jsonify({'status': 'error', 'message': 'Invalid amount entered. Please use numbers only.'}), 400
     except Exception as e:
         app.logger.error(f"Error setting budgets via API: {e}", exc_info=True)
-        return jsonify({'status': 'error', 'message': f'An error occurred while updating the budget: {str(e)}'}), 500
+        return jsonify({'status': 'error', 'message': 'An error occurred while updating the budget.'}), 500
 
 
 @app.route('/api/get_income/<int:income_id>', methods=['GET'])
