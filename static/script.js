@@ -1,5 +1,13 @@
 document.addEventListener('DOMContentLoaded', function () {
 
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/static/service-worker.js').catch(error => {
+                console.error('Service worker registration failed:', error);
+            });
+        });
+    }
+
     // --- GLOBAL DATA ---
     const flaskDataScript = document.getElementById('flask-data');
     let flaskData = {};
@@ -12,6 +20,17 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
     let expenses = flaskData.expenses || [];
+
+    function getSafeErrorMessage(error, fallbackMessage) {
+        const message = (error && error.message ? error.message : '').trim();
+        if (!message) {
+            return fallbackMessage;
+        }
+        if (message.startsWith('<!DOCTYPE html') || message.startsWith('<html')) {
+            return fallbackMessage;
+        }
+        return message.length > 180 ? fallbackMessage : message;
+    }
 
     // --- DATALIST HELPER (improve UX for payment method and category selection) ---
     function setupDatalistInputs() {
@@ -994,8 +1013,18 @@ document.addEventListener('DOMContentLoaded', function () {
                 try {
                     const response = await fetch(endpoint, { method: 'POST', body: formData });
                     if (!response.ok) {
-                        let errorText = await response.text();
-                        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+                        let errorMessage = `Request failed with status ${response.status}.`;
+                        const contentType = response.headers.get('content-type') || '';
+                        if (contentType.includes('application/json')) {
+                            const errorResult = await response.json();
+                            errorMessage = errorResult.message || errorMessage;
+                        } else {
+                            const errorText = (await response.text()).trim();
+                            if (errorText && !errorText.startsWith('<!DOCTYPE html') && !errorText.startsWith('<html')) {
+                                errorMessage = errorText;
+                            }
+                        }
+                        throw new Error(errorMessage);
                     }
                     let result;
                     try {
@@ -1018,7 +1047,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                 } catch (error) {
                     console.error(`Form submission error for ${formId}:`, error);
-                    showToast('error', 'Network Error', 'Failed to submit form. Please check your connection and try again.');
+                    showToast('error', 'Request Failed', getSafeErrorMessage(error, 'Failed to submit form. Please check your connection and try again.'));
                 }
             });
         });
@@ -1397,6 +1426,21 @@ document.addEventListener('DOMContentLoaded', function () {
                     body: formData
                 });
 
+                if (!response.ok) {
+                    let errorMessage = `Request failed with status ${response.status}.`;
+                    const contentType = response.headers.get('content-type') || '';
+                    if (contentType.includes('application/json')) {
+                        const errorResult = await response.json();
+                        errorMessage = errorResult.message || errorMessage;
+                    } else {
+                        const errorText = (await response.text()).trim();
+                        if (errorText && !errorText.startsWith('<!DOCTYPE html') && !errorText.startsWith('<html')) {
+                            errorMessage = errorText;
+                        }
+                    }
+                    throw new Error(errorMessage);
+                }
+
                 const result = await response.json();
 
                 if (result.status === 'success') {
@@ -1416,7 +1460,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             } catch (error) {
                 console.error('FAB form submission error:', error);
-                showToast('error', 'Network Error', 'Failed to add expense. Please check your connection and try again.');
+                showToast('error', 'Request Failed', getSafeErrorMessage(error, 'Failed to add expense. Please check your connection and try again.'));
             } finally {
                 // Restore button state
                 submitBtn.innerHTML = originalText;
