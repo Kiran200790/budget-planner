@@ -274,11 +274,15 @@ class DbWrapper:
     def execute_batch(self, sqls):
         """Executes multiple SQL statements in a batch."""
         if self._is_libsql:
-            for sql in sqls:
-                if isinstance(sql, tuple):
-                    self.execute(sql[0], sql[1])
-                else:
-                    self.execute(sql)
+            for i, sql in enumerate(sqls):
+                try:
+                    if isinstance(sql, tuple):
+                        self.execute(sql[0], sql[1])
+                    else:
+                        self.execute(sql)
+                except Exception as e:
+                    app.logger.error(f"Batch execution failed at index {i}: {e}", exc_info=True)
+                    raise
         else:
             # For sqlite3, execute them one by one
             cursor = self._conn.cursor()
@@ -715,8 +719,8 @@ def api_add_income():
     except ValueError:
         return jsonify({'status': 'error', 'message': 'Invalid amount. Please use numbers only.'}), 400
     except Exception as e:
-        app.logger.error(f"Error adding income via API: {e}")
-        return jsonify({'status': 'error', 'message': 'An error occurred while adding the income.'}), 500
+        app.logger.error(f"Error adding income via API: {e}", exc_info=True)
+        return jsonify({'status': 'error', 'message': f'An error occurred while adding the income: {str(e)}'}), 500
 
 @app.route('/api/add_emi', methods=['POST'])
 @login_required
@@ -748,8 +752,8 @@ def api_add_emi():
     except ValueError:
         return jsonify({'status': 'error', 'message': 'Invalid amount. Please use numbers only.'}), 400
     except Exception as e:
-        app.logger.error(f"Error adding EMI via API: {e}")
-        return jsonify({'status': 'error', 'message': 'An error occurred while adding the EMI.'}), 500
+        app.logger.error(f"Error adding EMI via API: {e}", exc_info=True)
+        return jsonify({'status': 'error', 'message': f'An error occurred while adding the EMI: {str(e)}'}), 500
 
 
 @app.route('/set_budget', methods=['POST'])
@@ -880,11 +884,11 @@ def api_set_budgets():
         message = f'Budget updated for {num_months} months successfully!'
         return jsonify({'status': 'success', 'message': message})
     except ValueError as e:
-        app.logger.error(f"Error setting budgets via API: Invalid amount - {e}")
+        app.logger.error(f"Error setting budgets via API: Invalid amount - {e}", exc_info=True)
         return jsonify({'status': 'error', 'message': 'Invalid amount entered. Please use numbers only.'}), 400
     except Exception as e:
-        app.logger.error(f"Error setting budgets via API: {e}")
-        return jsonify({'status': 'error', 'message': 'An error occurred while updating the budget.'}), 500
+        app.logger.error(f"Error setting budgets via API: {e}", exc_info=True)
+        return jsonify({'status': 'error', 'message': f'An error occurred while updating the budget: {str(e)}'}), 500
 
 
 @app.route('/api/get_income/<int:income_id>', methods=['GET'])
