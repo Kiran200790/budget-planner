@@ -451,6 +451,13 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         data.forEach(record => {
             const li = document.createElement('li');
+            if (itemType === 'budget') {
+                const textSpan = document.createElement('span');
+                textSpan.innerHTML = createTextContent(record);
+                li.appendChild(textSpan);
+                listElement.appendChild(li);
+                return;
+            }
             if (isMobile && itemType === 'expense') {
                 // --- MOBILE EXPENSE: Modern Card Layout ---
                 li.style.display = 'block';
@@ -766,18 +773,26 @@ document.addEventListener('DOMContentLoaded', function () {
         const incomeContent = r => `${r.description}: <b>₹${parseFloat(r.amount).toFixed(2)}</b>`;
         const emiContent = r => `${r.loan_name}: <b>₹${parseFloat(r.emi_amount).toFixed(2)}</b>`;
 
+        const budgetRecords = Object.entries(flaskData.budget || {})
+            .map(([category, amount]) => ({ category, amount }))
+            .sort((first, second) => first.category.localeCompare(second.category));
+        const budgetContent = r => `${r.category}: <b>₹${parseFloat(r.amount).toFixed(2)}</b>`;
+
         // Desktop Lists
         renderList(document.querySelector('#expenseSectionContentDesktop .expenseList'), expenseData, 'expense', 'No expense records for this month.', expenseContent);
         renderList(document.querySelector('#incomeSectionContentDesktop .incomeList'), flaskData.income, 'income', 'No income records for this month.', incomeContent);
         renderList(document.querySelector('#emiSectionContentDesktop .emiList'), flaskData.emis, 'emi', 'No EMI records for this month.', emiContent);
+        renderList(document.querySelector('#budgetSectionContentDesktop .budgetList'), budgetRecords, 'budget', 'No budget records for this month.', budgetContent);
 
         // Mobile Lists
         const mobileExpenseList = document.querySelector('#expense-content-mobile .expenseList');
         const mobileIncomeList = document.querySelector('#income-content-mobile .incomeList');
         const mobileEmiList = document.querySelector('#emi-content-mobile .emiList');
+        const mobileBudgetList = document.querySelector('#budget-content-mobile .budgetList');
         renderList(mobileExpenseList, expenseData, 'expense', 'No expense records for this month.', expenseContent);
         renderList(mobileIncomeList, flaskData.income, 'income', 'No income records for this month.', incomeContent);
         renderList(mobileEmiList, flaskData.emis, 'emi', 'No EMI records for this month.', emiContent);
+        renderList(mobileBudgetList, budgetRecords, 'budget', 'No budget records for this month.', budgetContent);
     }
 
 
@@ -939,32 +954,6 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
 
-        document.querySelectorAll('.addBudgetRow').forEach(addButton => {
-            addButton.addEventListener('click', () => {
-                const targetId = addButton.getAttribute('data-target');
-                const targetContainer = targetId ? document.getElementById(targetId) : null;
-                if (!targetContainer) return;
-
-                const isMobile = targetId.toLowerCase().includes('mobile');
-                const row = document.createElement('div');
-                row.className = isMobile ? 'budget-row' : 'form-field budget-row';
-                row.style.display = 'grid';
-                row.style.gridTemplateColumns = isMobile ? '1fr 120px' : '1fr 140px';
-                row.style.gap = '8px';
-                if (!isMobile) {
-                    row.style.alignItems = 'center';
-                    row.style.minWidth = '320px';
-                }
-
-                row.innerHTML = `
-                    <input type="text" name="budget_category[]" list="categoryOptions" placeholder="Category" autocomplete="off">
-                    <input type="number" step="0.01" name="budget_amount[]" placeholder="Amount" autocomplete="off">
-                `;
-                targetContainer.appendChild(row);
-                setupDatalistInputs();
-            });
-        });
-
         // Form Submissions via AJAX (for all forms in both views)
         document.querySelectorAll('form[id]').forEach(form => {
             form.addEventListener('submit', async (e) => {
@@ -983,7 +972,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (action.startsWith('add')) {
                     endpoint = `/api/${action.replace('add', 'add_')}`.toLowerCase(); // Ensure endpoint is lowercase
                 } else if (action === 'setBudget') {
-                    endpoint = '/api/set_budgets';
+                    endpoint = '/api/set_budget';
                 }
 
                 if (!endpoint) return;
@@ -1034,7 +1023,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
 
                     if (result.status === 'success') {
-                        if (form.id.startsWith('add')) form.reset();
+                        if (form.id.startsWith('add') || action === 'setBudget') form.reset();
                         await refreshDashboardData(selectedMonth);
                         if (form.closest('#mobile-view')) {
                             switchPane('#dashboard-content-mobile', 'mobile');
@@ -1060,51 +1049,17 @@ document.addEventListener('DOMContentLoaded', function () {
     // --- NEW FUNCTION TO UPDATE BUDGET FORMS ---
     function updateBudgetForms(budgetData) {
         console.log("Updating budget forms with data:", budgetData);
-        console.log("Budget data type:", typeof budgetData);
-        console.log("Budget data keys:", Object.keys(budgetData));
         ['Desktop', 'Mobile'].forEach(view => {
             const form = document.getElementById(`setBudgetForm${view}`);
             if (!form) return;
-
-            const rows = form.querySelectorAll('.budget-row');
-            const assigned = new Set();
-
-            rows.forEach(row => {
-                const categoryInput = row.querySelector('input[name="budget_category[]"]');
-                const amountInput = row.querySelector('input[name="budget_amount[]"]');
-                if (!categoryInput || !amountInput) return;
-
-                const categoryName = (categoryInput.value || '').trim();
-                amountInput.value = '';
-
-                if (categoryName && budgetData[categoryName] !== undefined && budgetData[categoryName] !== null) {
-                    const budgetValue = parseFloat(budgetData[categoryName]);
-                    if (!isNaN(budgetValue) && budgetValue > 0) {
-                        amountInput.value = budgetValue;
-                    }
-                    assigned.add(categoryName);
-                }
-            });
-
-            const remaining = Object.keys(budgetData).filter(categoryName => !assigned.has(categoryName));
-            remaining.forEach(categoryName => {
-                const emptyRow = Array.from(form.querySelectorAll('.budget-row')).find(row => {
-                    const categoryInput = row.querySelector('input[name="budget_category[]"]');
-                    const amountInput = row.querySelector('input[name="budget_amount[]"]');
-                    return categoryInput && amountInput && !(categoryInput.value || '').trim() && !(amountInput.value || '').trim();
-                });
-
-                if (emptyRow) {
-                    const categoryInput = emptyRow.querySelector('input[name="budget_category[]"]');
-                    const amountInput = emptyRow.querySelector('input[name="budget_amount[]"]');
-                    categoryInput.value = categoryName;
-                    const budgetValue = parseFloat(budgetData[categoryName]);
-                    amountInput.value = !isNaN(budgetValue) && budgetValue > 0 ? budgetValue : '';
-                }
-            });
+            const monthInput = view === 'Desktop'
+                ? document.getElementById('month_select_desktop')
+                : document.getElementById('month_select_mobile');
+            const monthHidden = form.querySelector('input[name="month_select"]');
+            if (monthHidden && monthInput) {
+                monthHidden.value = monthInput.value || flaskData.active_month;
+            }
         });
-
-        setupDatalistInputs();
     }
 
     // --- INITIALIZATION ---
