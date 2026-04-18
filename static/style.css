@@ -1,6 +1,6 @@
 /* --- EXPENSE & EMI LIST STYLING --- */
 /* Improved Expense & EMI List Styling */
-.expenseList li, .emiList li, .incomeList li {
+.expenseList li, .emiList li, .incomeList li, .budgetList li {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -14,18 +14,19 @@
     border: none;
     transition: box-shadow 0.2s;
 }
-.expenseList li:last-child, .emiList li:last-child {
+.expenseList li:last-child, .emiList li:last-child, .budgetList li:last-child {
     margin-bottom: 0;
 }
 
-.expenseList .item-actions, .emiList .item-actions {
+.expenseList .item-actions, .emiList .item-actions, .budgetList .item-actions {
     display: flex;
     gap: 10px;
     margin-left: auto;
 }
 
 .expenseList .edit-btn, .expenseList .delete-btn,
-.emiList .edit-btn, .emiList .delete-btn {
+.emiList .edit-btn, .emiList .delete-btn,
+.budgetList .edit-btn, .budgetList .delete-btn {
     padding: 6px 16px;
     font-size: 0.95em;
     border-radius: 6px;
@@ -36,23 +37,117 @@
     transition: background 0.2s;
     margin-left: 2px;
 }
-.expenseList .edit-btn:hover, .emiList .edit-btn:hover {
+.expenseList .edit-btn:hover, .emiList .edit-btn:hover, .budgetList .edit-btn:hover {
     background-color: #4299e1;
 }
-.expenseList .delete-btn, .emiList .delete-btn {
+.expenseList .delete-btn, .emiList .delete-btn, .budgetList .delete-btn {
     background-color: #ef4444;
 }
-.expenseList .delete-btn:hover, .emiList .delete-btn:hover {
+.expenseList .delete-btn:hover, .emiList .delete-btn:hover, .budgetList .delete-btn:hover {
     background-color: #dc2626;
 }
 /* Ensure text does not touch the edges */
-.expenseList span, .emiList span {
+.expenseList span, .emiList span, .budgetList span {
     flex: 1;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     padding-left: 2px;
+}
+.budgetList li.budget-inline-editing {
+    align-items: stretch;
+}
+
+.budget-inline-editor {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+}
+
+.budget-inline-fields {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 1 auto;
+    min-width: 0;
+}
+
+.budget-inline-input {
+    flex: 0 1 auto;
+    min-width: 0;
+    padding: 8px 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    font-size: 0.95em;
+    background: #fff;
+    color: #1f2937;
+}
+
+.budget-inline-category {
+    width: 180px;
+    max-width: 180px;
+}
+
+.budget-inline-amount {
+    width: 140px;
+    max-width: 140px;
+}
+
+.budget-inline-separator,
+.budget-inline-currency {
+    color: #475569;
+    font-weight: 600;
+    flex: 0 0 auto;
+}
+
+.budget-inline-editor .item-actions {
+    margin-left: auto;
+    gap: 6px;
+    flex: 0 0 auto;
+}
+
+.budgetList li.budget-inline-editing .item-actions {
+    width: auto;
+    justify-content: flex-end;
+}
+
+@media (max-width: 768px) {
+    .budget-inline-editor {
+        flex-wrap: wrap;
+        justify-content: flex-start;
+    }
+
+    .budget-inline-fields {
+        width: 100%;
+    }
+
+    .budgetList li.budget-inline-editing .item-actions {
+        width: 100%;
+        margin-left: 0;
+        justify-content: flex-start;
+    }
+}
+
+.budget-inline-cancel {
+    padding: 6px 16px;
+    font-size: 0.95em;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    color: #475569;
+    cursor: pointer;
+}
+
+.budget-inline-save {
+    background-color: #4299e1;
+}
+
+.budget-inline-save:hover {
+    background-color: #3182ce;
 }
 /* --- INCOME LIST STYLING --- */
 
@@ -2556,5 +2651,45 @@ button:hover, .button-style:hover {
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.7)) !important;
     color: #1e40af !important;
     border: 1px solid rgba(30, 64, 175, 0.3) !important;
+}
+
+
+/* Suppress browser autocomplete suggestions - show only datalist */
+input[list="categoryOptions"] {
+    background-image: none !important;
+}
+
+input[list="categoryOptions"]:-webkit-autofill,
+input[list="categoryOptions"]:-webkit-autofill:hover,
+input[list="categoryOptions"]:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 1000px white inset !important;
+    box-shadow: 0 0 0 1000px white inset !important;
+}
+
+/* Hide browser's default autocomplete dropdown styling */
+input[list="categoryOptions"]::-webkit-outer-spin-button,
+input[list="categoryOptions"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* Hide dropdown arrow on budget category input - it's now a normal textbox */
+#budget_category_desktop {
+    background-image: none !important;
+    appearance: textfield !important;
+    -webkit-appearance: textfield !important;
+    -moz-appearance: textfield !important;
+    padding-right: 8px !important;
+}
+
+#budget_category_desktop::-webkit-outer-spin-button,
+#budget_category_desktop::-webkit-inner-spin-button {
+    -webkit-appearance: none !important;
+    margin: 0 !important;
+    display: none !important;
+}
+
+#budget_category_desktop::-webkit-calendar-picker-indicator {
+    display: none !important;
 }
 
