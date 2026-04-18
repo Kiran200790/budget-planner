@@ -426,6 +426,67 @@
         {% endfor %}
     </datalist>
 
+    <!-- Edit Expense Modal -->
+    <div class="fab-modal-overlay" id="editExpenseModalOverlay">
+        <div class="fab-modal">
+            <div class="fab-modal-header">
+                <h2 class="fab-modal-title">Edit Expense</h2>
+                <button class="fab-modal-close" id="editExpenseModalClose">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form class="fab-quick-form" id="editExpenseModalForm">
+                <input type="hidden" id="editExpenseId" name="id">
+                <input type="hidden" id="editExpenseMonth" name="month">
+
+                <div class="fab-form-row">
+                    <div class="form-field">
+                        <label for="editExpenseDate">Date</label>
+                        <input type="date" id="editExpenseDate" name="date" required>
+                    </div>
+                    <div class="form-field">
+                        <label for="editExpenseAmount">Amount</label>
+                        <input type="number" id="editExpenseAmount" name="amount" step="0.01" required>
+                    </div>
+                </div>
+
+                <div class="form-field">
+                    <label for="editExpenseCategory">Category</label>
+                    <div class="category-input-container" style="position: relative;">
+                        <input type="text" id="editExpenseCategory" name="category" list="categoryOptions" placeholder="e.g., Groceries, Transport" required autocomplete="off" spellcheck="false" style="width: 100%; padding-right: 34px;">
+                        <button type="button" class="clearCategoryInput" data-target="editExpenseCategory" title="Clear category" style="position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; height: 24px; color: #64748b;">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2"/><path d="M7 7l6 6M13 7l-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-field">
+                    <label for="editExpenseDescription">Description</label>
+                    <input type="text" id="editExpenseDescription" name="description" required>
+                </div>
+
+                <div class="form-field">
+                    <label for="editExpensePaymentType">Payment Method</label>
+                    <div class="payment-input-container" style="position: relative;">
+                        <input type="text" id="editExpensePaymentType" name="payment_type" list="paymentTypeOptions" placeholder="e.g., UPI, Cash, Card" required style="width: 100%; padding-right: 34px;">
+                        <button type="button" class="clearPaymentInput" data-target="editExpensePaymentType" title="Clear payment method" style="position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; height: 24px; color: #64748b;">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2"/><path d="M7 7l6 6M13 7l-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="fab-form-buttons">
+                    <button type="submit" class="fab-submit-btn" id="editExpenseSaveBtn">
+                        <i class="fas fa-save"></i> Save Changes
+                    </button>
+                    <button type="button" class="fab-cancel-btn" id="editExpenseCancelBtn">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script id="flask-data" data-json="{{ js_data|tojson|safe }}"></script>
     <script src="{{ url_for('static', filename='script.js', v=asset_version) }}"></script>
 </body>

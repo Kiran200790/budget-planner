@@ -1157,6 +1157,43 @@ def api_edit_emi(emi_id):
 
 
 
+@app.route('/api/edit_expense/<int:expense_id>', methods=['GET', 'POST'])
+@login_required
+def api_edit_expense(expense_id):
+    db = get_db()
+    if request.method == 'GET':
+        try:
+            rs = db.execute('SELECT * FROM expenses WHERE id = ? AND user_id = ?', (expense_id, current_user.id))
+            expense = db.fetchone(rs)
+            if expense is None:
+                return jsonify({'status': 'error', 'message': 'Expense not found.'}), 404
+            return jsonify({'status': 'success', 'expense': dict(expense)})
+        except Exception as e:
+            app.logger.error(f"Error fetching expense {expense_id}: {e}")
+            return jsonify({'status': 'error', 'message': 'Failed to fetch expense.'}), 500
+    else:  # POST
+        try:
+            data = request.get_json() or {}
+            date = data.get('date', '')
+            category = data.get('category', '')
+            description = data.get('description', '')
+            amount = data.get('amount', '')
+            payment_type = data.get('payment_type', '')
+            month = data.get('month', '')
+            if not all([date, category, description, amount, payment_type, month]):
+                return jsonify({'status': 'error', 'message': 'All fields are required.'}), 400
+            db.execute(
+                '''UPDATE expenses SET month=?, date=?, category=?, description=?, amount=?, payment_type=?
+                   WHERE id=? AND user_id=?''',
+                (month, date, category, description, float(amount), payment_type, expense_id, current_user.id)
+            )
+            db.commit()
+            return jsonify({'status': 'success', 'message': 'Expense updated successfully!'})
+        except Exception as e:
+            app.logger.error(f"Error updating expense {expense_id}: {e}")
+            return jsonify({'status': 'error', 'message': 'Failed to update expense.'}), 500
+
+
 @app.route('/api/delete_expense/<int:item_id>', methods=['POST'])
 @login_required
 def api_delete_expense_post(item_id):

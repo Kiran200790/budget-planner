@@ -730,6 +730,38 @@ document.addEventListener('DOMContentLoaded', function () {
             return actionsDiv;
         }
 
+        // For expense items, open popup modal instead of navigating
+        if (itemType === 'expense') {
+            const editButton = document.createElement('button');
+            editButton.className = 'edit-btn';
+            editButton.innerHTML = '<i class="fas fa-edit"></i>';
+            editButton.onclick = () => openEditExpenseModal(record.id);
+
+            const deleteButton = document.createElement('button');
+            deleteButton.className = 'delete-btn';
+            deleteButton.innerHTML = '<i class="fas fa-trash"></i>';
+            deleteButton.onclick = async () => {
+                if (confirm(`Are you sure you want to delete this expense?`)) {
+                    try {
+                        const response = await fetch(`/api/delete_expense/${record.id}`, { method: 'POST' });
+                        const result = await response.json();
+                        if (result.status === 'success') {
+                            await refreshDashboardData(flaskData.active_month);
+                            showToast('success', 'Deleted!', 'Expense has been deleted successfully.');
+                        } else {
+                            showToast('error', 'Delete Failed', result.message || 'Failed to delete expense.');
+                        }
+                    } catch (error) {
+                        console.error('Failed to delete expense:', error);
+                        showToast('error', 'Network Error', 'An error occurred while deleting the expense. Please try again.');
+                    }
+                }
+            };
+            actionsDiv.appendChild(editButton);
+            actionsDiv.appendChild(deleteButton);
+            return actionsDiv;
+        }
+
         // For other item types, use navigation to edit page
         const editLink = document.createElement('a');
         editLink.href = `/edit_${itemType}/${record.id}?month_select=${activeMonth}`;
@@ -1752,6 +1784,92 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Initialize FAB system
     setupFAB();
+
+    // ---- Edit Expense Modal ----
+    function setupEditExpenseModal() {
+        const overlay = document.getElementById('editExpenseModalOverlay');
+        const closeBtn = document.getElementById('editExpenseModalClose');
+        const cancelBtn = document.getElementById('editExpenseCancelBtn');
+        const form = document.getElementById('editExpenseModalForm');
+        if (!overlay || !form) return;
+
+        function closeModal() {
+            overlay.classList.remove('show');
+            form.reset();
+        }
+
+        closeBtn.addEventListener('click', closeModal);
+        cancelBtn.addEventListener('click', closeModal);
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && overlay.classList.contains('show')) closeModal();
+        });
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const saveBtn = document.getElementById('editExpenseSaveBtn');
+            const origText = saveBtn.innerHTML;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+            saveBtn.disabled = true;
+            try {
+                const expenseId = document.getElementById('editExpenseId').value;
+                const payload = {
+                    month: document.getElementById('editExpenseMonth').value,
+                    date: document.getElementById('editExpenseDate').value,
+                    category: document.getElementById('editExpenseCategory').value,
+                    description: document.getElementById('editExpenseDescription').value,
+                    amount: document.getElementById('editExpenseAmount').value,
+                    payment_type: document.getElementById('editExpensePaymentType').value,
+                };
+                const response = await fetch(`/api/edit_expense/${expenseId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                if (result.status === 'success') {
+                    showToast('success', 'Expense Updated!', 'Your expense has been updated successfully.');
+                    closeModal();
+                    await refreshDashboardData(flaskData.active_month);
+                } else {
+                    showToast('error', 'Update Failed', result.message || 'Failed to update expense.');
+                }
+            } catch (error) {
+                console.error('Edit expense error:', error);
+                showToast('error', 'Request Failed', getSafeErrorMessage(error, 'Failed to update expense. Please try again.'));
+            } finally {
+                saveBtn.innerHTML = origText;
+                saveBtn.disabled = false;
+            }
+        });
+    }
+
+    async function openEditExpenseModal(expenseId) {
+        const overlay = document.getElementById('editExpenseModalOverlay');
+        if (!overlay) return;
+        try {
+            const response = await fetch(`/api/edit_expense/${expenseId}`);
+            const result = await response.json();
+            if (result.status !== 'success') {
+                showToast('error', 'Error', result.message || 'Could not load expense details.');
+                return;
+            }
+            const exp = result.expense;
+            document.getElementById('editExpenseId').value = exp.id;
+            document.getElementById('editExpenseMonth').value = exp.month || flaskData.active_month;
+            document.getElementById('editExpenseDate').value = exp.date || '';
+            document.getElementById('editExpenseCategory').value = exp.category || '';
+            document.getElementById('editExpenseDescription').value = exp.description || '';
+            document.getElementById('editExpenseAmount').value = exp.amount || '';
+            document.getElementById('editExpensePaymentType').value = exp.payment_type || '';
+            overlay.classList.add('show');
+        } catch (error) {
+            console.error('Failed to load expense:', error);
+            showToast('error', 'Network Error', 'Could not load expense details. Please try again.');
+        }
+    }
+
+    setupEditExpenseModal();
 
     // Replace existing alert calls with toast notifications for better UX
     function enhanceExistingAlerts() {
