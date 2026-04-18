@@ -306,7 +306,7 @@ document.addEventListener('DOMContentLoaded', function () {
             overallDiffCell.classList.toggle('positive', overallDifference >= 0);
         }
 
-        // Category Bar Chart
+        // Category Donut Chart (dual-ring: outer = budgeted, inner = spent)
         const chartCanvas = container.querySelector('.categoryBarChart');
         const ctx = chartCanvas?.getContext('2d');
         if (ctx) {
@@ -322,113 +322,117 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
 
+            // Palette — one color per category, outer ring full opacity, inner ring lighter
+            const palette = [
+                '#1e40af', '#0891b2', '#059669', '#d97706', '#dc2626',
+                '#7c3aed', '#db2777', '#ea580c', '#16a34a', '#0284c7',
+                '#9333ea', '#e11d48', '#b45309', '#0d9488', '#4338ca'
+            ];
+            const n = data.doughnut_chart_labels.length;
+            const outerColors = data.doughnut_chart_labels.map((_, i) => palette[i % palette.length]);
+            const innerColors = data.doughnut_chart_labels.map((_, i) => palette[i % palette.length] + '99'); // 60% opacity
+
+            const totalSpent = (data.spent_values || []).reduce((a, b) => a + b, 0);
+            const totalBudget = (data.budget_values || []).reduce((a, b) => a + b, 0);
+
+            // Center text plugin
+            const centerTextPlugin = {
+                id: `centerText_${view}`,
+                afterDraw(chart) {
+                    const { ctx: c, chartArea: { top, bottom, left, right } } = chart;
+                    const cx = (left + right) / 2;
+                    const cy = (top + bottom) / 2;
+                    c.save();
+                    c.textAlign = 'center';
+                    c.textBaseline = 'middle';
+                    c.font = 'bold 13px system-ui, sans-serif';
+                    c.fillStyle = '#64748b';
+                    c.fillText('SPENT', cx, cy - 18);
+                    c.font = 'bold 22px system-ui, sans-serif';
+                    c.fillStyle = totalSpent > totalBudget ? '#dc2626' : '#1e40af';
+                    c.fillText('₹' + totalSpent.toLocaleString('en-IN', { maximumFractionDigits: 0 }), cx, cy + 6);
+                    c.font = '11px system-ui, sans-serif';
+                    c.fillStyle = '#94a3b8';
+                    c.fillText('of ₹' + totalBudget.toLocaleString('en-IN', { maximumFractionDigits: 0 }), cx, cy + 26);
+                    c.restore();
+                }
+            };
+
             window[chartId] = new Chart(ctx, {
-                type: 'bar',
+                type: 'doughnut',
+                plugins: [centerTextPlugin],
                 data: {
                     labels: data.doughnut_chart_labels,
                     datasets: [
-                        { 
-                            label: 'Budgeted', 
-                            data: data.budget_values, 
-                            backgroundColor: 'rgba(30, 64, 175, 0.8)',
-                            borderColor: 'rgba(30, 64, 175, 1)',
-                            borderWidth: 2,
-                            borderRadius: 8,
-                            borderSkipped: false,
-                            hoverBackgroundColor: 'rgba(59, 130, 246, 0.9)',
-                            hoverBorderColor: 'rgba(59, 130, 246, 1)',
-                            hoverBorderWidth: 3
+                        {
+                            label: 'Budgeted',
+                            data: data.budget_values,
+                            backgroundColor: outerColors,
+                            borderColor: '#ffffff',
+                            borderWidth: 3,
+                            hoverOffset: 8,
+                            weight: 1.4
                         },
-                        { 
-                            label: 'Spent', 
-                            data: data.spent_values, 
-                            backgroundColor: 'rgba(96, 165, 250, 0.8)',
-                            borderColor: 'rgba(96, 165, 250, 1)',
-                            borderWidth: 2,
-                            borderRadius: 8,
-                            borderSkipped: false,
-                            hoverBackgroundColor: 'rgba(147, 197, 253, 0.9)',
-                            hoverBorderColor: 'rgba(147, 197, 253, 1)',
-                            hoverBorderWidth: 3
+                        {
+                            label: 'Spent',
+                            data: data.spent_values,
+                            backgroundColor: innerColors,
+                            borderColor: '#ffffff',
+                            borderWidth: 3,
+                            hoverOffset: 8,
+                            weight: 1
                         }
                     ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    scales: { 
-                        y: { 
-                            beginAtZero: true, 
-                            ticks: { 
-                                stepSize: 4000,
-                                color: 'rgba(71, 85, 105, 0.8)',
-                                font: {
-                                    weight: 'normal'
-                                }
-                            },
-                            grid: {
-                                color: 'rgba(71, 85, 105, 0.1)',
-                                lineWidth: 1
-                            },
-                            border: {
-                                color: 'rgba(30, 64, 175, 0.3)',
-                                width: 2
-                            }
-                        },
-                        x: {
-                            ticks: {
-                                color: 'rgba(71, 85, 105, 0.8)',
-                                font: {
-                                    weight: 'normal'
-                                }
-                            },
-                            grid: {
-                                color: 'rgba(71, 85, 105, 0.1)',
-                                lineWidth: 1
-                            },
-                            border: {
-                                color: 'rgba(30, 64, 175, 0.3)',
-                                width: 2
-                            }
-                        }
-                    },
-                    plugins: { 
-                        legend: { 
-                            position: 'top',
+                    cutout: '52%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
                             labels: {
                                 color: 'rgba(71, 85, 105, 0.9)',
-                                font: {
-                                    size: 14,
-                                    weight: 'normal'
-                                },
-                                padding: 20,
+                                font: { size: 12 },
+                                padding: 14,
                                 usePointStyle: true,
-                                pointStyle: 'rectRounded'
+                                pointStyle: 'circle',
+                                // Only show category labels once (not per dataset)
+                                filter: (item) => item.datasetIndex === 0
                             }
                         },
                         tooltip: {
-                            backgroundColor: 'rgba(30, 64, 175, 0.95)',
-                            titleColor: 'rgba(255, 255, 255, 1)',
-                            bodyColor: 'rgba(255, 255, 255, 0.9)',
-                            borderColor: 'rgba(59, 130, 246, 1)',
-                            borderWidth: 2,
-                            cornerRadius: 12,
-                            displayColors: true,
-                            titleFont: {
-                                weight: 'normal'
-                            },
-                            bodyFont: {
-                                weight: 'normal'
+                            backgroundColor: 'rgba(15, 23, 42, 0.92)',
+                            titleColor: '#f1f5f9',
+                            bodyColor: '#cbd5e1',
+                            borderColor: 'rgba(59, 130, 246, 0.5)',
+                            borderWidth: 1,
+                            cornerRadius: 10,
+                            padding: 12,
+                            callbacks: {
+                                title(items) {
+                                    return items[0].label;
+                                },
+                                label(item) {
+                                    const isOuter = item.datasetIndex === 0;
+                                    const val = item.parsed;
+                                    const label = isOuter ? 'Budgeted' : 'Spent';
+                                    return `  ${label}: ₹${val.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+                                },
+                                afterBody(items) {
+                                    const idx = items[0].dataIndex;
+                                    const budget = (data.budget_values || [])[idx] || 0;
+                                    const spent = (data.spent_values || [])[idx] || 0;
+                                    const diff = budget - spent;
+                                    const sign = diff >= 0 ? '✅ Under by' : '⚠️ Over by';
+                                    return [`  ${sign}: ₹${Math.abs(diff).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`];
+                                }
                             }
                         }
                     },
                     animation: {
-                        duration: 1200,
-                        easing: 'easeOutCubic'
-                    },
-                    interaction: {
-                        intersect: false,
-                        mode: 'index'
+                        duration: 900,
+                        easing: 'easeOutQuart'
                     }
                 }
             });
