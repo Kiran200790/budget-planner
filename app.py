@@ -72,35 +72,38 @@ if app.config['DEBUG']:
 # Configure logging to see output in the terminal
 logging.basicConfig(level=logging.INFO)
 
+STATIC_ASSET_VERSION = os.environ.get('STATIC_ASSET_VERSION') or datetime.utcnow().strftime('%Y%m%d%H%M%S')
+
+
+@app.context_processor
+def inject_asset_version():
+    return {'asset_version': STATIC_ASSET_VERSION}
+
 DEFAULT_CATEGORY_OPTIONS = [
     'Groceries', 'Utilities', 'Transport', 'Entertainment', 'Healthcare',
     'Shopping', 'Dining', 'Subscriptions', 'Education', 'Travel', 'Rent', 'Other'
 ]
 
 
-def get_user_category_options(user_id):
+def get_user_category_options(user_id, active_month=None):
     db = get_db()
-    category_rs = db.execute('''
-        SELECT category FROM expenses WHERE user_id = ?
-        UNION
-        SELECT category FROM budgets WHERE user_id = ?
-    ''', (user_id, user_id))
+    if active_month:
+        category_rs = db.execute(
+            'SELECT DISTINCT category FROM budgets WHERE user_id = ? AND month = ? ORDER BY category',
+            (user_id, active_month)
+        )
+    else:
+        category_rs = db.execute(
+            'SELECT DISTINCT category FROM budgets WHERE user_id = ? ORDER BY category',
+            (user_id,)
+        )
+
     db_categories = {
         (row['category'] or '').strip()
         for row in db.fetchall(category_rs)
         if (row['category'] or '').strip()
     }
-
-    ordered = []
-    for category_name in DEFAULT_CATEGORY_OPTIONS:
-        if category_name not in ordered:
-            ordered.append(category_name)
-
-    for category_name in sorted(db_categories):
-        if category_name not in ordered:
-            ordered.append(category_name)
-
-    return ordered
+    return sorted(db_categories)
 
 def validate_password(password):
     """Validate password strength. Returns (is_valid, message)"""
@@ -521,8 +524,9 @@ def get_budget_data(active_month):
     emis = db.fetchall(emis_rs)
     app.logger.info(f"Found {len(emis)} EMI records.")
 
-    budget_cursor = db.execute('SELECT category, amount FROM budgets WHERE month = ? AND user_id = ?', (active_month, current_user.id))
-    budget = {row['category']: row['amount'] for row in db.fetchall(budget_cursor)}
+    budget_cursor = db.execute('SELECT id, category, amount FROM budgets WHERE month = ? AND user_id = ?', (active_month, current_user.id))
+    budget_list = db.fetchall(budget_cursor)
+    budget = {row['category']: row['amount'] for row in budget_list}
     app.logger.info(f"Found budget categories: {list(budget.keys())}")
 
 
@@ -571,6 +575,7 @@ def get_budget_data(active_month):
         'income': income,
         'emis': emis,
         'budget': budget,
+        'budgets_list': budget_list,
         'doughnut_chart_labels': chart_labels,
         'budget_values': budget_values,
         'spent_values': spent_values,
@@ -636,7 +641,7 @@ def index():
         ORDER BY month DESC
     ''', (current_user.id, current_user.id, current_user.id))
     available_months = [row['month'] for row in db.fetchall(available_months_rs)]
-    category_options = get_user_category_options(current_user.id)
+    category_options = get_user_category_options(current_user.id, active_month)
 
     return render_template('index.html', 
                          js_data=js_data, 
@@ -804,15 +809,28 @@ def set_budget():
                 flash(f'Invalid amount entered for {category_name}. Please use numbers only.', 'error')
                 return redirect(url_for('index', month_select=active_month))
     else:
-        for category_name in DEFAULT_CATEGORY_OPTIONS:
-            amount_text = (request.form.get(category_name) or '').strip()
-            if not amount_text:
-                continue
-            try:
-                budget_map[category_name] = float(amount_text)
-            except ValueError:
-                flash(f'Invalid amount entered for {category_name}. Please use numbers only.', 'error')
+        single_category = (request.form.get('category') or '').strip()
+        single_amount = (request.form.get('amount') or '').strip()
+
+        if single_category or single_amount:
+            if not single_category or not single_amount:
+                flash('Category and amount are required.', 'error')
                 return redirect(url_for('index', month_select=active_month))
+            try:
+                budget_map[single_category] = float(single_amount)
+            except ValueError:
+                flash('Invalid amount entered. Please use numbers only.', 'error')
+                return redirect(url_for('index', month_select=active_month))
+        else:
+            for category_name in DEFAULT_CATEGORY_OPTIONS:
+                amount_text = (request.form.get(category_name) or '').strip()
+                if not amount_text:
+                    continue
+                try:
+                    budget_map[category_name] = float(amount_text)
+                except ValueError:
+                    flash(f'Invalid amount entered for {category_name}. Please use numbers only.', 'error')
+                    return redirect(url_for('index', month_select=active_month))
 
     if not budget_map:
         flash('Please add at least one budget category with amount.', 'error')
@@ -1166,6 +1184,75 @@ def api_delete_emi(emi_id):
     except Exception as e:
         app.logger.error(f"Error deleting EMI {emi_id}: {e}")
         return jsonify({'status': 'error', 'message': 'An error occurred while deleting the EMI record.'}), 500
+
+@app.route('/api/edit_budget/<int:budget_id>', methods=['POST'])
+@login_required
+def api_edit_budget(budget_id):
+    """Inline edit for budget records."""
+    try:
+        data = request.get_json() or {}
+        category = (data.get('category') or '').strip()
+        amount = data.get('amount')
+        
+        if not category or amount is None:
+            return jsonify({'status': 'error', 'message': 'Category and amount are required.'}), 400
+        
+        try:
+            amount = float(amount)
+        except (ValueError, TypeError):
+            return jsonify({'status': 'error', 'message': 'Amount must be a valid number.'}), 400
+        
+        db = get_db()
+        current_budget_rs = db.execute(
+            'SELECT id, month, category FROM budgets WHERE id = ? AND user_id = ?',
+            (budget_id, current_user.id)
+        )
+        current_budget = db.fetchone(current_budget_rs)
+
+        if not current_budget:
+            return jsonify({'status': 'error', 'message': 'Budget record not found.'}), 404
+
+        duplicate_budget_rs = db.execute(
+            'SELECT id FROM budgets WHERE user_id = ? AND month = ? AND category = ? AND id != ?',
+            (current_user.id, current_budget['month'], category, budget_id)
+        )
+        duplicate_budget = db.fetchone(duplicate_budget_rs)
+
+        if duplicate_budget:
+            return jsonify({'status': 'error', 'message': 'A budget with this category already exists for the selected month.'}), 400
+
+        db.execute(
+            'UPDATE budgets SET category = ?, amount = ? WHERE id = ? AND user_id = ?',
+            (category, amount, budget_id, current_user.id)
+        )
+        db.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Budget record updated successfully!',
+            'budget': {
+                'id': budget_id,
+                'category': category,
+                'amount': amount,
+                'month': current_budget['month']
+            }
+        })
+    except Exception as e:
+        app.logger.error(f"Error editing budget {budget_id}: {e}", exc_info=True)
+        return jsonify({'status': 'error', 'message': 'An error occurred while editing the budget record.'}), 500
+
+@app.route('/api/delete_budget/<int:budget_id>', methods=['POST'])
+@login_required
+def api_delete_budget(budget_id):
+    """Inline delete for budget records."""
+    try:
+        db = get_db()
+        db.execute('DELETE FROM budgets WHERE id = ? AND user_id = ?', (budget_id, current_user.id))
+        db.commit()
+        return jsonify({'status': 'success', 'message': 'Budget record deleted successfully!'})
+    except Exception as e:
+        app.logger.error(f"Error deleting budget {budget_id}: {e}", exc_info=True)
+        return jsonify({'status': 'error', 'message': 'An error occurred while deleting the budget record.'}), 500
 
 
 @app.route('/generate_report')

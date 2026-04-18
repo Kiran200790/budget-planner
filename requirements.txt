@@ -1,7 +1,7 @@
 Blinker==1.9.0
 Brotli==1.1.0
 cffi==1.17.1
-click==8.2.0
+click==8.1.7
 cssselect2==0.8.0
 Flask==3.1.0
 Flask-Login==0.6.3

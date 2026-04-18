@@ -20,6 +20,8 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
     let expenses = flaskData.expenses || [];
+    let activeBudgetEditId = null;
+    let activeInlineEdit = null;
 
     function getSafeErrorMessage(error, fallbackMessage) {
         const message = (error && error.message ? error.message : '').trim();
@@ -30,6 +32,21 @@ document.addEventListener('DOMContentLoaded', function () {
             return fallbackMessage;
         }
         return message.length > 180 ? fallbackMessage : message;
+    }
+
+    function syncBudgetRecord(updatedBudget) {
+        if (!updatedBudget) return;
+
+        const updatedAmount = parseFloat(updatedBudget.amount);
+        flaskData.budgets_list = (flaskData.budgets_list || []).map(record =>
+            record.id === updatedBudget.id
+                ? { ...record, category: updatedBudget.category, amount: updatedAmount }
+                : record
+        );
+
+        flaskData.budget = Object.fromEntries(
+            (flaskData.budgets_list || []).map(record => [record.category, parseFloat(record.amount)])
+        );
     }
 
     // --- DATALIST HELPER (improve UX for payment method and category selection) ---
@@ -76,6 +93,29 @@ document.addEventListener('DOMContentLoaded', function () {
                     const isCategory = input.getAttribute('list') === 'categoryOptions';
                     toggleInlineClear(input, isCategory ? '.category-input-container' : '.payment-input-container');
                 }
+            });
+        });
+
+        // Suppress browser autocomplete/autofill suggestions on category inputs
+        // Use datalist exclusively - no browser history suggestions
+        document.querySelectorAll('input[list="categoryOptions"]').forEach(input => {
+            // Force autocomplete off at all times
+            input.setAttribute('autocomplete', 'off');
+            
+            input.addEventListener('focus', function() {
+                this.setAttribute('autocomplete', 'off');
+            });
+            
+            input.addEventListener('keydown', function(e) {
+                // Block arrow down key to prevent browser suggestions from appearing
+                if (e.key === 'ArrowDown' && !e.ctrlKey && !e.metaKey) {
+                    e.preventDefault();
+                }
+            });
+            
+            // Prevent autocomplete from showing by clearing it periodically
+            input.addEventListener('input', function() {
+                this.setAttribute('autocomplete', 'off');
             });
         });
     }
@@ -401,11 +441,296 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // --- LIST RENDERING FUNCTIONS ---
-    function createItemActions(itemType, record) {
+    function renderBudgetListItem(li, record, listElement) {
+        if (activeBudgetEditId === record.id) {
+            li.classList.add('budget-inline-editing');
+
+            const editor = document.createElement('div');
+            editor.className = 'budget-inline-editor';
+
+            const fieldsGroup = document.createElement('div');
+            fieldsGroup.className = 'budget-inline-fields';
+
+            const categoryInput = document.createElement('input');
+            categoryInput.type = 'text';
+            categoryInput.value = record.category || '';
+            categoryInput.className = 'budget-inline-input budget-inline-category';
+            categoryInput.autocomplete = 'off';
+            categoryInput.spellcheck = false;
+
+            const separator = document.createElement('span');
+            separator.className = 'budget-inline-separator';
+            separator.textContent = ':';
+
+            const currencyPrefix = document.createElement('span');
+            currencyPrefix.className = 'budget-inline-currency';
+            currencyPrefix.textContent = '₹';
+
+            const amountInput = document.createElement('input');
+            amountInput.type = 'text';
+            amountInput.inputMode = 'decimal';
+            amountInput.value = record.amount ?? '';
+            amountInput.className = 'budget-inline-input budget-inline-amount';
+            amountInput.autocomplete = 'off';
+            amountInput.spellcheck = false;
+
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'item-actions';
+
+            const saveButton = document.createElement('button');
+            saveButton.className = 'edit-btn budget-inline-save';
+            saveButton.textContent = 'Save';
+            saveButton.onclick = async () => {
+                const category = categoryInput.value.trim();
+                const amount = amountInput.value;
+
+                if (!category || amount === '') {
+                    showToast('error', 'Validation Error', 'Category and amount are required.');
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`/api/edit_budget/${record.id}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ category, amount })
+                    });
+                    const result = await response.json();
+
+                    if (result.status === 'success') {
+                        syncBudgetRecord(result.budget);
+                        activeBudgetEditId = null;
+                        await refreshDashboardData(flaskData.active_month);
+                        showToast('success', 'Updated!', 'Budget item has been updated successfully.');
+                    } else {
+                        showToast('error', 'Update Failed', result.message || 'Failed to update budget item.');
+                    }
+                } catch (error) {
+                    console.error('Failed to edit budget:', error);
+                    showToast('error', 'Network Error', 'An error occurred while updating the budget. Please try again.');
+                }
+            };
+
+            const cancelButton = document.createElement('button');
+            cancelButton.className = 'budget-inline-cancel';
+            cancelButton.textContent = 'Cancel';
+            cancelButton.onclick = () => {
+                activeBudgetEditId = null;
+                renderList(listElement, flaskData.budgets_list, 'budget', 'No budget records for this month.', r => `${r.category}: <b>₹${parseFloat(r.amount).toFixed(2)}</b>`);
+            };
+
+            actionsDiv.appendChild(saveButton);
+            actionsDiv.appendChild(cancelButton);
+
+            fieldsGroup.appendChild(categoryInput);
+            fieldsGroup.appendChild(separator);
+            fieldsGroup.appendChild(currencyPrefix);
+            fieldsGroup.appendChild(amountInput);
+
+            editor.appendChild(fieldsGroup);
+            editor.appendChild(actionsDiv);
+            li.appendChild(editor);
+
+            setTimeout(() => {
+                amountInput.focus();
+                const cursorPos = amountInput.value.length;
+                amountInput.setSelectionRange(cursorPos, cursorPos);
+            }, 0);
+            return;
+        }
+
+        const textSpan = document.createElement('span');
+        textSpan.innerHTML = `${record.category}: <b>₹${parseFloat(record.amount).toFixed(2)}</b>`;
+        li.appendChild(textSpan);
+        li.appendChild(createItemActions('budget', record, listElement));
+    }
+
+    function renderInlineRecordEditor(li, itemType, record) {
+        li.classList.add('budget-inline-editing');
+
+        const editor = document.createElement('div');
+        editor.className = 'budget-inline-editor';
+
+        const fieldsGroup = document.createElement('div');
+        fieldsGroup.className = 'budget-inline-fields';
+
+        const labelInput = document.createElement('input');
+        labelInput.type = 'text';
+        labelInput.className = 'budget-inline-input budget-inline-category';
+        labelInput.autocomplete = 'off';
+        labelInput.spellcheck = false;
+        labelInput.value = itemType === 'income' ? (record.description || '') : (record.loan_name || '');
+
+        const separator = document.createElement('span');
+        separator.className = 'budget-inline-separator';
+        separator.textContent = ':';
+
+        const currencyPrefix = document.createElement('span');
+        currencyPrefix.className = 'budget-inline-currency';
+        currencyPrefix.textContent = '₹';
+
+        const amountInput = document.createElement('input');
+        amountInput.type = 'text';
+        amountInput.inputMode = 'decimal';
+        amountInput.className = 'budget-inline-input budget-inline-amount';
+        amountInput.autocomplete = 'off';
+        amountInput.spellcheck = false;
+        amountInput.value = itemType === 'income' ? (record.amount ?? '') : (record.emi_amount ?? '');
+
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'item-actions';
+
+        const saveButton = document.createElement('button');
+        saveButton.className = 'edit-btn budget-inline-save';
+        saveButton.textContent = 'Save';
+        saveButton.onclick = async () => {
+            const labelValue = labelInput.value.trim();
+            const amountValue = amountInput.value.trim();
+
+            if (!labelValue || amountValue === '') {
+                showToast('error', 'Validation Error', 'All fields are required.');
+                return;
+            }
+
+            const payload = new URLSearchParams();
+            if (itemType === 'income') {
+                payload.append('description', labelValue);
+                payload.append('amount', amountValue);
+                payload.append('month_select', flaskData.active_month);
+            } else {
+                payload.append('loan_name', labelValue);
+                payload.append('emi_amount', amountValue);
+                payload.append('month', flaskData.active_month);
+            }
+
+            try {
+                const response = await fetch(`/api/edit_${itemType}/${record.id}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+                    body: payload.toString()
+                });
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    activeInlineEdit = null;
+                    await refreshDashboardData(flaskData.active_month);
+                    showToast('success', 'Updated!', `${itemType.toUpperCase()} item has been updated successfully.`);
+                } else {
+                    showToast('error', 'Update Failed', result.message || `Failed to update ${itemType} item.`);
+                }
+            } catch (error) {
+                console.error(`Failed to edit ${itemType}:`, error);
+                showToast('error', 'Network Error', `An error occurred while updating the ${itemType}. Please try again.`);
+            }
+        };
+
+        const cancelButton = document.createElement('button');
+        cancelButton.className = 'budget-inline-cancel';
+        cancelButton.textContent = 'Cancel';
+        cancelButton.onclick = () => {
+            activeInlineEdit = null;
+            renderAllLists(expenses);
+        };
+
+        actionsDiv.appendChild(saveButton);
+        actionsDiv.appendChild(cancelButton);
+
+        fieldsGroup.appendChild(labelInput);
+        fieldsGroup.appendChild(separator);
+        fieldsGroup.appendChild(currencyPrefix);
+        fieldsGroup.appendChild(amountInput);
+
+        editor.appendChild(fieldsGroup);
+        editor.appendChild(actionsDiv);
+        li.appendChild(editor);
+
+        setTimeout(() => {
+            amountInput.focus();
+            const cursorPos = amountInput.value.length;
+            amountInput.setSelectionRange(cursorPos, cursorPos);
+        }, 0);
+    }
+
+    function createItemActions(itemType, record, listElement = null) {
         const actionsDiv = document.createElement('div');
         actionsDiv.className = 'item-actions';
         const activeMonth = flaskData.active_month; // Use data from Flask
 
+        // For budget items, use inline edit buttons instead of linking to edit page
+        if (itemType === 'budget') {
+            const editButton = document.createElement('button');
+            editButton.className = 'edit-btn';
+            editButton.innerHTML = '<i class="fas fa-edit"></i>';
+            editButton.onclick = () => {
+                activeInlineEdit = null;
+                activeBudgetEditId = record.id;
+                renderAllLists(expenses);
+            };
+
+            const deleteButton = document.createElement('button');
+            deleteButton.className = 'delete-btn';
+            deleteButton.innerHTML = '<i class="fas fa-trash"></i>';
+            deleteButton.onclick = async () => {
+                if (confirm(`Are you sure you want to delete this budget item?`)) {
+                    try {
+                        const response = await fetch(`/api/delete_budget/${record.id}`, { method: 'POST' });
+                        const result = await response.json();
+                        if (result.status === 'success') {
+                            await refreshDashboardData(flaskData.active_month);
+                            showToast('success', 'Deleted!', 'Budget item has been deleted successfully.');
+                        } else {
+                            showToast('error', 'Delete Failed', result.message || 'Failed to delete budget item.');
+                        }
+                    } catch (error) {
+                        console.error('Failed to delete budget:', error);
+                        showToast('error', 'Network Error', 'An error occurred while deleting the budget. Please try again.');
+                    }
+                }
+            };
+
+            actionsDiv.appendChild(editButton);
+            actionsDiv.appendChild(deleteButton);
+            return actionsDiv;
+        }
+
+        if (itemType === 'income' || itemType === 'emi') {
+            const editButton = document.createElement('button');
+            editButton.className = 'edit-btn';
+            editButton.innerHTML = '<i class="fas fa-edit"></i>';
+            editButton.onclick = () => {
+                activeBudgetEditId = null;
+                activeInlineEdit = { type: itemType, id: record.id };
+                renderAllLists(expenses);
+            };
+
+            const deleteButton = document.createElement('button');
+            deleteButton.className = 'delete-btn';
+            deleteButton.innerHTML = '<i class="fas fa-trash"></i>';
+            deleteButton.onclick = async () => {
+                if (confirm(`Are you sure you want to delete this ${itemType} item?`)) {
+                    try {
+                        const response = await fetch(`/api/delete_${itemType}/${record.id}`, { method: 'POST' });
+                        const result = await response.json();
+                        if (result.status === 'success') {
+                            activeInlineEdit = null;
+                            await refreshDashboardData(flaskData.active_month);
+                            showToast('success', 'Deleted!', `${itemType.charAt(0).toUpperCase() + itemType.slice(1)} item has been deleted successfully.`);
+                        } else {
+                            showToast('error', 'Delete Failed', result.message || `Failed to delete ${itemType} item.`);
+                        }
+                    } catch (error) {
+                        console.error(`Failed to delete ${itemType}:`, error);
+                        showToast('error', 'Network Error', `An error occurred while deleting the ${itemType}. Please try again.`);
+                    }
+                }
+            };
+
+            actionsDiv.appendChild(editButton);
+            actionsDiv.appendChild(deleteButton);
+            return actionsDiv;
+        }
+
+        // For other item types, use navigation to edit page
         const editLink = document.createElement('a');
         editLink.href = `/edit_${itemType}/${record.id}?month_select=${activeMonth}`;
         editLink.className = 'edit-btn';
@@ -452,12 +777,17 @@ document.addEventListener('DOMContentLoaded', function () {
         data.forEach(record => {
             const li = document.createElement('li');
             if (itemType === 'budget') {
-                const textSpan = document.createElement('span');
-                textSpan.innerHTML = createTextContent(record);
-                li.appendChild(textSpan);
+                renderBudgetListItem(li, record, listElement);
                 listElement.appendChild(li);
                 return;
             }
+
+            if ((itemType === 'income' || itemType === 'emi') && activeInlineEdit && activeInlineEdit.type === itemType && activeInlineEdit.id === record.id) {
+                renderInlineRecordEditor(li, itemType, record);
+                listElement.appendChild(li);
+                return;
+            }
+
             if (isMobile && itemType === 'expense') {
                 // --- MOBILE EXPENSE: Modern Card Layout ---
                 li.style.display = 'block';
@@ -772,17 +1102,13 @@ document.addEventListener('DOMContentLoaded', function () {
         };
         const incomeContent = r => `${r.description}: <b>₹${parseFloat(r.amount).toFixed(2)}</b>`;
         const emiContent = r => `${r.loan_name}: <b>₹${parseFloat(r.emi_amount).toFixed(2)}</b>`;
-
-        const budgetRecords = Object.entries(flaskData.budget || {})
-            .map(([category, amount]) => ({ category, amount }))
-            .sort((first, second) => first.category.localeCompare(second.category));
         const budgetContent = r => `${r.category}: <b>₹${parseFloat(r.amount).toFixed(2)}</b>`;
 
         // Desktop Lists
         renderList(document.querySelector('#expenseSectionContentDesktop .expenseList'), expenseData, 'expense', 'No expense records for this month.', expenseContent);
         renderList(document.querySelector('#incomeSectionContentDesktop .incomeList'), flaskData.income, 'income', 'No income records for this month.', incomeContent);
         renderList(document.querySelector('#emiSectionContentDesktop .emiList'), flaskData.emis, 'emi', 'No EMI records for this month.', emiContent);
-        renderList(document.querySelector('#budgetSectionContentDesktop .budgetList'), budgetRecords, 'budget', 'No budget records for this month.', budgetContent);
+        renderList(document.querySelector('#budgetSectionContentDesktop .budgetList'), flaskData.budgets_list, 'budget', 'No budget records for this month.', budgetContent);
 
         // Mobile Lists
         const mobileExpenseList = document.querySelector('#expense-content-mobile .expenseList');
@@ -792,7 +1118,7 @@ document.addEventListener('DOMContentLoaded', function () {
         renderList(mobileExpenseList, expenseData, 'expense', 'No expense records for this month.', expenseContent);
         renderList(mobileIncomeList, flaskData.income, 'income', 'No income records for this month.', incomeContent);
         renderList(mobileEmiList, flaskData.emis, 'emi', 'No EMI records for this month.', emiContent);
-        renderList(mobileBudgetList, budgetRecords, 'budget', 'No budget records for this month.', budgetContent);
+        renderList(mobileBudgetList, flaskData.budgets_list, 'budget', 'No budget records for this month.', budgetContent);
     }
 
 

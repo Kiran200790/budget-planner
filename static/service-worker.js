@@ -1,4 +1,4 @@
-const CACHE_NAME = 'budget-planner-cache-v3.0';
+const CACHE_NAME = 'budget-planner-cache-v3.1';
 const urlsToCache = [
   '/static/style.css',
   '/static/script.js',
@@ -49,6 +49,19 @@ self.addEventListener('fetch', event => {
 
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(fetch(request));
+    return;
+  }
+
+  if (url.pathname.startsWith('/static/')) {
+    event.respondWith(
+      fetch(request)
+        .then(response => {
+          const responseClone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(request, responseClone));
+          return response;
+        })
+        .catch(() => caches.match(request))
+    );
     return;
   }
 

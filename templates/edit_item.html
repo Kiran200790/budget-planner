@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Edit {{ item_type|capitalize }} - {{ active_month }}</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=asset_version) }}">
     
     <!-- PWA manifest and meta tags -->
-    <link rel="manifest" href="/static/manifest.json">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json', v=asset_version) }}">
     <meta name="theme-color" content="#2a69a5">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -143,6 +143,6 @@
         <option value="{{ category_name }}"></option>
         {% endfor %}
     </datalist>
-    <script src="/static/script.js"></script>
+    <script src="{{ url_for('static', filename='script.js', v=asset_version) }}"></script>
 </body>
 </html>

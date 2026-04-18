@@ -7,8 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=asset_version) }}">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json', v=asset_version) }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 </head>
@@ -93,7 +93,7 @@
                         <div class="form-field category-field">
                             <label for="expense_category_desktop">Category:</label>
                             <div class="category-input-container" style="position: relative;">
-                                <input type="text" id="expense_category_desktop" name="category" list="categoryOptions" placeholder="e.g., Groceries, Transport" required style="width: 100%; padding-right: 34px;">
+                                <input type="text" id="expense_category_desktop" name="category" list="categoryOptions" placeholder="e.g., Groceries, Transport" required autocomplete="off" spellcheck="false" style="width: 100%; padding-right: 34px;">
                                 <button type="button" class="clearCategoryInput" data-target="expense_category_desktop" title="Clear category" style="position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; height: 24px; color: #64748b;">
                                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2"/><path d="M7 7l6 6M13 7l-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
                                 </button>
@@ -139,11 +139,11 @@
                     <div class="expense-fields-inline">
                         <div class="form-field description-field">
                             <label for="budget_category_desktop">Category:</label>
-                            <input type="text" id="budget_category_desktop" name="category" list="categoryOptions" placeholder="e.g., Groceries" required autocomplete="off">
+                            <input type="text" id="budget_category_desktop" name="category" required autocomplete="off" spellcheck="false">
                         </div>
                         <div class="form-field amount-field">
                             <label for="budget_amount_desktop">Budget Amount:</label>
-                            <input type="number" step="0.01" id="budget_amount_desktop" name="amount" placeholder="Amount" required autocomplete="off">
+                            <input type="number" step="0.01" id="budget_amount_desktop" name="amount" required autocomplete="off">
                         </div>
                     </div>
                     <div class="form-actions">
@@ -315,8 +315,8 @@
                         </button>
                     </div>
                     <form id="setBudgetFormMobile" class="mobile-form" autocomplete="off">
-                        <input type="text" name="category" list="categoryOptions" placeholder="Category" required autocomplete="off">
-                        <input type="number" step="0.01" name="amount" placeholder="Budget Amount" required autocomplete="off">
+                        <input type="text" name="category" required autocomplete="off" spellcheck="false">
+                        <input type="number" step="0.01" name="amount" required autocomplete="off">
                         <input type="hidden" name="month_select" value="{{ active_month }}">
                         <div class="form-actions-mobile">
                             <button type="submit">Add Budget</button>
@@ -375,7 +375,7 @@
                     <div class="form-field">
                         <label for="fabCategory">Category</label>
                         <div class="category-input-container" style="position: relative;">
-                            <input type="text" id="fabCategory" name="category" list="categoryOptions" placeholder="e.g., Groceries, Transport" required style="width: 100%; padding-right: 34px;">
+                            <input type="text" id="fabCategory" name="category" list="categoryOptions" placeholder="e.g., Groceries, Transport" required autocomplete="off" spellcheck="false" style="width: 100%; padding-right: 34px;">
                             <button type="button" class="clearCategoryInput" data-target="fabCategory" title="Clear category" style="position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; height: 24px; color: #64748b;">
                                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2"/><path d="M7 7l6 6M13 7l-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
                             </button>
@@ -427,6 +427,6 @@
     </datalist>
 
     <script id="flask-data" data-json="{{ js_data|tojson|safe }}"></script>
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script src="{{ url_for('static', filename='script.js', v=asset_version) }}"></script>
 </body>
 </html>
