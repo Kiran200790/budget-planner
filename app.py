@@ -590,6 +590,29 @@ def get_budget_data(active_month):
     app.logger.info(f"--- Finished fetching data for {active_month}. Returning {len(result_data)} keys. ---")
     return result_data
 
+
+def upsert_budget_amount(db, user_id, month_value, category_name, amount_value):
+    category = (category_name or '').strip()
+    if not category:
+        raise ValueError('Budget category is required.')
+
+    existing_rs = db.execute(
+        'SELECT id FROM budgets WHERE user_id = ? AND month = ? AND category = ? LIMIT 1',
+        (user_id, month_value, category)
+    )
+    existing = db.fetchone(existing_rs)
+
+    if existing:
+        db.execute(
+            'UPDATE budgets SET amount = ? WHERE user_id = ? AND month = ? AND category = ?',
+            (amount_value, user_id, month_value, category)
+        )
+    else:
+        db.execute(
+            'INSERT INTO budgets (user_id, month, category, amount) VALUES (?, ?, ?, ?)',
+            (user_id, month_value, category, amount_value)
+        )
+
 @app.route('/api/report_data', methods=['GET'])
 @login_required
 def api_report_data():
@@ -839,12 +862,7 @@ def set_budget():
     try:
         db = get_db()
         for category_name, amount in budget_map.items():
-            db.execute(
-                '''INSERT INTO budgets (user_id, month, category, amount)
-                   VALUES (?, ?, ?, ?)
-                   ON CONFLICT(user_id, month, category) DO UPDATE SET amount = excluded.amount''',
-                (current_user.id, active_month, category_name, amount)
-            )
+            upsert_budget_amount(db, current_user.id, active_month, category_name, amount)
         db.commit()
     except Exception as e:
         app.logger.error(f"Error setting budget: {e}")
@@ -867,12 +885,7 @@ def api_set_budget():
 
     try:
         db = get_db()
-        db.execute(
-            '''INSERT INTO budgets (user_id, month, category, amount)
-               VALUES (?, ?, ?, ?)
-               ON CONFLICT(user_id, month, category) DO UPDATE SET amount = excluded.amount''',
-            (current_user.id, active_month, category, float(amount))
-        )
+        upsert_budget_amount(db, current_user.id, active_month, category, float(amount))
         db.commit()
         return jsonify({'status': 'success', 'message': 'Budget set successfully!'})
     except ValueError:
@@ -915,18 +928,13 @@ def api_set_budgets():
         if not budget_map:
             return jsonify({'status': 'error', 'message': 'Add at least one budget category and amount.'}), 400
         
-        queries = []
         for i in range(num_months):
             current_month_dt = start_month + relativedelta(months=i)
             current_month_str = current_month_dt.strftime('%Y-%m')
 
             for category, amount in budget_map.items():
-                queries.append(
-                    ('INSERT INTO budgets (user_id, month, category, amount) VALUES (?, ?, ?, ?) ON CONFLICT(user_id, month, category) DO UPDATE SET amount = excluded.amount',
-                    (current_user.id, current_month_str, category, amount))
-                )
-
-        db.execute_batch(queries)
+                upsert_budget_amount(db, current_user.id, current_month_str, category, amount)
+        db.commit()
         message = f'Budget updated for {num_months} months successfully!'
         return jsonify({'status': 'success', 'message': message})
     except ValueError as e:
