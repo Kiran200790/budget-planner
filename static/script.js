@@ -143,6 +143,10 @@ document.addEventListener('DOMContentLoaded', function () {
         document.querySelectorAll(`${viewSelector} ${navSelector}`).forEach(button => {
             button.classList.toggle('active', button.dataset.target === targetId);
         });
+
+        if (targetId === '#weekly-content-mobile' || targetId === '#budgetSectionContentDesktop') {
+            loadWeeklyBudgets(flaskData.active_month);
+        }
     }
 
 
@@ -1906,6 +1910,13 @@ document.addEventListener('DOMContentLoaded', function () {
         return monthlyTotal.toFixed(2);
     }
 
+    function syncWeeklyBudgetInputs(value) {
+        const desktopInput = document.getElementById('weeklyBudgetAmountAll');
+        const mobileInput = document.getElementById('weeklyBudgetAmountAllMobile');
+        if (desktopInput) desktopInput.value = value;
+        if (mobileInput) mobileInput.value = value;
+    }
+
     function getActiveWeekForMonth(weeks, month) {
         if (!weeks || weeks.length === 0) return null;
 
@@ -1923,17 +1934,17 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     async function loadWeeklyBudgets(month) {
-        const container = document.getElementById('weeklyBudgetContainer');
-        const singleView = document.getElementById('weeklyBudgetSingleView');
-        const loading = document.getElementById('weeklyBudgetLoading');
+        const containers = [
+            { container: document.getElementById('weeklyBudgetContainer'), singleView: document.getElementById('weeklyBudgetSingleView'), loading: document.getElementById('weeklyBudgetLoading') },
+            { container: document.getElementById('weeklyBudgetContainerMobile'), singleView: document.getElementById('weeklyBudgetSingleViewMobile'), loading: document.getElementById('weeklyBudgetLoadingMobile') }
+        ];
 
-        if (!month || !container || !singleView) return;
+        if (!month) return;
 
-        if (loading) {
-            loading.style.display = 'block';
-            loading.textContent = 'Loading weekly budget data...';
-        }
-        container.style.display = 'none';
+        containers.forEach(({ container, loading }) => {
+            if (loading) { loading.style.display = 'block'; loading.textContent = 'Loading weekly budget data...'; }
+            if (container) container.style.display = 'none';
+        });
 
         try {
             const response = await fetch(`/api/weekly_budget?month=${encodeURIComponent(month)}`);
@@ -1944,92 +1955,110 @@ document.addEventListener('DOMContentLoaded', function () {
                 weeklyBudgetsCache = data.weekly_budgets || [];
                 renderWeeklyBudgets(weeklyBudgetsCache);
             } else {
-                container.style.display = 'block';
-                singleView.innerHTML = '<div style="padding: 10px; color: #b91c1c;">Weekly budget data is unavailable right now.</div>';
-                if (loading) loading.textContent = 'Could not load weekly budget data.';
+                containers.forEach(({ container, singleView, loading }) => {
+                    if (container) container.style.display = 'block';
+                    if (singleView) singleView.innerHTML = '<div style="padding: 10px; color: #b91c1c;">Weekly budget data is unavailable right now.</div>';
+                    if (loading) loading.textContent = 'Could not load weekly budget data.';
+                });
                 showToast('error', 'Error', data.message || 'Failed to load weekly budgets.');
             }
         } catch (error) {
             console.error('Failed to load weekly budgets:', error);
-            container.style.display = 'block';
-            singleView.innerHTML = '<div style="padding: 10px; color: #b91c1c;">Weekly budget data could not be fetched. Please refresh the page.</div>';
-            if (loading) loading.textContent = 'Could not load weekly budget data.';
+            containers.forEach(({ container, singleView, loading }) => {
+                if (container) container.style.display = 'block';
+                if (singleView) singleView.innerHTML = '<div style="padding: 10px; color: #b91c1c;">Weekly budget data could not be fetched. Please refresh the page.</div>';
+                if (loading) loading.textContent = 'Could not load weekly budget data.';
+            });
             showToast('error', 'Network Error', 'Could not load weekly budgets. Please try again.');
         }
     }
 
     function renderWeeklyBudgets(weeks) {
-        const container = document.getElementById('weeklyBudgetContainer');
-        const singleView = document.getElementById('weeklyBudgetSingleView');
-        const loading = document.getElementById('weeklyBudgetLoading');
-        const amountInput = document.getElementById('weeklyBudgetAmountAll');
-        const currentWeekLabel = document.getElementById('weeklyCurrentLabel');
-        const prevBtn = document.getElementById('weeklyPrevBtn');
-        const nextBtn = document.getElementById('weeklyNextBtn');
+        const panels = [
+            {
+                container: document.getElementById('weeklyBudgetContainer'),
+                singleView: document.getElementById('weeklyBudgetSingleView'),
+                loading: document.getElementById('weeklyBudgetLoading'),
+                amountInput: document.getElementById('weeklyBudgetAmountAll'),
+                currentWeekLabel: document.getElementById('weeklyCurrentLabel'),
+                prevBtn: document.getElementById('weeklyPrevBtn'),
+                nextBtn: document.getElementById('weeklyNextBtn'),
+            },
+            {
+                container: document.getElementById('weeklyBudgetContainerMobile'),
+                singleView: document.getElementById('weeklyBudgetSingleViewMobile'),
+                loading: document.getElementById('weeklyBudgetLoadingMobile'),
+                amountInput: document.getElementById('weeklyBudgetAmountAllMobile'),
+                currentWeekLabel: document.getElementById('weeklyCurrentLabelMobile'),
+                prevBtn: document.getElementById('weeklyPrevBtnMobile'),
+                nextBtn: document.getElementById('weeklyNextBtnMobile'),
+            }
+        ];
 
-        if (!container || !singleView) return;
+        panels.forEach(({ container, singleView, loading, amountInput, currentWeekLabel, prevBtn, nextBtn }) => {
+            if (!container || !singleView) return;
 
-        if (loading) loading.style.display = 'none';
-        singleView.innerHTML = '';
+            if (loading) loading.style.display = 'none';
+            singleView.innerHTML = '';
 
-        if (!weeks || weeks.length === 0) {
-            singleView.innerHTML = '<div style="padding: 10px; color: #666;">No weekly budget data available.</div>';
-            container.style.display = 'block';
-            return;
-        }
+            if (!weeks || weeks.length === 0) {
+                singleView.innerHTML = '<div style="padding: 10px; color: #666;">No weekly budget data available.</div>';
+                container.style.display = 'block';
+                return;
+            }
 
-        if (amountInput) {
-            amountInput.value = getMonthlyBudgetFromWeeks(weeks);
-        }
+            if (amountInput) {
+                amountInput.value = getMonthlyBudgetFromWeeks(weeks);
+            }
 
-        if (selectedWeeklyViewIndex === null || selectedWeeklyViewIndex < 0 || selectedWeeklyViewIndex >= weeks.length) {
-            selectedWeeklyViewIndex = 0;
-        }
+            syncWeeklyBudgetInputs(getMonthlyBudgetFromWeeks(weeks));
 
-        const weekToRender = weeks[selectedWeeklyViewIndex];
-        if (!weekToRender) {
-            singleView.innerHTML = '<div style="padding: 10px; color: #666;">No active week available.</div>';
-            container.style.display = 'block';
-            return;
-        }
+            if (selectedWeeklyViewIndex === null || selectedWeeklyViewIndex < 0 || selectedWeeklyViewIndex >= weeks.length) {
+                selectedWeeklyViewIndex = 0;
+            }
 
-        const remaining = parseFloat(weekToRender.variance || 0);
-        const remainingColor = remaining >= 0 ? '#166534' : '#b91c1c';
-        const remainingBg = remaining >= 0 ? '#dcfce7' : '#fee2e2';
+            const weekToRender = weeks[selectedWeeklyViewIndex];
+            if (!weekToRender) {
+                singleView.innerHTML = '<div style="padding: 10px; color: #666;">No active week available.</div>';
+                container.style.display = 'block';
+                return;
+            }
 
-        if (currentWeekLabel) {
-            currentWeekLabel.textContent = `Week ${weekToRender.week_index}`;
-        }
+            const remaining = parseFloat(weekToRender.variance || 0);
+            const remainingColor = remaining >= 0 ? '#166534' : '#b91c1c';
+            const remainingBg = remaining >= 0 ? '#dcfce7' : '#fee2e2';
 
-        if (prevBtn) prevBtn.disabled = selectedWeeklyViewIndex === 0;
-        if (nextBtn) nextBtn.disabled = selectedWeeklyViewIndex === weeks.length - 1;
+            if (currentWeekLabel) currentWeekLabel.textContent = `Week ${weekToRender.week_index}`;
+            if (prevBtn) prevBtn.disabled = selectedWeeklyViewIndex === 0;
+            if (nextBtn) nextBtn.disabled = selectedWeeklyViewIndex === weeks.length - 1;
 
-        const statusClass = remaining >= 0 ? 'week-status-safe' : 'week-status-over';
-        const statusLabel = remaining >= 0 ? 'On Track' : 'Over Budget';
+            const statusClass = remaining >= 0 ? 'week-status-safe' : 'week-status-over';
+            const statusLabel = remaining >= 0 ? 'On Track' : 'Over Budget';
 
-        singleView.innerHTML = `
-            <div class="weekly-budget-card">
-                <div class="weekly-budget-card-header">
-                    <div>
-                        <div class="weekly-budget-card-title">Week ${weekToRender.week_index}</div>
-                        <div class="weekly-budget-card-range">${getWeekDateRange(weekToRender.week_start, weekToRender.week_end)}</div>
+            singleView.innerHTML = `
+                <div class="weekly-budget-card">
+                    <div class="weekly-budget-card-header">
+                        <div>
+                            <div class="weekly-budget-card-title">Week ${weekToRender.week_index}</div>
+                            <div class="weekly-budget-card-range">${getWeekDateRange(weekToRender.week_start, weekToRender.week_end)}</div>
+                        </div>
+                        <div class="weekly-budget-status ${statusClass}">${statusLabel}</div>
                     </div>
-                    <div class="weekly-budget-status ${statusClass}">${statusLabel}</div>
+                    <div class="weekly-budget-metrics">
+                        <div class="weekly-budget-metric spent">
+                            <div class="weekly-budget-metric-label">Spent This Week</div>
+                            <div class="weekly-budget-metric-value">${getFormattedCurrency(weekToRender.spent)}</div>
+                        </div>
+                        <div class="weekly-budget-metric remaining" style="--metric-bg: ${remainingBg}; --metric-color: ${remainingColor};">
+                            <div class="weekly-budget-metric-label">Remaining This Week</div>
+                            <div class="weekly-budget-metric-value">${getFormattedCurrency(remaining)}</div>
+                        </div>
+                    </div>
                 </div>
-                <div class="weekly-budget-metrics">
-                    <div class="weekly-budget-metric spent">
-                        <div class="weekly-budget-metric-label">Spent This Week</div>
-                        <div class="weekly-budget-metric-value">${getFormattedCurrency(weekToRender.spent)}</div>
-                    </div>
-                    <div class="weekly-budget-metric remaining" style="--metric-bg: ${remainingBg}; --metric-color: ${remainingColor};">
-                        <div class="weekly-budget-metric-label">Remaining This Week</div>
-                        <div class="weekly-budget-metric-value">${getFormattedCurrency(remaining)}</div>
-                    </div>
-                </div>
-            </div>
-        `;
+            `;
 
-        container.style.display = 'block';
+            container.style.display = 'block';
+        });
     }
 
     function getWeekDateRange(startDate, endDate) {
@@ -2114,6 +2143,14 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    const weeklyBudgetAmountAll = document.getElementById('weeklyBudgetAmountAll');
+    if (weeklyBudgetAmountAll) {
+        weeklyBudgetAmountAll.addEventListener('input', (event) => {
+            const mobileInput = document.getElementById('weeklyBudgetAmountAllMobile');
+            if (mobileInput) mobileInput.value = event.target.value;
+        });
+    }
+
     const weeklyPrevBtn = document.getElementById('weeklyPrevBtn');
     if (weeklyPrevBtn) {
         weeklyPrevBtn.addEventListener('click', () => {
@@ -2125,6 +2162,44 @@ document.addEventListener('DOMContentLoaded', function () {
     const weeklyNextBtn = document.getElementById('weeklyNextBtn');
     if (weeklyNextBtn) {
         weeklyNextBtn.addEventListener('click', () => {
+            selectedWeeklyViewIndex = Math.min((weeklyBudgetsCache.length || 1) - 1, (selectedWeeklyViewIndex ?? 0) + 1);
+            renderWeeklyBudgets(weeklyBudgetsCache);
+        });
+    }
+
+    // Mobile Weekly Budget Controls
+    const weeklyBudgetApplyAllBtnMobile = document.getElementById('weeklyBudgetApplyAllBtnMobile');
+    if (weeklyBudgetApplyAllBtnMobile) {
+        weeklyBudgetApplyAllBtnMobile.addEventListener('click', async () => {
+            const amountInput = document.getElementById('weeklyBudgetAmountAllMobile');
+            const amount = parseFloat(amountInput?.value || 0);
+            if (Number.isNaN(amount) || amount < 0) {
+                showToast('warning', 'Invalid Value', 'Enter a valid monthly budget amount.');
+                return;
+            }
+            await setAllWeeklyBaseBudget(amount);
+        });
+    }
+
+    const weeklyBudgetAmountAllMobile = document.getElementById('weeklyBudgetAmountAllMobile');
+    if (weeklyBudgetAmountAllMobile) {
+        weeklyBudgetAmountAllMobile.addEventListener('input', (event) => {
+            const desktopInput = document.getElementById('weeklyBudgetAmountAll');
+            if (desktopInput) desktopInput.value = event.target.value;
+        });
+    }
+
+    const weeklyPrevBtnMobile = document.getElementById('weeklyPrevBtnMobile');
+    if (weeklyPrevBtnMobile) {
+        weeklyPrevBtnMobile.addEventListener('click', () => {
+            selectedWeeklyViewIndex = Math.max(0, (selectedWeeklyViewIndex ?? 0) - 1);
+            renderWeeklyBudgets(weeklyBudgetsCache);
+        });
+    }
+
+    const weeklyNextBtnMobile = document.getElementById('weeklyNextBtnMobile');
+    if (weeklyNextBtnMobile) {
+        weeklyNextBtnMobile.addEventListener('click', () => {
             selectedWeeklyViewIndex = Math.min((weeklyBudgetsCache.length || 1) - 1, (selectedWeeklyViewIndex ?? 0) + 1);
             renderWeeklyBudgets(weeklyBudgetsCache);
         });

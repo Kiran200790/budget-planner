@@ -2912,23 +2912,34 @@ input[list="categoryOptions"]::-webkit-inner-spin-button {
 
 .weekly-budget-card-header {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     gap: 12px;
     margin-bottom: 14px;
+}
+
+.weekly-budget-card-header > div:first-child {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
 }
 
 .weekly-budget-card-title {
     font-size: 1rem;
     font-weight: 800;
     color: #0f172a;
-    margin-bottom: 4px;
+    margin-bottom: 0;
+    white-space: nowrap;
 }
 
 .weekly-budget-card-range {
     font-size: 0.88em;
     color: #64748b;
+    white-space: nowrap;
 }
+
+
 
 .weekly-budget-status {
     display: inline-flex;
@@ -3060,3 +3071,106 @@ input[list="categoryOptions"]::-webkit-inner-spin-button {
     }
 }
 
+/* --- WEEKLY BUDGET MOBILE PANE --- */
+#weekly-content-mobile .weekly-mobile-subtitle {
+    margin: -4px 0 14px;
+    color: #64748b;
+    font-size: 0.92em;
+}
+
+#weekly-content-mobile .weekly-mobile-form {
+    margin-bottom: 12px;
+}
+
+#weekly-content-mobile .weekly-mobile-primary-btn {
+    background-color: #4299e1;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+#weekly-content-mobile .weekly-mobile-nav-row {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+#weekly-content-mobile .weekly-mobile-nav-btn {
+    width: 100%;
+    padding: 10px 8px;
+    border: 1px solid #cbd5e0;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #2d3748;
+    font-size: 0.9em;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+#weekly-content-mobile .weekly-mobile-nav-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+#weekly-content-mobile .weekly-mobile-current-label {
+    text-align: center;
+    font-weight: 700;
+    color: #2d3748;
+    font-size: 0.92em;
+    white-space: nowrap;
+    padding: 0 6px;
+}
+
+#weekly-content-mobile .weekly-budget-content {
+    min-height: 110px;
+}
+
+#weekly-content-mobile .weekly-budget-card {
+    padding: 14px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+#weekly-content-mobile .weekly-budget-card-header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+#weekly-content-mobile .weekly-budget-card-header > div:first-child {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+#weekly-content-mobile .weekly-budget-card-title {
+    margin-bottom: 0;
+    white-space: nowrap;
+}
+
+#weekly-content-mobile .weekly-budget-card-range {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#weekly-content-mobile .weekly-budget-metrics {
+    grid-template-columns: 1fr;
+    gap: 10px;
+}
+
+#weekly-content-mobile .weekly-budget-metric {
+    padding: 12px;
+    border-radius: 8px;
+}
+
+#weekly-content-mobile .weekly-budget-metric-value {
+    font-size: 1.18em;
+}

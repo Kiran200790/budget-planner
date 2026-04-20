@@ -359,6 +359,32 @@
                     <h3>Budget Records</h3>
                     <ul class="budgetList mobile-item-list"></ul>
                 </div>
+
+                <!-- Weekly Budget Mobile Pane -->
+                <div id="weekly-content-mobile" class="main-pane tab-pane mobile-pane">
+                    <div class="mobile-section-header">
+                        <h2>Weekly Budget</h2>
+                    </div>
+                    <p class="weekly-mobile-subtitle">Set one monthly budget and review one week at a time.</p>
+
+                    <div class="mobile-form weekly-mobile-form">
+                        <input type="number" step="0.01" id="weeklyBudgetAmountAllMobile" placeholder="Monthly Budget (₹)">
+                        <button type="button" id="weeklyBudgetApplyAllBtnMobile" class="weekly-mobile-primary-btn">Distribute</button>
+                    </div>
+
+                    <div class="weekly-mobile-nav-row">
+                        <button type="button" id="weeklyPrevBtnMobile" class="weekly-mobile-nav-btn">◀ Prev</button>
+                        <span id="weeklyCurrentLabelMobile" class="weekly-mobile-current-label">Week 1</span>
+                        <button type="button" id="weeklyNextBtnMobile" class="weekly-mobile-nav-btn">Next ▶</button>
+                    </div>
+
+                    <div id="weeklyBudgetContainerMobile" class="weekly-budget-content" style="display: none;">
+                        <div id="weeklyBudgetSingleViewMobile"></div>
+                    </div>
+                    <div id="weeklyBudgetLoadingMobile" class="weekly-budget-loading">
+                        Loading weekly budget data...
+                    </div>
+                </div>
             </main>
 
             <nav class="mobile-nav">
@@ -367,6 +393,7 @@
                 <button class="nav-item" data-target="#income-content-mobile"><i class="fas fa-piggy-bank"></i><span>Income</span></button>
                 <button class="nav-item" data-target="#emi-content-mobile"><i class="fas fa-receipt"></i><span>EMI</span></button>
                 <button class="nav-item" data-target="#budget-content-mobile"><i class="fas fa-bullseye"></i><span>Budget</span></button>
+                <button class="nav-item" data-target="#weekly-content-mobile"><i class="fas fa-calendar-week"></i><span>Weekly</span></button>
             </nav>
         </div>
     </div>
