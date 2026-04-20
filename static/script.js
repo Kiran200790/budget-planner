@@ -222,7 +222,9 @@ document.addEventListener('DOMContentLoaded', function () {
         // Payment Method Totals (dynamic, public-friendly)
         const paymentTotals = {};
         (data.expenses || []).forEach(exp => {
-            const method = (exp.payment_type || 'Unknown').toString().trim() || 'Unknown';
+            const raw = (exp.payment_type || 'Unknown').toString().trim() || 'Unknown';
+            // Normalise to Title Case so 'CASH', 'cash', 'Cash' all merge into 'Cash'
+            const method = raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
             paymentTotals[method] = (paymentTotals[method] || 0) + parseFloat(exp.amount || 0);
         });
 
@@ -1207,6 +1209,7 @@ document.addEventListener('DOMContentLoaded', function () {
             console.log("About to update budget forms with:", flaskData.budget);
             console.log("Flask data keys:", Object.keys(flaskData));
             updateBudgetForms(flaskData.budget || {});
+            await loadWeeklyBudgets(flaskData.active_month);
 
         } catch (error) {
             console.error("Failed to refresh dashboard data:", error);
@@ -1889,4 +1892,242 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Setup datalist inputs to show all options on focus
     setupDatalistInputs();
+
+    // --- WEEKLY BUDGET FUNCTIONS ---
+    let selectedWeeklyViewIndex = null;
+    let weeklyBudgetsCache = [];
+    function getFormattedCurrency(value) {
+        return `₹${parseFloat(value || 0).toFixed(2)}`;
+    }
+
+    function getMonthlyBudgetFromWeeks(weeks) {
+        if (!weeks || weeks.length === 0) return '';
+        const monthlyTotal = weeks.reduce((total, week) => total + parseFloat(week.base_budget || 0), 0);
+        return monthlyTotal.toFixed(2);
+    }
+
+    function getActiveWeekForMonth(weeks, month) {
+        if (!weeks || weeks.length === 0) return null;
+
+        const today = new Date();
+        const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+
+        if (month === currentMonth) {
+            const todayString = today.toISOString().slice(0, 10);
+            const currentWeek = weeks.find(week => week.week_start <= todayString && todayString <= week.week_end);
+            if (currentWeek) return currentWeek;
+        }
+
+        const firstWeekWithSpend = weeks.find(week => parseFloat(week.spent || 0) > 0);
+        return firstWeekWithSpend || weeks[0];
+    }
+
+    async function loadWeeklyBudgets(month) {
+        const container = document.getElementById('weeklyBudgetContainer');
+        const singleView = document.getElementById('weeklyBudgetSingleView');
+        const loading = document.getElementById('weeklyBudgetLoading');
+
+        if (!month || !container || !singleView) return;
+
+        if (loading) {
+            loading.style.display = 'block';
+            loading.textContent = 'Loading weekly budget data...';
+        }
+        container.style.display = 'none';
+
+        try {
+            const response = await fetch(`/api/weekly_budget?month=${encodeURIComponent(month)}`);
+            if (!response.ok) throw new Error(`API error: ${response.status}`);
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                weeklyBudgetsCache = data.weekly_budgets || [];
+                renderWeeklyBudgets(weeklyBudgetsCache);
+            } else {
+                container.style.display = 'block';
+                singleView.innerHTML = '<div style="padding: 10px; color: #b91c1c;">Weekly budget data is unavailable right now.</div>';
+                if (loading) loading.textContent = 'Could not load weekly budget data.';
+                showToast('error', 'Error', data.message || 'Failed to load weekly budgets.');
+            }
+        } catch (error) {
+            console.error('Failed to load weekly budgets:', error);
+            container.style.display = 'block';
+            singleView.innerHTML = '<div style="padding: 10px; color: #b91c1c;">Weekly budget data could not be fetched. Please refresh the page.</div>';
+            if (loading) loading.textContent = 'Could not load weekly budget data.';
+            showToast('error', 'Network Error', 'Could not load weekly budgets. Please try again.');
+        }
+    }
+
+    function renderWeeklyBudgets(weeks) {
+        const container = document.getElementById('weeklyBudgetContainer');
+        const singleView = document.getElementById('weeklyBudgetSingleView');
+        const loading = document.getElementById('weeklyBudgetLoading');
+        const amountInput = document.getElementById('weeklyBudgetAmountAll');
+        const currentWeekLabel = document.getElementById('weeklyCurrentLabel');
+        const prevBtn = document.getElementById('weeklyPrevBtn');
+        const nextBtn = document.getElementById('weeklyNextBtn');
+
+        if (!container || !singleView) return;
+
+        if (loading) loading.style.display = 'none';
+        singleView.innerHTML = '';
+
+        if (!weeks || weeks.length === 0) {
+            singleView.innerHTML = '<div style="padding: 10px; color: #666;">No weekly budget data available.</div>';
+            container.style.display = 'block';
+            return;
+        }
+
+        if (amountInput) {
+            amountInput.value = getMonthlyBudgetFromWeeks(weeks);
+        }
+
+        if (selectedWeeklyViewIndex === null || selectedWeeklyViewIndex < 0 || selectedWeeklyViewIndex >= weeks.length) {
+            selectedWeeklyViewIndex = 0;
+        }
+
+        const weekToRender = weeks[selectedWeeklyViewIndex];
+        if (!weekToRender) {
+            singleView.innerHTML = '<div style="padding: 10px; color: #666;">No active week available.</div>';
+            container.style.display = 'block';
+            return;
+        }
+
+        const remaining = parseFloat(weekToRender.variance || 0);
+        const remainingColor = remaining >= 0 ? '#166534' : '#b91c1c';
+        const remainingBg = remaining >= 0 ? '#dcfce7' : '#fee2e2';
+
+        if (currentWeekLabel) {
+            currentWeekLabel.textContent = `Week ${weekToRender.week_index}`;
+        }
+
+        if (prevBtn) prevBtn.disabled = selectedWeeklyViewIndex === 0;
+        if (nextBtn) nextBtn.disabled = selectedWeeklyViewIndex === weeks.length - 1;
+
+        const statusClass = remaining >= 0 ? 'week-status-safe' : 'week-status-over';
+        const statusLabel = remaining >= 0 ? 'On Track' : 'Over Budget';
+
+        singleView.innerHTML = `
+            <div class="weekly-budget-card">
+                <div class="weekly-budget-card-header">
+                    <div>
+                        <div class="weekly-budget-card-title">Week ${weekToRender.week_index}</div>
+                        <div class="weekly-budget-card-range">${getWeekDateRange(weekToRender.week_start, weekToRender.week_end)}</div>
+                    </div>
+                    <div class="weekly-budget-status ${statusClass}">${statusLabel}</div>
+                </div>
+                <div class="weekly-budget-metrics">
+                    <div class="weekly-budget-metric spent">
+                        <div class="weekly-budget-metric-label">Spent This Week</div>
+                        <div class="weekly-budget-metric-value">${getFormattedCurrency(weekToRender.spent)}</div>
+                    </div>
+                    <div class="weekly-budget-metric remaining" style="--metric-bg: ${remainingBg}; --metric-color: ${remainingColor};">
+                        <div class="weekly-budget-metric-label">Remaining This Week</div>
+                        <div class="weekly-budget-metric-value">${getFormattedCurrency(remaining)}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        container.style.display = 'block';
+    }
+
+    function getWeekDateRange(startDate, endDate) {
+        if (!startDate || !endDate) return 'Date Range TBD';
+        try {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            const startStr = start.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+            const endStr = end.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+            return `${startStr} - ${endStr}`;
+        } catch (e) {
+            return `${startDate} - ${endDate}`;
+        }
+    }
+
+    async function setWeeklyBaseBudget(weekIndex, baseBudget) {
+        try {
+            const response = await fetch('/api/weekly_budget/set', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    week_index: weekIndex,
+                    base_budget: baseBudget,
+                    month: flaskData.active_month
+                })
+            });
+
+            const result = await response.json();
+            if (result.status === 'success') {
+                showToast('success', 'Updated', `Week ${weekIndex} budget updated successfully.`);
+                // Reload weekly budgets
+                await loadWeeklyBudgets(flaskData.active_month);
+            } else {
+                showToast('error', 'Error', result.message || 'Failed to update budget.');
+            }
+        } catch (error) {
+            console.error('Failed to set weekly budget:', error);
+            showToast('error', 'Network Error', 'Could not update budget. Please try again.');
+        }
+    }
+
+    async function setAllWeeklyBaseBudget(monthlyBudget) {
+        try {
+            const response = await fetch('/api/weekly_budget/set_all', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    monthly_budget: monthlyBudget,
+                    month: flaskData.active_month
+                })
+            });
+
+            const result = await response.json();
+            if (result.status === 'success') {
+                showToast('success', 'Updated', 'Monthly budget distributed across weeks.');
+                await loadWeeklyBudgets(flaskData.active_month);
+            } else {
+                showToast('error', 'Error', result.message || 'Failed to distribute monthly budget.');
+            }
+        } catch (error) {
+            console.error('Failed to set all weekly budgets:', error);
+            showToast('error', 'Network Error', 'Could not distribute monthly budget. Please try again.');
+        }
+    }
+
+    const weeklyBudgetApplyAllBtn = document.getElementById('weeklyBudgetApplyAllBtn');
+    if (weeklyBudgetApplyAllBtn) {
+        weeklyBudgetApplyAllBtn.addEventListener('click', async () => {
+            const amountInput = document.getElementById('weeklyBudgetAmountAll');
+            const amount = parseFloat(amountInput?.value || 0);
+
+            if (Number.isNaN(amount) || amount < 0) {
+                showToast('warning', 'Invalid Value', 'Enter a valid monthly budget amount.');
+                return;
+            }
+
+            await setAllWeeklyBaseBudget(amount);
+        });
+    }
+
+    const weeklyPrevBtn = document.getElementById('weeklyPrevBtn');
+    if (weeklyPrevBtn) {
+        weeklyPrevBtn.addEventListener('click', () => {
+            selectedWeeklyViewIndex = Math.max(0, (selectedWeeklyViewIndex ?? 0) - 1);
+            renderWeeklyBudgets(weeklyBudgetsCache);
+        });
+    }
+
+    const weeklyNextBtn = document.getElementById('weeklyNextBtn');
+    if (weeklyNextBtn) {
+        weeklyNextBtn.addEventListener('click', () => {
+            selectedWeeklyViewIndex = Math.min((weeklyBudgetsCache.length || 1) - 1, (selectedWeeklyViewIndex ?? 0) + 1);
+            renderWeeklyBudgets(weeklyBudgetsCache);
+        });
+    }
+
 });

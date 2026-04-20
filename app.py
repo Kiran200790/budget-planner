@@ -495,6 +495,24 @@ def init_db():
                 UNIQUE(user_id, month, category),
                 FOREIGN KEY(user_id) REFERENCES users(id)
             );
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS weekly_budgets (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                month TEXT NOT NULL,
+                week_index INTEGER NOT NULL,
+                base_budget REAL NOT NULL DEFAULT 0,
+                carry_in REAL NOT NULL DEFAULT 0,
+                effective_budget REAL NOT NULL DEFAULT 0,
+                spent REAL NOT NULL DEFAULT 0,
+                variance REAL NOT NULL DEFAULT 0,
+                status TEXT DEFAULT 'normal',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(user_id, month, week_index),
+                FOREIGN KEY(user_id) REFERENCES users(id)
+            );
             """
         ]
         db.execute_batch(schema_queries)
@@ -503,6 +521,161 @@ def init_db():
 
 # Call this function once to initialize/update the database schema
 # init_db() # Commented out for production, will be run via build.sh
+
+# ========== WEEKLY BUDGET HELPERS ==========
+
+def get_week_boundaries(month_str, db=None, user_id=None):
+    """
+    Returns list of (week_index, start_date, end_date) for a given month.
+    Week 1 starts from the user's first expense date in that month.
+    If no expense exists, week 1 starts at the first day of the month.
+    month_str: 'YYYY-MM'
+    """
+    from datetime import datetime, timedelta
+    year, month = map(int, month_str.split('-'))
+    first_day = datetime(year, month, 1)
+    
+    # Find last day of month
+    if month == 12:
+        last_day = datetime(year + 1, 1, 1) - timedelta(days=1)
+    else:
+        last_day = datetime(year, month + 1, 1) - timedelta(days=1)
+    
+    start_date = first_day
+    if db is not None and user_id is not None:
+        first_expense_rs = db.execute(
+            '''SELECT MIN(date) as first_expense_date
+               FROM expenses
+               WHERE user_id = ? AND month = ?''',
+            (user_id, month_str)
+        )
+        first_expense_row = db.fetchone(first_expense_rs)
+        first_expense_date = first_expense_row.get('first_expense_date') if first_expense_row else None
+        if first_expense_date:
+            try:
+                parsed_date = datetime.strptime(first_expense_date, '%Y-%m-%d')
+                if first_day <= parsed_date <= last_day:
+                    start_date = parsed_date
+            except ValueError:
+                app.logger.warning(f"Invalid expense date format for weekly boundary calculation: {first_expense_date}")
+
+    month_days = (last_day - first_day).days + 1
+    cycle_end = start_date + timedelta(days=month_days - 1)
+
+    weeks = []
+    current_date = start_date
+    week_index = 1
+    
+    while current_date <= cycle_end:
+        week_start = current_date
+        week_end = min(week_start + timedelta(days=6), cycle_end)
+        
+        weeks.append((week_index, week_start.strftime('%Y-%m-%d'), week_end.strftime('%Y-%m-%d')))
+        current_date = week_end + timedelta(days=1)
+        week_index += 1
+    
+    return weeks
+
+def get_weekly_spent(db, user_id, month_str, week_start, week_end):
+    """Sum of all expenses in a given week for a user."""
+    rs = db.execute(
+        '''SELECT COALESCE(SUM(amount), 0) as total FROM expenses 
+           WHERE user_id = ? AND date BETWEEN ? AND ?''',
+        (user_id, week_start, week_end)
+    )
+    row = db.fetchone(rs)
+    return row['total'] if row else 0.0
+
+def initialize_weekly_budgets(db, user_id, month_str):
+    """Initialize weekly budgets for a month if not already present."""
+    from datetime import datetime
+    now = datetime.utcnow().isoformat()
+    weeks = get_week_boundaries(month_str, db, user_id)
+
+    valid_week_indices = [week_index for week_index, _, _ in weeks]
+    if valid_week_indices:
+        placeholders = ','.join('?' for _ in valid_week_indices)
+        db.execute(
+            f'''DELETE FROM weekly_budgets
+                WHERE user_id = ? AND month = ? AND week_index NOT IN ({placeholders})''',
+            (user_id, month_str, *valid_week_indices)
+        )
+    else:
+        db.execute(
+            'DELETE FROM weekly_budgets WHERE user_id = ? AND month = ?',
+            (user_id, month_str)
+        )
+    
+    for week_index, _, _ in weeks:
+        # Check if already exists
+        rs = db.execute(
+            'SELECT id FROM weekly_budgets WHERE user_id = ? AND month = ? AND week_index = ?',
+            (user_id, month_str, week_index)
+        )
+        if not db.fetchone(rs):
+            db.execute(
+                '''INSERT INTO weekly_budgets 
+                   (user_id, month, week_index, base_budget, carry_in, effective_budget, spent, variance, status, created_at, updated_at)
+                   VALUES (?, ?, ?, 0, 0, 0, 0, 0, 'normal', ?, ?)''',
+                (user_id, month_str, week_index, now, now)
+            )
+    db.commit()
+
+def recalculate_weekly_budgets(db, user_id, month_str):
+    """
+    Recalculate all weekly budgets for a month:
+    - Compute spent for each week
+    - Compute variance (effective_budget - spent)
+    - Apply carryover rules:
+      * If variance > 0: carry to next week
+      * If variance < 0: reduce future weeks equally
+    """
+    from datetime import datetime
+    weeks = get_week_boundaries(month_str, db, user_id)
+    now = datetime.utcnow().isoformat()
+    
+    # Fetch all weekly budgets for this month
+    wb_rs = db.execute(
+        '''SELECT * FROM weekly_budgets 
+           WHERE user_id = ? AND month = ? 
+           ORDER BY week_index''',
+        (user_id, month_str)
+    )
+    weekly_data = {row['week_index']: row for row in db.fetchall(wb_rs)}
+    
+    # Calculate spent for each week
+    for week_index, week_start, week_end in weeks:
+        spent = get_weekly_spent(db, user_id, month_str, week_start, week_end)
+        if week_index in weekly_data:
+            weekly_data[week_index]['spent'] = spent
+    
+    # Compute effective budgets and carryovers
+    carry_forward = 0.0
+    for week_index in sorted(weekly_data.keys()):
+        wd = weekly_data[week_index]
+        wd['carry_in'] = carry_forward
+        wd['effective_budget'] = wd['base_budget'] + wd['carry_in']
+        wd['variance'] = wd['effective_budget'] - wd['spent']
+        
+        # Determine status
+        if wd['spent'] <= wd['effective_budget']:
+            wd['status'] = 'safe'
+            carry_forward = wd['variance']
+        else:
+            wd['status'] = 'over'
+            carry_forward = wd['variance']  # Negative, will reduce future weeks
+    
+    # Write back to DB
+    for week_index, wd in weekly_data.items():
+        db.execute(
+            '''UPDATE weekly_budgets 
+               SET carry_in = ?, effective_budget = ?, spent = ?, variance = ?, status = ?, updated_at = ?
+               WHERE user_id = ? AND month = ? AND week_index = ?''',
+            (wd['carry_in'], wd['effective_budget'], wd['spent'], wd['variance'], wd['status'], now, user_id, month_str, week_index)
+        )
+    db.commit()
+
+# ========== END WEEKLY BUDGET HELPERS ==========
 
 def get_budget_data(active_month):
     """Fetches and calculates all necessary data for a given month for the current user."""
@@ -627,6 +800,149 @@ def api_report_data():
     except Exception as e:
         app.logger.error(f"Error fetching report data for month {active_month}: {e}")
         return jsonify({'status': 'error', 'message': 'An internal error occurred.'}), 500
+
+# ========== WEEKLY BUDGET ENDPOINTS ==========
+
+@app.route('/api/weekly_budget', methods=['GET'])
+@login_required
+def api_get_weekly_budget():
+    """Fetch all weekly budgets for a given month."""
+    month = request.args.get('month')
+    if not month:
+        return jsonify({'status': 'error', 'message': 'Month parameter required'}), 400
+    
+    try:
+        db = get_db()
+        initialize_weekly_budgets(db, current_user.id, month)
+        recalculate_weekly_budgets(db, current_user.id, month)
+        
+        weeks = get_week_boundaries(month, db, current_user.id)
+        wb_rs = db.execute(
+            'SELECT * FROM weekly_budgets WHERE user_id = ? AND month = ? ORDER BY week_index',
+            (current_user.id, month)
+        )
+        weekly_budgets = db.fetchall(wb_rs)
+        
+        result = []
+        for i, (week_index, start, end) in enumerate(weeks):
+            wb = weekly_budgets[i] if i < len(weekly_budgets) else {}
+            result.append({
+                'week_index': week_index,
+                'week_start': start,
+                'week_end': end,
+                'base_budget': wb.get('base_budget', 0),
+                'carry_in': wb.get('carry_in', 0),
+                'effective_budget': wb.get('effective_budget', 0),
+                'spent': wb.get('spent', 0),
+                'variance': wb.get('variance', 0),
+                'status': wb.get('status', 'normal')
+            })
+        
+        return jsonify({'status': 'success', 'weekly_budgets': result})
+    except Exception as e:
+        app.logger.error(f"Error fetching weekly budget: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/weekly_budget/set', methods=['POST'])
+@login_required
+def api_set_weekly_budget():
+    """Set base budget for a specific week."""
+    data = request.get_json() or {}
+    month = data.get('month')
+    week_index = data.get('week_index')
+    base_budget = float(data.get('base_budget', 0))
+    
+    if not month or week_index is None:
+        return jsonify({'status': 'error', 'message': 'Month and week_index required'}), 400
+    
+    try:
+        db = get_db()
+        from datetime import datetime
+        now = datetime.utcnow().isoformat()
+        
+        db.execute(
+            '''UPDATE weekly_budgets 
+               SET base_budget = ?, updated_at = ?
+               WHERE user_id = ? AND month = ? AND week_index = ?''',
+            (base_budget, now, current_user.id, month, week_index)
+        )
+        db.commit()
+        
+        # Recalculate all weeks after change
+        recalculate_weekly_budgets(db, current_user.id, month)
+        
+        return jsonify({'status': 'success', 'message': 'Weekly budget updated'})
+    except Exception as e:
+        app.logger.error(f"Error setting weekly budget: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/api/weekly_budget/set_all', methods=['POST'])
+@login_required
+def api_set_all_weekly_budget():
+    """Set one monthly budget value and distribute it across weeks by day count."""
+    data = request.get_json() or {}
+    month = data.get('month')
+
+    if not month:
+        return jsonify({'status': 'error', 'message': 'Month is required'}), 400
+
+    try:
+        monthly_budget = float(data.get('monthly_budget', data.get('base_budget', 0)))
+    except (TypeError, ValueError):
+        return jsonify({'status': 'error', 'message': 'Invalid monthly budget value'}), 400
+
+    try:
+        db = get_db()
+        initialize_weekly_budgets(db, current_user.id, month)
+
+        from datetime import datetime
+        from datetime import datetime as dt
+        now = datetime.utcnow().isoformat()
+        weeks = get_week_boundaries(month, db, current_user.id)
+        if not weeks:
+            return jsonify({'status': 'error', 'message': 'No weeks available for this month'}), 400
+
+        total_days = 0
+        week_day_counts = {}
+        for week_index, week_start, week_end in weeks:
+            start_dt = dt.strptime(week_start, '%Y-%m-%d')
+            end_dt = dt.strptime(week_end, '%Y-%m-%d')
+            day_count = (end_dt - start_dt).days + 1
+            week_day_counts[week_index] = day_count
+            total_days += day_count
+
+        if total_days <= 0:
+            return jsonify({'status': 'error', 'message': 'Invalid week day distribution'}), 400
+
+        remaining_budget = round(monthly_budget, 2)
+        allocations = []
+
+        for index, (week_index, _, _) in enumerate(weeks):
+            if index == len(weeks) - 1:
+                allocated_budget = remaining_budget
+            else:
+                allocated_budget = round((monthly_budget * week_day_counts[week_index]) / total_days, 2)
+                remaining_budget = round(remaining_budget - allocated_budget, 2)
+
+            allocations.append((week_index, allocated_budget))
+
+        for week_index, allocated_budget in allocations:
+            db.execute(
+                '''UPDATE weekly_budgets
+                   SET base_budget = ?, updated_at = ?
+                   WHERE user_id = ? AND month = ? AND week_index = ?''',
+                (allocated_budget, now, current_user.id, month, week_index)
+            )
+
+        db.commit()
+        recalculate_weekly_budgets(db, current_user.id, month)
+
+        return jsonify({'status': 'success', 'message': 'Monthly budget distributed across weeks'})
+    except Exception as e:
+        app.logger.error(f"Error setting all weekly budgets: {e}")
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+# ========== END WEEKLY BUDGET ENDPOINTS ==========
 
 # Health check endpoint to prevent cold starts
 @app.route('/health', methods=['GET'])
@@ -1552,53 +1868,6 @@ def internal_error(error):
     return render_template('500.html'), 500
 
 # --- Main App Runner ---
-@app.route('/api/debug/month_logic')
-@login_required
-def debug_month_logic():
-    """Debug endpoint to check the next-month default logic"""
-    try:
-        # Get current date and calculate next month
-        current_date = datetime.now()
-        
-        if current_date.month == 12:
-            next_month_date = current_date.replace(year=current_date.year + 1, month=1)
-        else:
-            next_month_date = current_date.replace(month=current_date.month + 1)
-        
-        next_month = next_month_date.strftime('%Y-%m')
-        current_month = current_date.strftime('%Y-%m')
-        
-        # Check if next month has any expense records for current user
-        db = get_db()
-        expense_count_rs = db.execute('''
-            SELECT COUNT(*) as count 
-            FROM expenses 
-            WHERE month = ? AND user_id = ?
-        ''', (next_month, current_user.id))
-        expense_count = db.fetchone(expense_count_rs)
-        
-        next_month_expenses = expense_count['count'] if expense_count else 0
-        
-        # Get smart default result
-        smart_default = get_smart_default_month()
-        
-        return jsonify({
-            'status': 'success',
-            'current_month': current_month,
-            'next_month': next_month,
-            'next_month_expense_count': next_month_expenses,
-            'smart_default_month': smart_default,
-            'logic': 'If next month has expenses, use next month. Otherwise, use current month.',
-            'current_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'feature_version': 'v2.0'
-        })
-    except Exception as e:
-        return jsonify({
-            'status': 'error',
-            'error': str(e),
-            'feature_version': 'v2.0'
-        })
-
 if __name__ == '__main__':
     # The init_db() function can be called here to ensure the database
     # is created before the app starts. This is useful for local development.
