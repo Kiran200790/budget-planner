@@ -633,16 +633,16 @@ def initialize_weekly_budgets(db, user_id, month_str):
 
 def recalculate_weekly_budgets(db, user_id, month_str):
     """
-    Recalculate all weekly budgets for a month:
-    - Compute spent for each week
-    - Compute variance (effective_budget - spent)
-    - Apply carryover rules:
-      * If variance > 0: carry to next week
-      * If variance < 0: reduce future weeks equally
+        Recalculate all weekly budgets for a month:
+        - Compute spent for each week
+        - Compute variance (effective_budget - spent)
+        - Redistribute only overspend across remaining weeks equally
+            (week excess reduces future week budgets)
     """
-    from datetime import datetime
+    from datetime import datetime, date
     weeks = get_week_boundaries(month_str, db, user_id)
     now = datetime.utcnow().isoformat()
+    today_str = date.today().isoformat()
     
     # Fetch all weekly budgets for this month
     wb_rs = db.execute(
@@ -659,18 +659,34 @@ def recalculate_weekly_budgets(db, user_id, month_str):
         if week_index in weekly_data:
             weekly_data[week_index]['spent'] = spent
     
-    # Compute effective budgets (each week is independent, no carryover)
-    for week_index in sorted(weekly_data.keys()):
+    # Compute effective budgets with progressive redistribution of variance.
+    # Example: if week 1 overspends by 3000 and 3 weeks remain, each next week gets -1000.
+    ordered_week_indexes = [week_index for week_index, _, _ in weeks if week_index in weekly_data]
+    week_end_by_index = {week_index: week_end for week_index, _, week_end in weeks}
+    future_adjustments = {week_index: 0.0 for week_index in ordered_week_indexes}
+
+    for position, week_index in enumerate(ordered_week_indexes):
         wd = weekly_data[week_index]
-        wd['carry_in'] = 0  # No carryover between weeks
-        wd['effective_budget'] = wd['base_budget']  # Just the base budget for this week
-        wd['variance'] = wd['effective_budget'] - wd['spent']  # Remaining for this week only
-        
-        # Determine status based on this week's budget
-        if wd['spent'] <= wd['effective_budget']:
-            wd['status'] = 'safe'
-        else:
-            wd['status'] = 'over'
+
+        carry_in = future_adjustments.get(week_index, 0.0)
+        effective_budget = float(wd['base_budget']) + carry_in
+        variance = effective_budget - float(wd['spent'])
+
+        wd['carry_in'] = carry_in
+        wd['effective_budget'] = effective_budget
+        wd['variance'] = variance
+        wd['status'] = 'safe' if wd['spent'] <= wd['effective_budget'] else 'over'
+
+        remaining_weeks = len(ordered_week_indexes) - position - 1
+        week_end = week_end_by_index.get(week_index)
+        is_completed_week = bool(week_end and week_end <= today_str)
+
+        if remaining_weeks > 0 and is_completed_week and variance < 0:
+            per_week_adjustment = variance / remaining_weeks
+            for future_week_index in ordered_week_indexes[position + 1:]:
+                future_adjustments[future_week_index] = (
+                    future_adjustments.get(future_week_index, 0.0) + per_week_adjustment
+                )
     
     # Write back to DB
     for week_index, wd in weekly_data.items():
