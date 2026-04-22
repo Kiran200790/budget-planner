@@ -662,6 +662,7 @@ def recalculate_weekly_budgets(db, user_id, month_str):
     # Compute effective budgets with progressive redistribution of variance.
     # Example: if week 1 overspends by 3000 and 3 weeks remain, each next week gets -1000.
     ordered_week_indexes = [week_index for week_index, _, _ in weeks if week_index in weekly_data]
+    week_start_by_index = {week_index: week_start for week_index, week_start, _ in weeks}
     week_end_by_index = {week_index: week_end for week_index, _, week_end in weeks}
     future_adjustments = {week_index: 0.0 for week_index in ordered_week_indexes}
 
@@ -678,10 +679,13 @@ def recalculate_weekly_budgets(db, user_id, month_str):
         wd['status'] = 'safe' if wd['spent'] <= wd['effective_budget'] else 'over'
 
         remaining_weeks = len(ordered_week_indexes) - position - 1
+        week_start = week_start_by_index.get(week_index)
         week_end = week_end_by_index.get(week_index)
+        is_started_week = bool(week_start and week_start <= today_str)
         is_completed_week = bool(week_end and week_end <= today_str)
+        should_redistribute = is_completed_week or is_started_week
 
-        if remaining_weeks > 0 and is_completed_week and variance < 0:
+        if remaining_weeks > 0 and should_redistribute and variance < 0:
             per_week_adjustment = variance / remaining_weeks
             for future_week_index in ordered_week_indexes[position + 1:]:
                 future_adjustments[future_week_index] = (
