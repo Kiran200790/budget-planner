@@ -14,6 +14,11 @@ document.addEventListener('DOMContentLoaded', function () {
     if (flaskDataScript) {
         try {
             flaskData = JSON.parse(flaskDataScript.getAttribute('data-json'));
+            // Also load category_options from data-categories attribute
+            const categoriesAttr = flaskDataScript.getAttribute('data-categories');
+            if (categoriesAttr) {
+                flaskData.category_options = JSON.parse(categoriesAttr);
+            }
         } catch (e) {
             console.error("Error parsing Flask data:", e);
             flaskData = {};
@@ -1917,6 +1922,17 @@ document.addEventListener('DOMContentLoaded', function () {
         if (mobileInput) mobileInput.value = value;
     }
 
+    function applyWeeklySelectedCategories(selectedCategories) {
+        const categoryContainer = document.getElementById('weeklyBudgetCategoriesAll');
+        if (!categoryContainer) return;
+
+        const selectedSet = new Set((selectedCategories || []).map(category => (category || '').toString().trim()).filter(Boolean));
+        const checkboxes = categoryContainer.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = selectedSet.has((checkbox.value || '').toString().trim());
+        });
+    }
+
     function getActiveWeekForMonth(weeks, month) {
         if (!weeks || weeks.length === 0) return null;
 
@@ -1953,6 +1969,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             if (data.status === 'success') {
                 weeklyBudgetsCache = data.weekly_budgets || [];
+                applyWeeklySelectedCategories(data.selected_categories || []);
                 renderWeeklyBudgets(weeklyBudgetsCache);
             } else {
                 containers.forEach(({ container, singleView, loading }) => {
@@ -2024,16 +2041,25 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
 
-            const remaining = parseFloat(weekToRender.variance || 0);
-            const remainingColor = remaining >= 0 ? '#166534' : '#b91c1c';
-            const remainingBg = remaining >= 0 ? '#dcfce7' : '#fee2e2';
+            // Only show actual values if categories have been distributed;
+            // otherwise show 0 so the user knows they need to select and distribute first.
+            const hasCategoryFilter = Array.isArray(weekToRender.selected_categories)
+                ? weekToRender.selected_categories.length > 0
+                : (weekToRender.selected_categories || '').length > 0;
+
+            const displaySpent    = hasCategoryFilter ? parseFloat(weekToRender.spent   || 0) : 0;
+            const remaining       = hasCategoryFilter ? parseFloat(weekToRender.variance || 0) : 0;
+            const remainingColor  = remaining >= 0 ? '#166534' : '#b91c1c';
+            const remainingBg     = remaining >= 0 ? '#dcfce7' : '#fee2e2';
 
             if (currentWeekLabel) currentWeekLabel.textContent = `Week ${weekToRender.week_index}`;
             if (prevBtn) prevBtn.disabled = selectedWeeklyViewIndex === 0;
             if (nextBtn) nextBtn.disabled = selectedWeeklyViewIndex === weeks.length - 1;
 
-            const statusClass = remaining >= 0 ? 'week-status-safe' : 'week-status-over';
-            const statusLabel = remaining >= 0 ? 'On Track' : 'Over Budget';
+            const statusClass = !hasCategoryFilter ? 'week-status-safe'
+                : (remaining >= 0 ? 'week-status-safe' : 'week-status-over');
+            const statusLabel = !hasCategoryFilter ? 'Not Set'
+                : (remaining >= 0 ? 'On Track' : 'Over Budget');
 
             singleView.innerHTML = `
                 <div class="weekly-budget-card">
@@ -2047,7 +2073,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     <div class="weekly-budget-metrics">
                         <div class="weekly-budget-metric spent">
                             <div class="weekly-budget-metric-label">Spent This Week</div>
-                            <div class="weekly-budget-metric-value">${getFormattedCurrency(weekToRender.spent)}</div>
+                            <div class="weekly-budget-metric-value">${getFormattedCurrency(displaySpent)}</div>
                         </div>
                         <div class="weekly-budget-metric remaining" style="--metric-bg: ${remainingBg}; --metric-color: ${remainingColor};">
                             <div class="weekly-budget-metric-label">Remaining This Week</div>
@@ -2102,7 +2128,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    async function setAllWeeklyBaseBudget(monthlyBudget) {
+    async function setAllWeeklyBaseBudget(selectedCategories) {
         try {
             const response = await fetch('/api/weekly_budget/set_all', {
                 method: 'POST',
@@ -2110,44 +2136,68 @@ document.addEventListener('DOMContentLoaded', function () {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    monthly_budget: monthlyBudget,
+                    selected_categories: selectedCategories,
                     month: flaskData.active_month
                 })
             });
 
             const result = await response.json();
             if (result.status === 'success') {
-                showToast('success', 'Updated', 'Monthly budget distributed across weeks.');
+                showToast('success', 'Updated', result.message || 'Weekly budget distributed across weeks.');
+                // Re-apply the same categories that were just submitted so checkboxes
+                // stay checked after the API reload re-renders the container.
+                const justSelected = selectedCategories.slice();
                 await loadWeeklyBudgets(flaskData.active_month);
+                applyWeeklySelectedCategories(justSelected);
             } else {
-                showToast('error', 'Error', result.message || 'Failed to distribute monthly budget.');
+                showToast('error', 'Error', result.message || 'Failed to distribute weekly budget.');
             }
         } catch (error) {
             console.error('Failed to set all weekly budgets:', error);
-            showToast('error', 'Network Error', 'Could not distribute monthly budget. Please try again.');
+            showToast('error', 'Network Error', 'Could not distribute weekly budget. Please try again.');
         }
     }
 
     const weeklyBudgetApplyAllBtn = document.getElementById('weeklyBudgetApplyAllBtn');
     if (weeklyBudgetApplyAllBtn) {
         weeklyBudgetApplyAllBtn.addEventListener('click', async () => {
-            const amountInput = document.getElementById('weeklyBudgetAmountAll');
-            const amount = parseFloat(amountInput?.value || 0);
+            const categoryContainer = document.getElementById('weeklyBudgetCategoriesAll');
+            const selectedCategories = Array.from(categoryContainer?.querySelectorAll('input[type="checkbox"]:checked') || [])
+                .map(checkbox => checkbox.value);
 
-            if (Number.isNaN(amount) || amount < 0) {
-                showToast('warning', 'Invalid Value', 'Enter a valid monthly budget amount.');
+            if (selectedCategories.length === 0) {
+                showToast('warning', 'No Categories', 'Please select at least one category to track.');
                 return;
             }
 
-            await setAllWeeklyBaseBudget(amount);
+            await setAllWeeklyBaseBudget(selectedCategories);
         });
     }
 
-    const weeklyBudgetAmountAll = document.getElementById('weeklyBudgetAmountAll');
-    if (weeklyBudgetAmountAll) {
-        weeklyBudgetAmountAll.addEventListener('input', (event) => {
-            const mobileInput = document.getElementById('weeklyBudgetAmountAllMobile');
-            if (mobileInput) mobileInput.value = event.target.value;
+    // Populate category checkboxes from flaskData only when non-empty.
+    // If empty, keep the server-rendered fallback checkboxes intact.
+    const categoryContainer = document.getElementById('weeklyBudgetCategoriesAll');
+    const categoryOptions = Array.isArray(flaskData.category_options)
+        ? flaskData.category_options.filter(category => (category || '').toString().trim() !== '')
+        : [];
+
+    if (categoryContainer && categoryOptions.length > 0) {
+        categoryContainer.innerHTML = '';
+        categoryOptions.forEach(category => {
+            const label = document.createElement('label');
+            label.className = 'weekly-budget-checkbox-label';
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.value = category;
+            checkbox.className = 'weekly-budget-checkbox';
+
+            const textSpan = document.createElement('span');
+            textSpan.textContent = category;
+
+            label.appendChild(checkbox);
+            label.appendChild(textSpan);
+            categoryContainer.appendChild(label);
         });
     }
 
@@ -2171,13 +2221,15 @@ document.addEventListener('DOMContentLoaded', function () {
     const weeklyBudgetApplyAllBtnMobile = document.getElementById('weeklyBudgetApplyAllBtnMobile');
     if (weeklyBudgetApplyAllBtnMobile) {
         weeklyBudgetApplyAllBtnMobile.addEventListener('click', async () => {
-            const amountInput = document.getElementById('weeklyBudgetAmountAllMobile');
-            const amount = parseFloat(amountInput?.value || 0);
-            if (Number.isNaN(amount) || amount < 0) {
-                showToast('warning', 'Invalid Value', 'Enter a valid monthly budget amount.');
+            const categoryContainer = document.getElementById('weeklyBudgetCategoriesAll');
+            const selectedCategories = Array.from(categoryContainer?.querySelectorAll('input[type="checkbox"]:checked') || [])
+                .map(checkbox => checkbox.value);
+
+            if (selectedCategories.length === 0) {
+                showToast('warning', 'No Categories', 'Please select at least one category to track.');
                 return;
             }
-            await setAllWeeklyBaseBudget(amount);
+            await setAllWeeklyBaseBudget(selectedCategories);
         });
     }
 

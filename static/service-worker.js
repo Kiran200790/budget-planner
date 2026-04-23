@@ -1,4 +1,4 @@
-const CACHE_NAME = 'budget-planner-cache-v3.3';
+const CACHE_NAME = 'budget-planner-cache-v3.4';
 const urlsToCache = [
   '/static/style.css',
   '/static/script.js',

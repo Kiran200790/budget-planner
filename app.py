@@ -11,6 +11,7 @@ from dateutil.relativedelta import relativedelta # Added for month iteration
 import io
 import csv
 import re
+import json
 
 app = Flask(__name__)
 login_manager = LoginManager()
@@ -438,6 +439,7 @@ def apply_schema_compat_migrations(db):
     ensure_column_exists(db, 'emis', 'month', 'TEXT')
     ensure_column_exists(db, 'budgets', 'user_id', 'INTEGER')
     ensure_column_exists(db, 'budgets', 'month', 'TEXT')
+    ensure_column_exists(db, 'weekly_budgets', 'selected_categories', 'TEXT')
 
 def init_db():
     with app.app_context():
@@ -508,6 +510,7 @@ def init_db():
                 spent REAL NOT NULL DEFAULT 0,
                 variance REAL NOT NULL DEFAULT 0,
                 status TEXT DEFAULT 'normal',
+                selected_categories TEXT DEFAULT '',
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
                 UNIQUE(user_id, month, week_index),
@@ -521,6 +524,14 @@ def init_db():
 
 # Call this function once to initialize/update the database schema
 # init_db() # Commented out for production, will be run via build.sh
+
+# Run schema migrations on startup to ensure all columns exist
+with app.app_context():
+    try:
+        _startup_db = get_db()
+        apply_schema_compat_migrations(_startup_db)
+    except Exception as _e:
+        app.logger.error(f"Startup schema migration failed: {_e}")
 
 # ========== WEEKLY BUDGET HELPERS ==========
 
@@ -569,8 +580,9 @@ def get_week_boundaries(month_str, db=None, user_id=None):
             except ValueError:
                 app.logger.warning(f"Invalid expense date format for weekly boundary calculation: {first_expense_date}")
 
-    month_days = (last_day - first_day).days + 1
-    cycle_end = start_date + timedelta(days=month_days - 1)
+    # Budget cycle should span from start_date to the day before the same day next month.
+    # Example: start 2026-03-18 -> end 2026-04-17.
+    cycle_end = start_date + relativedelta(months=1) - timedelta(days=1)
 
     weeks = []
     current_date = start_date
@@ -586,15 +598,41 @@ def get_week_boundaries(month_str, db=None, user_id=None):
     
     return weeks
 
-def get_weekly_spent(db, user_id, month_str, week_start, week_end):
-    """Sum of all expenses in a given week for a user."""
-    rs = db.execute(
-        '''SELECT COALESCE(SUM(amount), 0) as total FROM expenses 
-           WHERE user_id = ? AND date BETWEEN ? AND ?''',
-        (user_id, week_start, week_end)
-    )
+def get_weekly_spent(db, user_id, month_str, week_start, week_end, selected_categories=None):
+    """Sum of expenses in a given week for a user, optionally filtered by selected categories."""
+    selected_categories = selected_categories or []
+    if selected_categories:
+        placeholders = ','.join('?' for _ in selected_categories)
+        rs = db.execute(
+            f'''SELECT COALESCE(SUM(amount), 0) as total FROM expenses
+               WHERE user_id = ? AND date BETWEEN ? AND ? AND category IN ({placeholders})''',
+            (user_id, week_start, week_end, *selected_categories)
+        )
+    else:
+        rs = db.execute(
+            '''SELECT COALESCE(SUM(amount), 0) as total FROM expenses
+               WHERE user_id = ? AND date BETWEEN ? AND ?''',
+            (user_id, week_start, week_end)
+        )
     row = db.fetchone(rs)
     return row['total'] if row else 0.0
+
+
+def parse_selected_categories(raw_categories):
+    raw_categories = (raw_categories or '').strip()
+    if not raw_categories:
+        return []
+
+    try:
+        parsed_categories = json.loads(raw_categories)
+        if isinstance(parsed_categories, list):
+            return [str(category).strip() for category in parsed_categories if str(category).strip()]
+        if isinstance(parsed_categories, str) and parsed_categories.strip():
+            return [parsed_categories.strip()]
+    except Exception:
+        app.logger.warning(f"Invalid selected_categories JSON for weekly budget row: {raw_categories}")
+
+    return [category.strip() for category in raw_categories.split(',') if category.strip()]
 
 def initialize_weekly_budgets(db, user_id, month_str):
     """Initialize weekly budgets for a month if not already present."""
@@ -625,8 +663,8 @@ def initialize_weekly_budgets(db, user_id, month_str):
         if not db.fetchone(rs):
             db.execute(
                 '''INSERT INTO weekly_budgets 
-                   (user_id, month, week_index, base_budget, carry_in, effective_budget, spent, variance, status, created_at, updated_at)
-                   VALUES (?, ?, ?, 0, 0, 0, 0, 0, 'normal', ?, ?)''',
+                   (user_id, month, week_index, base_budget, carry_in, effective_budget, spent, variance, status, selected_categories, created_at, updated_at)
+                   VALUES (?, ?, ?, 0, 0, 0, 0, 0, 'normal', '', ?, ?)''',
                 (user_id, month_str, week_index, now, now)
             )
     db.commit()
@@ -639,10 +677,9 @@ def recalculate_weekly_budgets(db, user_id, month_str):
         - Redistribute only overspend across remaining weeks equally
             (week excess reduces future week budgets)
     """
-    from datetime import datetime, date
+    from datetime import datetime
     weeks = get_week_boundaries(month_str, db, user_id)
     now = datetime.utcnow().isoformat()
-    today_str = date.today().isoformat()
     
     # Fetch all weekly budgets for this month
     wb_rs = db.execute(
@@ -652,53 +689,110 @@ def recalculate_weekly_budgets(db, user_id, month_str):
         (user_id, month_str)
     )
     weekly_data = {row['week_index']: row for row in db.fetchall(wb_rs)}
-    
-    # Calculate spent for each week
+
+    categories_by_week = {}
+    default_selected_categories = []
+    for week_index, row in weekly_data.items():
+        parsed_for_week = parse_selected_categories(row.get('selected_categories'))
+
+        categories_by_week[week_index] = parsed_for_week
+        if parsed_for_week and not default_selected_categories:
+            default_selected_categories = parsed_for_week
+
+    monthly_selected_budget = 0.0
+    if default_selected_categories:
+        placeholders = ','.join('?' for _ in default_selected_categories)
+        budget_rs = db.execute(
+            f'''SELECT COALESCE(SUM(amount), 0) as total_budget
+                FROM budgets
+                WHERE user_id = ? AND month = ? AND category IN ({placeholders})''',
+            (user_id, month_str, *default_selected_categories)
+        )
+        budget_row = db.fetchone(budget_rs)
+        monthly_selected_budget = float(budget_row['total_budget']) if budget_row else 0.0
+
+    # Recompute base weekly distribution from selected-category monthly budget
+    # using actual day counts in the current cycle (e.g., 31 days for Mar18-Apr17).
+    if default_selected_categories and monthly_selected_budget > 0:
+        from datetime import datetime as dt
+
+        ordered_week_indexes = [week_index for week_index, _, _ in weeks if week_index in weekly_data]
+        week_day_counts = {}
+        total_days = 0
+
+        for week_index, week_start, week_end in weeks:
+            if week_index not in weekly_data:
+                continue
+            start_dt = dt.strptime(week_start, '%Y-%m-%d')
+            end_dt = dt.strptime(week_end, '%Y-%m-%d')
+            day_count = (end_dt - start_dt).days + 1
+            week_day_counts[week_index] = day_count
+            total_days += day_count
+
+        if total_days > 0:
+            remaining_budget = round(monthly_selected_budget, 2)
+            for index, week_index in enumerate(ordered_week_indexes):
+                if index == len(ordered_week_indexes) - 1:
+                    allocated_budget = remaining_budget
+                else:
+                    allocated_budget = round((monthly_selected_budget * week_day_counts.get(week_index, 0)) / total_days, 2)
+                    remaining_budget = round(remaining_budget - allocated_budget, 2)
+
+                weekly_data[week_index]['base_budget'] = allocated_budget
+
+    # Calculate spent for each week (filtered by selected categories, if configured)
     for week_index, week_start, week_end in weeks:
-        spent = get_weekly_spent(db, user_id, month_str, week_start, week_end)
+        week_categories = categories_by_week.get(week_index) or default_selected_categories
+        spent = get_weekly_spent(db, user_id, month_str, week_start, week_end, week_categories)
         if week_index in weekly_data:
             weekly_data[week_index]['spent'] = spent
-    
-    # Compute effective budgets with progressive redistribution of variance.
-    # Example: if week 1 overspends by 3000 and 3 weeks remain, each next week gets -1000.
+
+    # Compute weekly remaining exactly from selected-category budget/spend.
+    # Rules:
+    # - If no selected categories: spent/remaining should be 0 for weekly card.
+    # - No redistribution across weeks.
+    # - Once total selected-category monthly budget is exhausted, future weeks remain 0.
     ordered_week_indexes = [week_index for week_index, _, _ in weeks if week_index in weekly_data]
-    week_start_by_index = {week_index: week_start for week_index, week_start, _ in weeks}
-    week_end_by_index = {week_index: week_end for week_index, _, week_end in weeks}
-    future_adjustments = {week_index: 0.0 for week_index in ordered_week_indexes}
+    cumulative_spent_before_week = 0.0
 
-    for position, week_index in enumerate(ordered_week_indexes):
+    for week_index in ordered_week_indexes:
         wd = weekly_data[week_index]
+        spent = float(wd['spent'])
+        base_budget = float(wd['base_budget'])
 
-        carry_in = future_adjustments.get(week_index, 0.0)
-        effective_budget = float(wd['base_budget']) + carry_in
-        variance = effective_budget - float(wd['spent'])
+        if not default_selected_categories or monthly_selected_budget <= 0:
+            carry_in = 0.0
+            effective_budget = 0.0
+            variance = 0.0
+            status = 'normal'
+        else:
+            budget_exhausted_before_this_week = cumulative_spent_before_week >= monthly_selected_budget
+
+            if budget_exhausted_before_this_week:
+                carry_in = 0.0
+                effective_budget = 0.0
+                variance = 0.0
+                status = 'safe'
+            else:
+                carry_in = 0.0
+                effective_budget = base_budget
+                variance = effective_budget - spent
+                status = 'safe' if spent <= effective_budget else 'over'
 
         wd['carry_in'] = carry_in
         wd['effective_budget'] = effective_budget
         wd['variance'] = variance
-        wd['status'] = 'safe' if wd['spent'] <= wd['effective_budget'] else 'over'
+        wd['status'] = status
 
-        remaining_weeks = len(ordered_week_indexes) - position - 1
-        week_start = week_start_by_index.get(week_index)
-        week_end = week_end_by_index.get(week_index)
-        is_started_week = bool(week_start and week_start <= today_str)
-        is_completed_week = bool(week_end and week_end <= today_str)
-        should_redistribute = is_completed_week or is_started_week
-
-        if remaining_weeks > 0 and should_redistribute and variance < 0:
-            per_week_adjustment = variance / remaining_weeks
-            for future_week_index in ordered_week_indexes[position + 1:]:
-                future_adjustments[future_week_index] = (
-                    future_adjustments.get(future_week_index, 0.0) + per_week_adjustment
-                )
+        cumulative_spent_before_week += spent
     
     # Write back to DB
     for week_index, wd in weekly_data.items():
         db.execute(
             '''UPDATE weekly_budgets 
-               SET carry_in = ?, effective_budget = ?, spent = ?, variance = ?, status = ?, updated_at = ?
+               SET base_budget = ?, carry_in = ?, effective_budget = ?, spent = ?, variance = ?, status = ?, updated_at = ?
                WHERE user_id = ? AND month = ? AND week_index = ?''',
-            (wd['carry_in'], wd['effective_budget'], wd['spent'], wd['variance'], wd['status'], now, user_id, month_str, week_index)
+            (wd['base_budget'], wd['carry_in'], wd['effective_budget'], wd['spent'], wd['variance'], wd['status'], now, user_id, month_str, week_index)
         )
     db.commit()
 
@@ -850,9 +944,13 @@ def api_get_weekly_budget():
         )
         weekly_budgets = db.fetchall(wb_rs)
         
+        selected_categories_default = []
         result = []
         for i, (week_index, start, end) in enumerate(weeks):
             wb = weekly_budgets[i] if i < len(weekly_budgets) else {}
+            row_selected_categories = parse_selected_categories(wb.get('selected_categories', ''))
+            if row_selected_categories and not selected_categories_default:
+                selected_categories_default = row_selected_categories
             result.append({
                 'week_index': week_index,
                 'week_start': start,
@@ -862,10 +960,15 @@ def api_get_weekly_budget():
                 'effective_budget': wb.get('effective_budget', 0),
                 'spent': wb.get('spent', 0),
                 'variance': wb.get('variance', 0),
-                'status': wb.get('status', 'normal')
+                'status': wb.get('status', 'normal'),
+                'selected_categories': row_selected_categories
             })
         
-        return jsonify({'status': 'success', 'weekly_budgets': result})
+        return jsonify({
+            'status': 'success',
+            'weekly_budgets': result,
+            'selected_categories': selected_categories_default
+        })
     except Exception as e:
         app.logger.error(f"Error fetching weekly budget: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
@@ -906,20 +1009,39 @@ def api_set_weekly_budget():
 @app.route('/api/weekly_budget/set_all', methods=['POST'])
 @login_required
 def api_set_all_weekly_budget():
-    """Set one monthly budget value and distribute it across weeks by day count."""
+    """Set weekly budget based on selected categories. Sum selected category budgets and distribute across weeks."""
     data = request.get_json() or {}
     month = data.get('month')
+    selected_categories = data.get('selected_categories', [])
 
     if not month:
         return jsonify({'status': 'error', 'message': 'Month is required'}), 400
 
-    try:
-        monthly_budget = float(data.get('monthly_budget', data.get('base_budget', 0)))
-    except (TypeError, ValueError):
-        return jsonify({'status': 'error', 'message': 'Invalid monthly budget value'}), 400
+    if not selected_categories or not isinstance(selected_categories, list):
+        return jsonify({'status': 'error', 'message': 'At least one category must be selected'}), 400
+
+    selected_categories = [str(category).strip() for category in selected_categories if str(category).strip()]
+    selected_categories = list(dict.fromkeys(selected_categories))
+
+    if not selected_categories:
+        return jsonify({'status': 'error', 'message': 'At least one valid category must be selected'}), 400
 
     try:
         db = get_db()
+        
+        # Fetch the total budget for selected categories
+        placeholders = ','.join('?' for _ in selected_categories)
+        budget_rs = db.execute(
+            f'''SELECT SUM(amount) as total_budget FROM budgets 
+               WHERE user_id = ? AND month = ? AND category IN ({placeholders})''',
+            (current_user.id, month, *selected_categories)
+        )
+        budget_row = db.fetchone(budget_rs)
+        monthly_budget = budget_row['total_budget'] if budget_row and budget_row['total_budget'] else 0
+        
+        if monthly_budget <= 0:
+            return jsonify({'status': 'error', 'message': 'Selected categories have no budget or invalid amount'}), 400
+
         initialize_weekly_budgets(db, current_user.id, month)
 
         from datetime import datetime
@@ -953,18 +1075,21 @@ def api_set_all_weekly_budget():
 
             allocations.append((week_index, allocated_budget))
 
+        selected_categories_json = json.dumps(selected_categories)
+
         for week_index, allocated_budget in allocations:
             db.execute(
                 '''UPDATE weekly_budgets
-                   SET base_budget = ?, updated_at = ?
+                   SET base_budget = ?, selected_categories = ?, updated_at = ?
                    WHERE user_id = ? AND month = ? AND week_index = ?''',
-                (allocated_budget, now, current_user.id, month, week_index)
+                (allocated_budget, selected_categories_json, now, current_user.id, month, week_index)
             )
 
         db.commit()
         recalculate_weekly_budgets(db, current_user.id, month)
 
-        return jsonify({'status': 'success', 'message': 'Monthly budget distributed across weeks'})
+        category_str = ', '.join(selected_categories)
+        return jsonify({'status': 'success', 'message': f'Weekly budget set from {category_str} categories'})
     except Exception as e:
         app.logger.error(f"Error setting all weekly budgets: {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 500

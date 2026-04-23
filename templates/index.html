@@ -159,12 +159,23 @@
                         <h3 class="weekly-budget-title">
                             Weekly Budget & Expense Report
                         </h3>
-                        <p class="weekly-budget-subtitle">Set one monthly budget and review one week at a time.</p>
+                        <p class="weekly-budget-subtitle">Select categories for weekly tracking and distribute them across weeks.</p>
                     </div>
                     <div class="weekly-budget-toolbar">
                         <div class="weekly-budget-input-group weekly-budget-input-inline">
-                            <label for="weeklyBudgetAmountAll">Monthly Budget</label>
-                            <input type="number" step="0.01" id="weeklyBudgetAmountAll" placeholder="₹ 0.00">
+                            <label>Track Categories</label>
+                            <div id="weeklyBudgetCategoriesAll" class="weekly-budget-checkbox-group">
+                                {% if category_options and category_options|length > 0 %}
+                                    {% for category in category_options %}
+                                        <label class="weekly-budget-checkbox-label">
+                                            <input type="checkbox" value="{{ category }}" class="weekly-budget-checkbox">
+                                            <span>{{ category }}</span>
+                                        </label>
+                                    {% endfor %}
+                                {% else %}
+                                    <span class="weekly-budget-empty-note">No budget categories found for this month.</span>
+                                {% endif %}
+                            </div>
                         </div>
                         <button type="button" id="weeklyBudgetApplyAllBtn" class="weekly-budget-primary-btn">Distribute</button>
                         <div class="weekly-budget-nav">
@@ -548,7 +559,7 @@
         </div>
     </div>
 
-    <script id="flask-data" data-json="{{ js_data|tojson|safe }}"></script>
+    <script id="flask-data" data-json="{{ js_data|tojson|safe }}" data-categories="{{ category_options|tojson|safe }}"></script>
     <script src="{{ url_for('static', filename='script.js', v=asset_version) }}"></script>
 </body>
 </html>

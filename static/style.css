@@ -2790,6 +2790,27 @@ input[list="categoryOptions"]::-webkit-inner-spin-button {
     transition: all 0.3s ease;
 }
 
+.weekly-budget-input-group select,
+.weekly-budget-category-select {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    padding: 10px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 12px;
+    font-size: 1em;
+    font-family: 'Nunito Sans', sans-serif;
+    box-sizing: border-box;
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(10px);
+    color: #475569;
+    font-weight: 500;
+    box-shadow:
+        0 4px 15px rgba(0, 0, 0, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    transition: all 0.3s ease;
+}
+
 .weekly-budget-input-group input:focus {
     outline: none;
     border-color: rgba(30, 64, 175, 0.6);
@@ -2797,6 +2818,51 @@ input[list="categoryOptions"]::-webkit-inner-spin-button {
         0 6px 20px rgba(0, 0, 0, 0.15),
         0 0 0 3px rgba(30, 64, 175, 0.2);
     background: rgba(255, 255, 255, 0.95);
+}
+
+.weekly-budget-input-group select:focus,
+.weekly-budget-category-select:focus {
+    outline: none;
+    border-color: rgba(30, 64, 175, 0.6);
+    box-shadow:
+        0 6px 20px rgba(0, 0, 0, 0.15),
+        0 0 0 3px rgba(30, 64, 175, 0.2);
+    background: rgba(255, 255, 255, 0.95);
+}
+
+.weekly-budget-checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 38px;
+    padding: 2px 10px;
+    box-sizing: border-box;
+    border: 1px solid rgba(30, 64, 175, 0.2);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 12px rgba(30, 64, 175, 0.1);
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+}
+
+.weekly-budget-checkbox-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-size: 0.86em;
+    color: #475569;
+    font-weight: 600;
+    user-select: none;
+}
+
+.weekly-budget-checkbox {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: #1e40af;
 }
 
 .weekly-budget-primary-btn {

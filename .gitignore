@@ -14,3 +14,6 @@ budget.db
 
 # Local temp/secrets
 cookies.txt
+
+# Runtime logs
+*.log
