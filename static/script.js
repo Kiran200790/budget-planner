@@ -1923,13 +1923,40 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function applyWeeklySelectedCategories(selectedCategories) {
-        const categoryContainer = document.getElementById('weeklyBudgetCategoriesAll');
-        if (!categoryContainer) return;
-
         const selectedSet = new Set((selectedCategories || []).map(category => (category || '').toString().trim()).filter(Boolean));
-        const checkboxes = categoryContainer.querySelectorAll('input[type="checkbox"]');
-        checkboxes.forEach(checkbox => {
-            checkbox.checked = selectedSet.has((checkbox.value || '').toString().trim());
+        ['weeklyBudgetCategoriesAll', 'weeklyBudgetCategoriesAllMobile'].forEach(containerId => {
+            const categoryContainer = document.getElementById(containerId);
+            if (!categoryContainer) return;
+
+            const checkboxes = categoryContainer.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = selectedSet.has((checkbox.value || '').toString().trim());
+            });
+        });
+    }
+
+    function getSelectedWeeklyCategories(containerId) {
+        const categoryContainer = document.getElementById(containerId);
+        return Array.from(categoryContainer?.querySelectorAll('input[type="checkbox"]:checked') || [])
+            .map(checkbox => checkbox.value);
+    }
+
+    function bindWeeklyCategorySync() {
+        const syncFromContainer = (sourceId) => {
+            const selectedCategories = getSelectedWeeklyCategories(sourceId);
+            applyWeeklySelectedCategories(selectedCategories);
+        };
+
+        ['weeklyBudgetCategoriesAll', 'weeklyBudgetCategoriesAllMobile'].forEach(containerId => {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            container.addEventListener('change', (event) => {
+                const target = event.target;
+                if (target && target.matches('input[type="checkbox"]')) {
+                    syncFromContainer(containerId);
+                }
+            });
         });
     }
 
@@ -2161,9 +2188,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const weeklyBudgetApplyAllBtn = document.getElementById('weeklyBudgetApplyAllBtn');
     if (weeklyBudgetApplyAllBtn) {
         weeklyBudgetApplyAllBtn.addEventListener('click', async () => {
-            const categoryContainer = document.getElementById('weeklyBudgetCategoriesAll');
-            const selectedCategories = Array.from(categoryContainer?.querySelectorAll('input[type="checkbox"]:checked') || [])
-                .map(checkbox => checkbox.value);
+            const selectedCategories = getSelectedWeeklyCategories('weeklyBudgetCategoriesAll');
 
             if (selectedCategories.length === 0) {
                 showToast('warning', 'No Categories', 'Please select at least one category to track.');
@@ -2177,12 +2202,14 @@ document.addEventListener('DOMContentLoaded', function () {
     // Populate category checkboxes from flaskData only when non-empty.
     // If empty, keep the server-rendered fallback checkboxes intact.
     const categoryContainer = document.getElementById('weeklyBudgetCategoriesAll');
+    const categoryContainerMobile = document.getElementById('weeklyBudgetCategoriesAllMobile');
     const categoryOptions = Array.isArray(flaskData.category_options)
         ? flaskData.category_options.filter(category => (category || '').toString().trim() !== '')
         : [];
 
-    if (categoryContainer && categoryOptions.length > 0) {
-        categoryContainer.innerHTML = '';
+    const renderCategoryCheckboxes = (containerElement) => {
+        if (!containerElement) return;
+        containerElement.innerHTML = '';
         categoryOptions.forEach(category => {
             const label = document.createElement('label');
             label.className = 'weekly-budget-checkbox-label';
@@ -2197,9 +2224,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
             label.appendChild(checkbox);
             label.appendChild(textSpan);
-            categoryContainer.appendChild(label);
+            containerElement.appendChild(label);
         });
+    };
+
+    if (categoryOptions.length > 0) {
+        renderCategoryCheckboxes(categoryContainer);
+        renderCategoryCheckboxes(categoryContainerMobile);
     }
+
+    bindWeeklyCategorySync();
 
     const weeklyPrevBtn = document.getElementById('weeklyPrevBtn');
     if (weeklyPrevBtn) {
@@ -2221,23 +2255,13 @@ document.addEventListener('DOMContentLoaded', function () {
     const weeklyBudgetApplyAllBtnMobile = document.getElementById('weeklyBudgetApplyAllBtnMobile');
     if (weeklyBudgetApplyAllBtnMobile) {
         weeklyBudgetApplyAllBtnMobile.addEventListener('click', async () => {
-            const categoryContainer = document.getElementById('weeklyBudgetCategoriesAll');
-            const selectedCategories = Array.from(categoryContainer?.querySelectorAll('input[type="checkbox"]:checked') || [])
-                .map(checkbox => checkbox.value);
+            const selectedCategories = getSelectedWeeklyCategories('weeklyBudgetCategoriesAllMobile');
 
             if (selectedCategories.length === 0) {
                 showToast('warning', 'No Categories', 'Please select at least one category to track.');
                 return;
             }
             await setAllWeeklyBaseBudget(selectedCategories);
-        });
-    }
-
-    const weeklyBudgetAmountAllMobile = document.getElementById('weeklyBudgetAmountAllMobile');
-    if (weeklyBudgetAmountAllMobile) {
-        weeklyBudgetAmountAllMobile.addEventListener('input', (event) => {
-            const desktopInput = document.getElementById('weeklyBudgetAmountAll');
-            if (desktopInput) desktopInput.value = event.target.value;
         });
     }
 

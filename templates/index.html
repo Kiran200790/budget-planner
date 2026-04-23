@@ -376,10 +376,21 @@
                     <div class="mobile-section-header">
                         <h2>Weekly Budget</h2>
                     </div>
-                    <p class="weekly-mobile-subtitle">Set one monthly budget and review one week at a time.</p>
+                    <p class="weekly-mobile-subtitle">Select categories for weekly tracking and distribute them across weeks.</p>
 
                     <div class="mobile-form weekly-mobile-form">
-                        <input type="number" step="0.01" id="weeklyBudgetAmountAllMobile" placeholder="Monthly Budget (₹)">
+                        <div id="weeklyBudgetCategoriesAllMobile" class="weekly-budget-checkbox-group">
+                            {% if category_options and category_options|length > 0 %}
+                                {% for category in category_options %}
+                                    <label class="weekly-budget-checkbox-label">
+                                        <input type="checkbox" value="{{ category }}" class="weekly-budget-checkbox">
+                                        <span>{{ category }}</span>
+                                    </label>
+                                {% endfor %}
+                            {% else %}
+                                <span class="weekly-budget-empty-note">No budget categories found for this month.</span>
+                            {% endif %}
+                        </div>
                         <button type="button" id="weeklyBudgetApplyAllBtnMobile" class="weekly-mobile-primary-btn">Distribute</button>
                     </div>
 
