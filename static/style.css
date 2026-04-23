@@ -3148,6 +3148,42 @@ input[list="categoryOptions"]::-webkit-inner-spin-button {
     margin-bottom: 12px;
 }
 
+#weekly-content-mobile .weekly-budget-checkbox-group {
+    height: auto;
+    min-height: 38px;
+    padding: 8px 10px;
+    border-radius: 12px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    overflow-x: visible;
+    overflow-y: visible;
+    white-space: normal;
+}
+
+#weekly-content-mobile .weekly-budget-checkbox-label {
+    display: inline-flex;
+    align-items: flex-start;
+    gap: 8px;
+    line-height: 1.2;
+    max-width: 100%;
+}
+
+#weekly-content-mobile .weekly-budget-checkbox-label span {
+    display: block;
+    word-break: break-word;
+}
+
+#weekly-content-mobile .mobile-form input.weekly-budget-checkbox,
+#weekly-content-mobile .weekly-budget-checkbox {
+    width: 16px;
+    height: 16px;
+    min-width: 16px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    flex: 0 0 16px;
+}
+
 #weekly-content-mobile .weekly-mobile-primary-btn {
     background-color: #4299e1;
     color: #fff;

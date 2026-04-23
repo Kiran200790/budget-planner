@@ -711,34 +711,33 @@ def recalculate_weekly_budgets(db, user_id, month_str):
         budget_row = db.fetchone(budget_rs)
         monthly_selected_budget = float(budget_row['total_budget']) if budget_row else 0.0
 
+    from datetime import datetime as dt
+
+    ordered_week_indexes = [week_index for week_index, _, _ in weeks if week_index in weekly_data]
+    week_day_counts = {}
+    total_days = 0
+
+    for week_index, week_start, week_end in weeks:
+        if week_index not in weekly_data:
+            continue
+        start_dt = dt.strptime(week_start, '%Y-%m-%d')
+        end_dt = dt.strptime(week_end, '%Y-%m-%d')
+        day_count = (end_dt - start_dt).days + 1
+        week_day_counts[week_index] = day_count
+        total_days += day_count
+
     # Recompute base weekly distribution from selected-category monthly budget
     # using actual day counts in the current cycle (e.g., 31 days for Mar18-Apr17).
-    if default_selected_categories and monthly_selected_budget > 0:
-        from datetime import datetime as dt
+    if default_selected_categories and monthly_selected_budget > 0 and total_days > 0:
+        remaining_budget = round(monthly_selected_budget, 2)
+        for index, week_index in enumerate(ordered_week_indexes):
+            if index == len(ordered_week_indexes) - 1:
+                allocated_budget = remaining_budget
+            else:
+                allocated_budget = round((monthly_selected_budget * week_day_counts.get(week_index, 0)) / total_days, 2)
+                remaining_budget = round(remaining_budget - allocated_budget, 2)
 
-        ordered_week_indexes = [week_index for week_index, _, _ in weeks if week_index in weekly_data]
-        week_day_counts = {}
-        total_days = 0
-
-        for week_index, week_start, week_end in weeks:
-            if week_index not in weekly_data:
-                continue
-            start_dt = dt.strptime(week_start, '%Y-%m-%d')
-            end_dt = dt.strptime(week_end, '%Y-%m-%d')
-            day_count = (end_dt - start_dt).days + 1
-            week_day_counts[week_index] = day_count
-            total_days += day_count
-
-        if total_days > 0:
-            remaining_budget = round(monthly_selected_budget, 2)
-            for index, week_index in enumerate(ordered_week_indexes):
-                if index == len(ordered_week_indexes) - 1:
-                    allocated_budget = remaining_budget
-                else:
-                    allocated_budget = round((monthly_selected_budget * week_day_counts.get(week_index, 0)) / total_days, 2)
-                    remaining_budget = round(remaining_budget - allocated_budget, 2)
-
-                weekly_data[week_index]['base_budget'] = allocated_budget
+            weekly_data[week_index]['base_budget'] = allocated_budget
 
     # Calculate spent for each week (filtered by selected categories, if configured)
     for week_index, week_start, week_end in weeks:
@@ -747,45 +746,51 @@ def recalculate_weekly_budgets(db, user_id, month_str):
         if week_index in weekly_data:
             weekly_data[week_index]['spent'] = spent
 
-    # Compute weekly remaining exactly from selected-category budget/spend.
-    # Rules:
-    # - If no selected categories: spent/remaining should be 0 for weekly card.
-    # - No redistribution across weeks.
-    # - Once total selected-category monthly budget is exhausted, future weeks remain 0.
-    ordered_week_indexes = [week_index for week_index, _, _ in weeks if week_index in weekly_data]
-    cumulative_spent_before_week = 0.0
+    # Redistribute monthly selected-category budget across weeks.
+    # Overspend in earlier weeks reduces the pool available for later weeks.
+    remaining_budget_pool = round(monthly_selected_budget, 2)
 
-    for week_index in ordered_week_indexes:
+    for position, week_index in enumerate(ordered_week_indexes):
         wd = weekly_data[week_index]
         spent = float(wd['spent'])
-        base_budget = float(wd['base_budget'])
 
-        if not default_selected_categories or monthly_selected_budget <= 0:
+        if not default_selected_categories or monthly_selected_budget <= 0 or total_days <= 0:
             carry_in = 0.0
             effective_budget = 0.0
             variance = 0.0
             status = 'normal'
         else:
-            budget_exhausted_before_this_week = cumulative_spent_before_week >= monthly_selected_budget
-
-            if budget_exhausted_before_this_week:
+            if remaining_budget_pool <= 0:
                 carry_in = 0.0
                 effective_budget = 0.0
-                variance = 0.0
-                status = 'safe'
+                variance = round(effective_budget - spent, 2)
+                status = 'safe' if spent <= 0 else 'over'
             else:
-                carry_in = 0.0
-                effective_budget = base_budget
-                variance = effective_budget - spent
+                remaining_week_indexes = ordered_week_indexes[position:]
+                remaining_days = sum(week_day_counts.get(idx, 0) for idx in remaining_week_indexes)
+
+                if remaining_days <= 0:
+                    effective_budget = 0.0
+                elif position == len(ordered_week_indexes) - 1:
+                    effective_budget = remaining_budget_pool
+                else:
+                    current_days = week_day_counts.get(week_index, 0)
+                    effective_budget = round((remaining_budget_pool * current_days) / remaining_days, 2)
+
+                base_budget = float(wd.get('base_budget', 0) or 0)
+                carry_in = round(effective_budget - base_budget, 2)
+                variance = round(effective_budget - spent, 2)
                 status = 'safe' if spent <= effective_budget else 'over'
+
+                consumed_budget = max(spent, effective_budget)
+                remaining_budget_pool = round(max(0.0, remaining_budget_pool - consumed_budget), 2)
 
         wd['carry_in'] = carry_in
         wd['effective_budget'] = effective_budget
         wd['variance'] = variance
         wd['status'] = status
 
-        cumulative_spent_before_week += spent
-    
+
     # Write back to DB
     for week_index, wd in weekly_data.items():
         db.execute(
