@@ -555,28 +555,23 @@ def get_week_boundaries(month_str, db=None, user_id=None):
     
     start_date = first_day
     if db is not None and user_id is not None:
-        # Look for the earliest expense that could be part of this month's budget cycle.
-        # Budget cycles can span two calendar months (e.g., March 18 to April 17),
-        # so we search from the previous month to the end of the current month.
-        search_start = first_day.replace(day=1) - timedelta(days=1)
-        search_start = search_start.replace(day=1)  # First day of previous month
-        search_end = last_day
+        # Look for the user's earliest expense ever to establish the first cycle start.
+        # Once a user has data, the cycle begins from their first expense date,
+        # and subsequent months' cycles align to that anchor date.
         
         first_expense_rs = db.execute(
             '''SELECT MIN(date) as first_expense_date
                FROM expenses
-               WHERE user_id = ? AND date BETWEEN ? AND ?''',
-            (user_id, search_start.strftime('%Y-%m-%d'), search_end.strftime('%Y-%m-%d'))
+               WHERE user_id = ?''',
+            (user_id,)
         )
         first_expense_row = db.fetchone(first_expense_rs)
         first_expense_date = first_expense_row.get('first_expense_date') if first_expense_row else None
         if first_expense_date:
             try:
                 parsed_date = datetime.strptime(first_expense_date, '%Y-%m-%d')
-                # Only use the expense date if it's before or on the current month's first day
-                # This ensures we're capturing the true start of the budget cycle
-                if parsed_date <= last_day:
-                    start_date = parsed_date
+                # Use the earliest expense date as the anchor for all budget cycles
+                start_date = parsed_date
             except ValueError:
                 app.logger.warning(f"Invalid expense date format for weekly boundary calculation: {first_expense_date}")
 
