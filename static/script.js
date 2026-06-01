@@ -1207,6 +1207,11 @@ document.addEventListener('DOMContentLoaded', function () {
             const activeMonthDisplay = document.getElementById('desktop-active-month-display');
             if(activeMonthDisplay) activeMonthDisplay.textContent = flaskData.active_month;
 
+            ['expense-active-month', 'budget-active-month', 'income-active-month', 'emi-active-month'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = flaskData.active_month;
+            });
+
             // Update dashboard titles with the new month
             const formattedMonth = new Date(flaskData.active_month + '-02').toLocaleString('default', { month: 'long', year: 'numeric' });
             document.querySelectorAll('#summary-title-desktop, #summary-title-mobile').forEach(el => el.textContent = `Summary for ${formattedMonth}`);

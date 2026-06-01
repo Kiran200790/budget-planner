@@ -555,22 +555,21 @@ def get_week_boundaries(month_str, db=None, user_id=None):
     
     start_date = first_day
     if db is not None and user_id is not None:
-        # Look for the user's earliest expense ever to establish the first cycle start.
-        # Once a user has data, the cycle begins from their first expense date,
-        # and subsequent months' cycles align to that anchor date.
-        
+        # Find the first expense that belongs to the selected budget month.
+        # This allows June budgets to anchor to a May 29 expense if that expense
+        # is marked as part of June (month field = selected month).
         first_expense_rs = db.execute(
             '''SELECT MIN(date) as first_expense_date
                FROM expenses
-               WHERE user_id = ?''',
-            (user_id,)
+               WHERE user_id = ? AND month = ?''',
+            (user_id, month_str)
         )
         first_expense_row = db.fetchone(first_expense_rs)
         first_expense_date = first_expense_row.get('first_expense_date') if first_expense_row else None
         if first_expense_date:
             try:
                 parsed_date = datetime.strptime(first_expense_date, '%Y-%m-%d')
-                # Use the earliest expense date as the anchor for all budget cycles
+                # Use the first expense date for the selected month as the cycle anchor.
                 start_date = parsed_date
             except ValueError:
                 app.logger.warning(f"Invalid expense date format for weekly boundary calculation: {first_expense_date}")

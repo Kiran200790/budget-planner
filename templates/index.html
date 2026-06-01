@@ -114,7 +114,7 @@
                     </div>
                 </form>
                 <h3 style="display: flex; align-items: center; gap: 15px;">
-                    Expense Records for {{ active_month }}:
+                    Expense Records for <span id="expense-active-month">{{ active_month }}</span>:
                     <div class="search-box-container" style="position: relative; flex: 1; max-width: 300px;">
                         <input type="text" class="expenseSearchBox" placeholder="Search expenses..." style="width: 100%;">
                         <button type="button" class="clearExpenseSearch" title="Clear search" style="position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; height: 24px;">
@@ -150,7 +150,7 @@
                         <button type="submit">Add Budget</button>
                     </div>
                 </form>
-                <h3>Budget Records for {{ active_month }}:</h3>
+                <h3>Budget Records for <span id="budget-active-month">{{ active_month }}</span>:</h3>
                 <ul class="budgetList"></ul>
 
                 <!-- Weekly Budget Section -->
@@ -216,7 +216,7 @@
                         <button type="submit">Add Income</button>
                     </div>
                 </form>
-                <h3>Income Records for {{ active_month }}:</h3>
+                <h3>Income Records for <span id="income-active-month">{{ active_month }}</span>:</h3>
                 <ul class="incomeList"></ul>
             </div>
 
@@ -237,7 +237,7 @@
                         <button type="submit">Add EMI</button>
                     </div>
                 </form>
-                <h3>Loan EMI Records for {{ active_month }}:</h3>
+                <h3>Loan EMI Records for <span id="emi-active-month">{{ active_month }}</span>:</h3>
                 <ul class="emiList"></ul>
             </div>
 
