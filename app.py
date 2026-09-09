@@ -805,7 +805,7 @@ def get_budget_data(active_month):
     db = get_db()
 
     # Fetch all data for the active month for current user
-    expenses_rs = db.execute('SELECT * FROM expenses WHERE month = ? AND user_id = ? ORDER BY date DESC', (active_month, current_user.id))
+    expenses_rs = db.execute('SELECT * FROM expenses WHERE month = ? AND user_id = ? ORDER BY date DESC, id DESC', (active_month, current_user.id))
     expenses = db.fetchall(expenses_rs)
     app.logger.info(f"Found {len(expenses)} expenses.")
 

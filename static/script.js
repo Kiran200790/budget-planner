@@ -27,6 +27,54 @@ document.addEventListener('DOMContentLoaded', function () {
     let expenses = flaskData.expenses || [];
     let activeBudgetEditId = null;
     let activeInlineEdit = null;
+    const LAST_EXPENSE_PREFS_KEY = 'lastExpenseEntryDefaults';
+    let lastExpenseEntryDefaults = { category: '', payment_type: '' };
+
+    function loadLastExpenseEntryDefaults() {
+        try {
+            const raw = localStorage.getItem(LAST_EXPENSE_PREFS_KEY);
+            if (!raw) return;
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === 'object') {
+                lastExpenseEntryDefaults = {
+                    category: (parsed.category || '').toString().trim(),
+                    payment_type: (parsed.payment_type || '').toString().trim()
+                };
+            }
+        } catch (error) {
+            console.warn('Could not load last expense defaults:', error);
+        }
+    }
+
+    function saveLastExpenseEntryDefaults(category, paymentType) {
+        lastExpenseEntryDefaults = {
+            category: (category || '').toString().trim(),
+            payment_type: (paymentType || '').toString().trim()
+        };
+        try {
+            localStorage.setItem(LAST_EXPENSE_PREFS_KEY, JSON.stringify(lastExpenseEntryDefaults));
+        } catch (error) {
+            console.warn('Could not save last expense defaults:', error);
+        }
+    }
+
+    function applyLastExpenseEntryDefaultsToForm(form) {
+        if (!form) return;
+        const categoryInput = form.querySelector('input[name="category"]');
+        const paymentInput = form.querySelector('input[name="payment_type"]');
+
+        if (categoryInput && lastExpenseEntryDefaults.category) {
+            categoryInput.value = lastExpenseEntryDefaults.category;
+            categoryInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+
+        if (paymentInput && lastExpenseEntryDefaults.payment_type) {
+            paymentInput.value = lastExpenseEntryDefaults.payment_type;
+            paymentInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    }
+
+    loadLastExpenseEntryDefaults();
 
     function getSafeErrorMessage(error, fallbackMessage) {
         const message = (error && error.message ? error.message : '').trim();
@@ -1402,7 +1450,18 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
 
                     if (result.status === 'success') {
+                        if (action === 'addExpense') {
+                            const lastCategory = (formData.get('category') || '').toString().trim();
+                            const lastPaymentType = (formData.get('payment_type') || '').toString().trim();
+                            saveLastExpenseEntryDefaults(lastCategory, lastPaymentType);
+                        }
+
                         if (form.id.startsWith('add') || action === 'setBudget') form.reset();
+
+                        if (action === 'addExpense') {
+                            applyLastExpenseEntryDefaultsToForm(form);
+                        }
+
                         await refreshDashboardData(selectedMonth);
                         if (form.closest('#mobile-view')) {
                             switchPane('#dashboard-content-mobile', 'mobile');
@@ -1709,6 +1768,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             fabModalOverlay.classList.add('show');
             document.body.style.overflow = 'hidden'; // Prevent background scrolling
+            applyLastExpenseEntryDefaultsToForm(fabQuickForm);
         });
 
         // Close modal functions
@@ -1778,11 +1838,17 @@ document.addEventListener('DOMContentLoaded', function () {
                 const result = await response.json();
 
                 if (result.status === 'success') {
+                    const lastCategory = (formData.get('category') || '').toString().trim();
+                    const lastPaymentType = (formData.get('payment_type') || '').toString().trim();
+                    saveLastExpenseEntryDefaults(lastCategory, lastPaymentType);
+
                     // Show success toast
                     showToast('success', 'Expense Added!', 'Your expense has been successfully added to the budget.');
                     
                     // Close modal
                     closeFABModal();
+
+                    applyLastExpenseEntryDefaultsToForm(fabQuickForm);
                     
                     // Refresh dashboard data
                     const currentMonth = formData.get('month_select');
@@ -1805,6 +1871,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Initialize FAB system
     setupFAB();
+
+    applyLastExpenseEntryDefaultsToForm(document.getElementById('addExpenseFormDesktop'));
+    applyLastExpenseEntryDefaultsToForm(document.getElementById('fabQuickForm'));
 
     // ---- Edit Expense Modal ----
     function setupEditExpenseModal() {
