@@ -5,7 +5,7 @@ A Flask web app to track monthly income, expenses, EMI payments, and category bu
 ## Features
 
 - Multi-user login and registration
-- Monthly expense tracking with categories and payment methods
+- Monthly expense tracking with categories and accounts
 - Monthly income and EMI tracking
 - Budget vs. spent dashboard with charts
 - Copy previous month's income / budget / EMIs in one click

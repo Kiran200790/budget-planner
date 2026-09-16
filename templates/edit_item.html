@@ -84,10 +84,10 @@
                         <input type="number" step="0.01" id="amount" name="amount" value="{{ item.amount }}" required>
                     </div>
                     <div class="form-field">
-                        <label for="expense_payment_type_edit_desktop">Payment Method:</label>
+                        <label for="expense_payment_type_edit_desktop">Account:</label>
                         <div class="payment-input-container" style="position: relative;">
-                            <input type="text" id="expense_payment_type_edit_desktop" name="payment_type" list="paymentTypeOptions" value="{{ item.payment_type }}" placeholder="e.g., UPI, Cash, Card" required style="width: 100%; padding-right: 34px;">
-                            <button type="button" class="clearPaymentInput" data-target="expense_payment_type_edit_desktop" title="Clear payment method" style="position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; height: 24px; color: #64748b;">
+                            <input type="text" id="expense_payment_type_edit_desktop" name="payment_type" list="paymentTypeOptions" value="{{ item.payment_type }}" placeholder="e.g., Bank, Cash, Card" required style="width: 100%; padding-right: 34px;">
+                            <button type="button" class="clearPaymentInput" data-target="expense_payment_type_edit_desktop" title="Clear account" style="position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; height: 24px; color: #64748b;">
                                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2"/><path d="M7 7l6 6M13 7l-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
                             </button>
                         </div>
@@ -117,8 +117,8 @@
                 <input type="text" name="description" placeholder="Description" value="{{ item.description }}" required style="padding:10px 12px;border-radius:8px;border:1px solid #d1d5db;font-size:1em;">
                 <input type="number" step="0.01" name="amount" placeholder="Amount" value="{{ item.amount }}" required style="padding:10px 12px;border-radius:8px;border:1px solid #d1d5db;font-size:1em;">
                 <div class="payment-input-container" style="position: relative;">
-                    <input type="text" id="expense_payment_type_edit_mobile" name="payment_type" list="paymentTypeOptions" value="{{ item.payment_type }}" placeholder="Payment method" required style="width: 100%; padding:10px 36px 10px 12px;border-radius:8px;border:1px solid #d1d5db;font-size:1em;">
-                    <button type="button" class="clearPaymentInput" data-target="expense_payment_type_edit_mobile" title="Clear payment method" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; height: 24px; color: #64748b;">
+                    <input type="text" id="expense_payment_type_edit_mobile" name="payment_type" list="paymentTypeOptions" value="{{ item.payment_type }}" placeholder="Account" required style="width: 100%; padding:10px 36px 10px 12px;border-radius:8px;border:1px solid #d1d5db;font-size:1em;">
+                    <button type="button" class="clearPaymentInput" data-target="expense_payment_type_edit_mobile" title="Clear account" style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; height: 24px; color: #64748b;">
                         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2"/><path d="M7 7l6 6M13 7l-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
                     </button>
                 </div>

@@ -61,6 +61,11 @@ from datetime import timedelta
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
 app.config['REMEMBER_COOKIE_DURATION'] = timedelta(days=30)
 
+if os.environ.get('VSCODE_SIMPLE_BROWSER') == '1':
+    app.config['SESSION_COOKIE_PARTITIONED'] = True
+    app.config['SESSION_COOKIE_SAMESITE'] = 'None'
+    app.config['SESSION_COOKIE_SECURE'] = True
+
 # --- DEVELOPMENT SETTINGS TO PREVENT CACHING ---
 # These settings ensure that changes to templates and static files are
 # reflected immediately without needing a manual server restart or hard refresh.

@@ -102,7 +102,7 @@ document.addEventListener('DOMContentLoaded', function () {
         );
     }
 
-    // --- DATALIST HELPER (improve UX for payment method and category selection) ---
+    // --- DATALIST HELPER (improve UX for account and category selection) ---
     function setupDatalistInputs() {
         const toggleTargets = [
             { inputSelector: 'input[list="paymentTypeOptions"]', containerSelector: '.payment-input-container', clearSelector: '.clearPaymentInput' },
@@ -276,7 +276,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
 
-        // Payment Method Totals (dynamic, public-friendly)
+        // Account Totals (dynamic, public-friendly)
         const paymentTotals = {};
         (data.expenses || []).forEach(exp => {
             const raw = (exp.payment_type || 'Unknown').toString().trim() || 'Unknown';
@@ -916,7 +916,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 descSpan.textContent = record.description || '(No description)';
                 leftSide.appendChild(descSpan);
 
-                // Meta info container (date, category, payment type)
+                // Meta info container (date, category, account)
                 const metaContainer = document.createElement('div');
                 metaContainer.style.display = 'flex';
                 metaContainer.style.flexWrap = 'wrap';
@@ -948,7 +948,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 catSpan.textContent = record.category || 'Other';
                 metaContainer.appendChild(catSpan);
 
-                // Payment type
+                // Account
                 if (record.payment_type) {
                     const paymentSpan = document.createElement('span');
                     paymentSpan.style.backgroundColor = '#f3f4f6';
@@ -1190,7 +1190,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function renderAllLists(expenseData) {
-        // Show payment type in desktop expense records
+        // Show account in desktop expense records
         const expenseContent = r => {
             const paymentType = r.payment_type ? `<span class=\"item-payment-type\" style=\"margin-left:8px;\">[${r.payment_type}]</span>` : '';
             return `${r.date} - ${r.category} - ${r.description}${paymentType}: <b>₹${parseFloat(r.amount).toFixed(2)}</b>`;
@@ -1325,7 +1325,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 const expenseList = viewContainer.querySelector('.expenseList');
                 const searchTotalEl = viewContainer.querySelector('.searchTotal');
 
-                // Use the same format as normal expense display (with payment type)
+                // Use the same format as normal expense display (with account)
                 const expenseSearchContent = r => {
                     const paymentType = r.payment_type ? `<span class=\"item-payment-type\" style=\"margin-left:8px;\">[${r.payment_type}]</span>` : '';
                     return `${r.date} - ${r.category} - ${r.description}${paymentType}: <b>₹${parseFloat(r.amount).toFixed(2)}</b>`;
@@ -1737,88 +1737,130 @@ document.addEventListener('DOMContentLoaded', function () {
         return icons[type] || 'fa-info-circle';
     }
 
-    // FAB modal functionality
+    let expenseModalMode = 'add';
+    let editingExpenseId = null;
+
+    function setExpenseModalMode(mode, expense = null) {
+        const form = document.getElementById('fabQuickForm');
+        const title = document.getElementById('expenseModalTitle');
+        const submitBtn = document.getElementById('expenseModalSubmitBtn');
+        if (!form || !title || !submitBtn) return;
+
+        expenseModalMode = mode;
+        editingExpenseId = expense?.id || null;
+        form.reset();
+
+        const currentMonth = document.getElementById('month_select_desktop')?.value
+            || document.getElementById('month_select_mobile')?.value
+            || flaskData.active_month;
+
+        document.getElementById('fabExpenseId').value = editingExpenseId || '';
+        document.getElementById('fabMonthSelect').value = expense?.month || currentMonth;
+        document.getElementById('fabDate').value = expense?.date || new Date().toISOString().split('T')[0];
+        document.getElementById('fabDescription').value = expense?.description || '';
+        document.getElementById('fabAmount').value = expense?.amount || '';
+        document.getElementById('fabCategory').value = expense?.category || '';
+        document.getElementById('fabPaymentType').value = expense?.payment_type || '';
+
+        if (mode === 'edit') {
+            title.textContent = 'Edit Expense';
+            submitBtn.innerHTML = '<i class="fas fa-save"></i> Save Changes';
+        } else {
+            title.textContent = 'Quick Add Expense';
+            submitBtn.innerHTML = '<i class="fas fa-plus"></i> Add Expense';
+            applyLastExpenseEntryDefaultsToForm(form);
+        }
+    }
+
+    function showExpenseModal() {
+        const overlay = document.getElementById('fabModalOverlay');
+        if (!overlay) return;
+        overlay.classList.add('show');
+        document.body.style.overflow = 'hidden';
+
+        if (expenseModalMode === 'add') {
+            const amountInput = document.getElementById('fabAmount');
+            amountInput?.focus({ preventScroll: true });
+            setTimeout(() => {
+                if (document.activeElement !== amountInput) {
+                    amountInput?.focus({ preventScroll: true });
+                }
+            }, 150);
+        }
+    }
+
+    function closeExpenseModal() {
+        const overlay = document.getElementById('fabModalOverlay');
+        if (!overlay) return;
+        overlay.classList.remove('show');
+        document.body.style.overflow = '';
+    }
+
+    // Shared Add/Edit Expense modal functionality
     function setupFAB() {
         const fabButton = document.getElementById('fabButton');
         const fabModalOverlay = document.getElementById('fabModalOverlay');
         const fabModalClose = document.getElementById('fabModalClose');
-        const fabCancelBtn = document.getElementById('fabCancelBtn');
         const fabQuickForm = document.getElementById('fabQuickForm');
         const fabDateInput = document.getElementById('fabDate');
 
         if (!fabButton || !fabModalOverlay) return;
 
-        // Set default date to today
-        if (fabDateInput) {
-            const today = new Date().toISOString().split('T')[0];
-            fabDateInput.value = today;
-        }
-
-        // Open modal
         fabButton.addEventListener('click', () => {
-            // Update month select to current active month
-            const fabMonthSelect = document.getElementById('fabMonthSelect');
-            const desktopMonthSelect = document.getElementById('month_select_desktop');
-            const mobileMonthSelect = document.getElementById('month_select_mobile');
-            
-            if (fabMonthSelect) {
-                const currentMonth = desktopMonthSelect?.value || mobileMonthSelect?.value || flaskData.active_month;
-                fabMonthSelect.value = currentMonth;
-            }
-
-            fabModalOverlay.classList.add('show');
-            document.body.style.overflow = 'hidden'; // Prevent background scrolling
-            applyLastExpenseEntryDefaultsToForm(fabQuickForm);
+            setExpenseModalMode('add');
+            showExpenseModal();
         });
 
-        // Close modal functions
-        function closeFABModal() {
-            fabModalOverlay.classList.remove('show');
-            document.body.style.overflow = ''; // Restore scrolling
-            fabQuickForm.reset();
-            
-            // Reset date to today
-            if (fabDateInput) {
-                const today = new Date().toISOString().split('T')[0];
-                fabDateInput.value = today;
+        fabModalClose.addEventListener('click', closeExpenseModal);
+
+        fabDateInput?.addEventListener('click', () => {
+            if (typeof fabDateInput.showPicker === 'function') {
+                try {
+                    fabDateInput.showPicker();
+                } catch (error) {
+                    fabDateInput.focus();
+                }
             }
-        }
+        });
 
-        // Close modal events
-        fabModalClose.addEventListener('click', closeFABModal);
-        fabCancelBtn.addEventListener('click', closeFABModal);
-
-        // Close on overlay click
         fabModalOverlay.addEventListener('click', (e) => {
             if (e.target === fabModalOverlay) {
-                closeFABModal();
+                closeExpenseModal();
             }
         });
 
-        // Close on Escape key
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && fabModalOverlay.classList.contains('show')) {
-                closeFABModal();
+                closeExpenseModal();
             }
         });
 
-        // Handle form submission
         fabQuickForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            
             const submitBtn = fabQuickForm.querySelector('.fab-submit-btn');
             const originalText = submitBtn.innerHTML;
-            
-            // Show loading state
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
+            const isEditing = expenseModalMode === 'edit';
+            submitBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${isEditing ? 'Saving' : 'Adding'}...`;
             submitBtn.disabled = true;
 
             try {
                 const formData = new FormData(fabQuickForm);
-                const response = await fetch('/api/add_expense', {
-                    method: 'POST',
-                    body: formData
-                });
+                const requestUrl = isEditing ? `/api/edit_expense/${editingExpenseId}` : '/api/add_expense';
+                const requestOptions = isEditing
+                    ? {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            month: formData.get('month_select'),
+                            date: formData.get('date'),
+                            category: formData.get('category'),
+                            description: formData.get('description'),
+                            amount: formData.get('amount'),
+                            payment_type: formData.get('payment_type')
+                        })
+                    }
+                    : { method: 'POST', body: formData };
+                const response = await fetch(requestUrl, requestOptions);
 
                 if (!response.ok) {
                     let errorMessage = `Request failed with status ${response.status}.`;
@@ -1838,31 +1880,27 @@ document.addEventListener('DOMContentLoaded', function () {
                 const result = await response.json();
 
                 if (result.status === 'success') {
-                    const lastCategory = (formData.get('category') || '').toString().trim();
-                    const lastPaymentType = (formData.get('payment_type') || '').toString().trim();
-                    saveLastExpenseEntryDefaults(lastCategory, lastPaymentType);
+                    if (!isEditing) {
+                        const lastCategory = (formData.get('category') || '').toString().trim();
+                        const lastPaymentType = (formData.get('payment_type') || '').toString().trim();
+                        saveLastExpenseEntryDefaults(lastCategory, lastPaymentType);
+                    }
 
-                    // Show success toast
-                    showToast('success', 'Expense Added!', 'Your expense has been successfully added to the budget.');
-                    
-                    // Close modal
-                    closeFABModal();
-
-                    applyLastExpenseEntryDefaultsToForm(fabQuickForm);
-                    
-                    // Refresh dashboard data
+                    showToast(
+                        'success',
+                        isEditing ? 'Expense Updated!' : 'Expense Added!',
+                        isEditing ? 'Your expense has been updated successfully.' : 'Your expense has been successfully added to the budget.'
+                    );
+                    closeExpenseModal();
                     const currentMonth = formData.get('month_select');
                     await refreshDashboardData(currentMonth);
-                    
                 } else {
-                    // Show error toast
-                    showToast('error', 'Error Adding Expense', result.message || 'An error occurred while adding the expense.');
+                    showToast('error', isEditing ? 'Update Failed' : 'Error Adding Expense', result.message || `Failed to ${isEditing ? 'update' : 'add'} expense.`);
                 }
             } catch (error) {
-                console.error('FAB form submission error:', error);
-                showToast('error', 'Request Failed', getSafeErrorMessage(error, 'Failed to add expense. Please check your connection and try again.'));
+                console.error('Expense form submission error:', error);
+                showToast('error', 'Request Failed', getSafeErrorMessage(error, `Failed to ${isEditing ? 'update' : 'add'} expense. Please try again.`));
             } finally {
-                // Restore button state
                 submitBtn.innerHTML = originalText;
                 submitBtn.disabled = false;
             }
@@ -1875,68 +1913,7 @@ document.addEventListener('DOMContentLoaded', function () {
     applyLastExpenseEntryDefaultsToForm(document.getElementById('addExpenseFormDesktop'));
     applyLastExpenseEntryDefaultsToForm(document.getElementById('fabQuickForm'));
 
-    // ---- Edit Expense Modal ----
-    function setupEditExpenseModal() {
-        const overlay = document.getElementById('editExpenseModalOverlay');
-        const closeBtn = document.getElementById('editExpenseModalClose');
-        const cancelBtn = document.getElementById('editExpenseCancelBtn');
-        const form = document.getElementById('editExpenseModalForm');
-        if (!overlay || !form) return;
-
-        function closeModal() {
-            overlay.classList.remove('show');
-            form.reset();
-        }
-
-        closeBtn.addEventListener('click', closeModal);
-        cancelBtn.addEventListener('click', closeModal);
-        overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(); });
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && overlay.classList.contains('show')) closeModal();
-        });
-
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const saveBtn = document.getElementById('editExpenseSaveBtn');
-            const origText = saveBtn.innerHTML;
-            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-            saveBtn.disabled = true;
-            try {
-                const expenseId = document.getElementById('editExpenseId').value;
-                const payload = {
-                    month: document.getElementById('editExpenseMonth').value,
-                    date: document.getElementById('editExpenseDate').value,
-                    category: document.getElementById('editExpenseCategory').value,
-                    description: document.getElementById('editExpenseDescription').value,
-                    amount: document.getElementById('editExpenseAmount').value,
-                    payment_type: document.getElementById('editExpensePaymentType').value,
-                };
-                const response = await fetch(`/api/edit_expense/${expenseId}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const result = await response.json();
-                if (result.status === 'success') {
-                    showToast('success', 'Expense Updated!', 'Your expense has been updated successfully.');
-                    closeModal();
-                    await refreshDashboardData(flaskData.active_month);
-                } else {
-                    showToast('error', 'Update Failed', result.message || 'Failed to update expense.');
-                }
-            } catch (error) {
-                console.error('Edit expense error:', error);
-                showToast('error', 'Request Failed', getSafeErrorMessage(error, 'Failed to update expense. Please try again.'));
-            } finally {
-                saveBtn.innerHTML = origText;
-                saveBtn.disabled = false;
-            }
-        });
-    }
-
     async function openEditExpenseModal(expenseId) {
-        const overlay = document.getElementById('editExpenseModalOverlay');
-        if (!overlay) return;
         try {
             const response = await fetch(`/api/edit_expense/${expenseId}`);
             const result = await response.json();
@@ -1944,22 +1921,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 showToast('error', 'Error', result.message || 'Could not load expense details.');
                 return;
             }
-            const exp = result.expense;
-            document.getElementById('editExpenseId').value = exp.id;
-            document.getElementById('editExpenseMonth').value = exp.month || flaskData.active_month;
-            document.getElementById('editExpenseDate').value = exp.date || '';
-            document.getElementById('editExpenseCategory').value = exp.category || '';
-            document.getElementById('editExpenseDescription').value = exp.description || '';
-            document.getElementById('editExpenseAmount').value = exp.amount || '';
-            document.getElementById('editExpensePaymentType').value = exp.payment_type || '';
-            overlay.classList.add('show');
+            setExpenseModalMode('edit', result.expense);
+            showExpenseModal();
         } catch (error) {
             console.error('Failed to load expense:', error);
             showToast('error', 'Network Error', 'Could not load expense details. Please try again.');
         }
     }
-
-    setupEditExpenseModal();
 
     // Replace existing alert calls with toast notifications for better UX
     function enhanceExistingAlerts() {
@@ -2050,6 +2018,37 @@ document.addEventListener('DOMContentLoaded', function () {
         return firstWeekWithSpend || weeks[0];
     }
 
+    function renderWeeklyLimitCard(weeks) {
+        const amountElement = document.getElementById('weeklyLimitAmount');
+        const detailElement = document.getElementById('weeklyLimitDetail');
+        if (!amountElement || !detailElement) return;
+
+        const activeWeek = getActiveWeekForMonth(weeks, flaskData.active_month);
+        if (!activeWeek) {
+            amountElement.textContent = 'Not Set';
+            amountElement.className = 'weekly-limit-card-amount neutral';
+            detailElement.textContent = 'Tap to set your weekly budget';
+            return;
+        }
+
+        const selectedCategories = Array.isArray(activeWeek.selected_categories)
+            ? activeWeek.selected_categories
+            : [];
+        if (selectedCategories.length === 0) {
+            amountElement.textContent = 'Not Set';
+            amountElement.className = 'weekly-limit-card-amount neutral';
+            detailElement.textContent = 'Tap to choose categories for Week ' + activeWeek.week_index;
+            return;
+        }
+
+        const remaining = parseFloat(activeWeek.variance || 0);
+        amountElement.textContent = remaining < 0
+            ? `-${getFormattedCurrency(Math.abs(remaining))}`
+            : getFormattedCurrency(remaining);
+        amountElement.className = `weekly-limit-card-amount ${remaining >= 0 ? 'positive' : 'negative'}`;
+        detailElement.textContent = `${remaining >= 0 ? 'Remaining' : 'Exceeded'} for Week ${activeWeek.week_index} · ${getWeekDateRange(activeWeek.week_start, activeWeek.week_end)}`;
+    }
+
     async function loadWeeklyBudgets(month) {
         const containers = [
             { container: document.getElementById('weeklyBudgetContainer'), singleView: document.getElementById('weeklyBudgetSingleView'), loading: document.getElementById('weeklyBudgetLoading') },
@@ -2071,8 +2070,10 @@ document.addEventListener('DOMContentLoaded', function () {
             if (data.status === 'success') {
                 weeklyBudgetsCache = data.weekly_budgets || [];
                 applyWeeklySelectedCategories(data.selected_categories || []);
+                renderWeeklyLimitCard(weeklyBudgetsCache);
                 renderWeeklyBudgets(weeklyBudgetsCache);
             } else {
+                renderWeeklyLimitCard([]);
                 containers.forEach(({ container, singleView, loading }) => {
                     if (container) container.style.display = 'block';
                     if (singleView) singleView.innerHTML = '<div style="padding: 10px; color: #b91c1c;">Weekly budget data is unavailable right now.</div>';
@@ -2082,6 +2083,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         } catch (error) {
             console.error('Failed to load weekly budgets:', error);
+            renderWeeklyLimitCard([]);
             containers.forEach(({ container, singleView, loading }) => {
                 if (container) container.style.display = 'block';
                 if (singleView) singleView.innerHTML = '<div style="padding: 10px; color: #b91c1c;">Weekly budget data could not be fetched. Please refresh the page.</div>';
@@ -2352,6 +2354,32 @@ document.addEventListener('DOMContentLoaded', function () {
         weeklyNextBtnMobile.addEventListener('click', () => {
             selectedWeeklyViewIndex = Math.min((weeklyBudgetsCache.length || 1) - 1, (selectedWeeklyViewIndex ?? 0) + 1);
             renderWeeklyBudgets(weeklyBudgetsCache);
+        });
+    }
+
+    const weeklyLimitCard = document.getElementById('weeklyLimitCard');
+    if (weeklyLimitCard) {
+        const openWeeklyBudget = () => {
+            const activeWeek = getActiveWeekForMonth(weeklyBudgetsCache, flaskData.active_month);
+            if (activeWeek) {
+                selectedWeeklyViewIndex = weeklyBudgetsCache.indexOf(activeWeek);
+            }
+            switchPane('#weekly-content-mobile', 'mobile');
+        };
+
+        weeklyLimitCard.addEventListener('click', openWeeklyBudget);
+        weeklyLimitCard.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                openWeeklyBudget();
+            }
+        });
+    }
+
+    const weeklyBudgetCloseMobile = document.getElementById('weeklyBudgetCloseMobile');
+    if (weeklyBudgetCloseMobile) {
+        weeklyBudgetCloseMobile.addEventListener('click', () => {
+            switchPane('#dashboard-content-mobile', 'mobile');
         });
     }
 
