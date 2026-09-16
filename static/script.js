@@ -973,7 +973,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 const amtSpan = document.createElement('div');
                 amtSpan.style.fontSize = '1.1em';
                 amtSpan.style.fontWeight = '700';
-                amtSpan.style.color = '#475569';
+                amtSpan.style.color = '#dc2626';
                 amtSpan.style.whiteSpace = 'nowrap';
                 const amountValue = record.amount !== undefined && record.amount !== null && record.amount !== '' 
                     ? `₹${parseFloat(record.amount).toFixed(2)}` 
@@ -1193,10 +1193,10 @@ document.addEventListener('DOMContentLoaded', function () {
         // Show account in desktop expense records
         const expenseContent = r => {
             const paymentType = r.payment_type ? `<span class=\"item-payment-type\" style=\"margin-left:8px;\">[${r.payment_type}]</span>` : '';
-            return `${r.date} - ${r.category} - ${r.description}${paymentType}: <b>₹${parseFloat(r.amount).toFixed(2)}</b>`;
+            return `${r.date} - ${r.category} - ${r.description}${paymentType}: <b class=\"record-amount record-amount-expense\">₹${parseFloat(r.amount).toFixed(2)}</b>`;
         };
-        const incomeContent = r => `${r.description}: <b>₹${parseFloat(r.amount).toFixed(2)}</b>`;
-        const emiContent = r => `${r.loan_name}: <b>₹${parseFloat(r.emi_amount).toFixed(2)}</b>`;
+        const incomeContent = r => `${r.description}: <b class=\"record-amount record-amount-income\">₹${parseFloat(r.amount).toFixed(2)}</b>`;
+        const emiContent = r => `${r.loan_name}: <b class=\"record-amount record-amount-emi\">₹${parseFloat(r.emi_amount).toFixed(2)}</b>`;
         const budgetContent = r => `${r.category}: <b>₹${parseFloat(r.amount).toFixed(2)}</b>`;
 
         // Desktop Lists
@@ -1780,12 +1780,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (expenseModalMode === 'add') {
             const amountInput = document.getElementById('fabAmount');
-            amountInput?.focus({ preventScroll: true });
-            setTimeout(() => {
-                if (document.activeElement !== amountInput) {
-                    amountInput?.focus({ preventScroll: true });
-                }
-            }, 150);
+            void overlay.offsetHeight;
+            try {
+                amountInput?.focus({ preventScroll: true });
+            } catch (error) {
+                amountInput?.focus();
+            }
         }
     }
 

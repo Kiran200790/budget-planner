@@ -55,6 +55,15 @@
     white-space: nowrap;
     padding-left: 2px;
 }
+
+.record-amount-income {
+    color: #059669;
+}
+
+.record-amount-expense,
+.record-amount-emi {
+    color: #dc2626;
+}
 .budgetList li.budget-inline-editing {
     align-items: stretch;
 }
