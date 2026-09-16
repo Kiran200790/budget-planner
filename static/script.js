@@ -1781,11 +1781,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (expenseModalMode === 'add') {
             const amountInput = document.getElementById('fabAmount');
             void overlay.offsetHeight;
-            try {
-                amountInput?.focus({ preventScroll: true });
-            } catch (error) {
-                amountInput?.focus();
-            }
+            amountInput?.focus();
         }
     }
 
@@ -1806,10 +1802,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (!fabButton || !fabModalOverlay) return;
 
-        fabButton.addEventListener('click', () => {
+        const openQuickAdd = () => {
+            if (fabModalOverlay.classList.contains('show')) return;
             setExpenseModalMode('add');
             showExpenseModal();
-        });
+        };
+
+        fabButton.addEventListener('touchend', (event) => {
+            event.preventDefault();
+            openQuickAdd();
+            document.getElementById('fabAmount')?.focus();
+        }, { passive: false });
+        fabButton.addEventListener('click', openQuickAdd);
 
         fabModalClose.addEventListener('click', closeExpenseModal);
 

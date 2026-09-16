@@ -2554,13 +2554,14 @@ button:hover, .button-style:hover {
     align-items: center;
     justify-content: center;
     opacity: 0;
-    visibility: hidden;
+    visibility: visible;
+    pointer-events: none;
     transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .fab-modal-overlay.show {
     opacity: 1;
-    visibility: visible;
+    pointer-events: auto;
 }
 
 .fab-modal {
@@ -3288,6 +3289,7 @@ input[list="categoryOptions"]::-webkit-inner-spin-button {
 @media (max-width: 768px) {
     .weekly-limit-card {
         width: 100%;
+        box-sizing: border-box;
         height: auto;
         min-height: 132px;
         max-height: none;
@@ -3311,7 +3313,7 @@ input[list="categoryOptions"]::-webkit-inner-spin-button {
     }
 
     .weekly-limit-card:hover {
-        transform: translateY(-3px);
+        transform: translateY(-10px) scale(1.04);
     }
 
     .weekly-limit-card-heading {
