@@ -714,6 +714,7 @@ def recalculate_weekly_budgets(db, user_id, month_str):
 
     ordered_week_indexes = [week_index for week_index, _, _ in weeks if week_index in weekly_data]
     week_day_counts = {}
+    week_end_dates = {}
     total_days = 0
 
     for week_index, week_start, week_end in weeks:
@@ -723,6 +724,7 @@ def recalculate_weekly_budgets(db, user_id, month_str):
         end_dt = dt.strptime(week_end, '%Y-%m-%d')
         day_count = (end_dt - start_dt).days + 1
         week_day_counts[week_index] = day_count
+        week_end_dates[week_index] = week_end
         total_days += day_count
 
     # Recompute base weekly distribution from selected-category monthly budget
@@ -783,6 +785,8 @@ def recalculate_weekly_budgets(db, user_id, month_str):
                 status = 'safe' if spent <= effective_budget else 'over'
 
                 consumed_budget = max(0.0, spent)
+                if week_end_dates[week_index] >= now[:10]:
+                    consumed_budget = max(consumed_budget, effective_budget)
                 remaining_budget_pool = round(max(0.0, remaining_budget_pool - consumed_budget), 2)
 
         wd['carry_in'] = carry_in
