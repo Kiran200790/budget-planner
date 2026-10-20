@@ -673,8 +673,8 @@ def recalculate_weekly_budgets(db, user_id, month_str):
         Recalculate all weekly budgets for a month:
         - Compute spent for each week
         - Compute variance (effective_budget - spent)
-        - Redistribute only overspend across remaining weeks equally
-            (week excess reduces future week budgets)
+        - Carry unspent budget into the remaining weeks
+        - Reduce the remaining budget pool by overspending
     """
     from datetime import datetime
     weeks = get_week_boundaries(month_str, db, user_id)
@@ -745,8 +745,9 @@ def recalculate_weekly_budgets(db, user_id, month_str):
         if week_index in weekly_data:
             weekly_data[week_index]['spent'] = spent
 
-    # Redistribute monthly selected-category budget across weeks.
-    # Overspend in earlier weeks reduces the pool available for later weeks.
+    # Redistribute the remaining monthly selected-category budget across weeks.
+    # Actual spending carries any unused weekly budget forward and reduces the
+    # pool available to later weeks when it exceeds the current allocation.
     remaining_budget_pool = round(monthly_selected_budget, 2)
 
     for position, week_index in enumerate(ordered_week_indexes):
@@ -781,7 +782,7 @@ def recalculate_weekly_budgets(db, user_id, month_str):
                 variance = round(effective_budget - spent, 2)
                 status = 'safe' if spent <= effective_budget else 'over'
 
-                consumed_budget = max(spent, effective_budget)
+                consumed_budget = max(0.0, spent)
                 remaining_budget_pool = round(max(0.0, remaining_budget_pool - consumed_budget), 2)
 
         wd['carry_in'] = carry_in
